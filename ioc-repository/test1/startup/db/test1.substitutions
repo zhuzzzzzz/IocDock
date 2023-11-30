@@ -1,0 +1,22 @@
+# Example substitutions file
+
+# Formats supported:
+
+#file "db/circle.db" {
+#    { user = "xxx" }
+#}
+
+#file "db/dbExample1.db" {
+#    { user = "xxx" }
+#}
+
+#file db/dbExample2.db {
+#    pattern { user, no, scan }
+#        { "xxx", 1, "1 second" }
+#        { "xxx", 2, "2 second" }
+#        { "xxx", 3, "5 second" }
+#}
+
+file "db/ramper.db" {
+    { name = "xxx" }
+}

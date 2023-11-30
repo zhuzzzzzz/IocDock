@@ -1,0 +1,7 @@
+
+# pycharm files
+__pycache__/
+.idea/
+
+# 
+ioc-for-docker/

@@ -1,0 +1,41 @@
+record(ai, "ramper:limit:$(name)")
+{
+	field(DESC, "limit of the ramper")
+	field(INP, "10")
+	field(PINI, "YES")
+	info(autosaveFields, "VAL")
+}
+record(ai, "ramper:step:$(name)")
+{
+	field(DESC, "step of the ramper")
+	field(INP, "1")
+	field(PINI, "YES")
+	info(autosaveFields, "VAL")
+}
+record(calc, "ramper:$(name)")
+{
+	field(DESC, "ramper")
+	field(SCAN, "1 second")
+	field(INPA, "ramper:$(name)")
+	field(INPB, "ramper:limit:$(name)")
+	field(INPC, "ramper:step:$(name)")
+	field(INPD, "ctrl:$(name)")
+	field(CALC, "D?(A<B?A+C:0):A")
+	field(HIHI, "8")
+	field(HIGH, "7")
+	field(LOW, "2")
+	field(LOLO, "1")
+	field(HHSV, "MAJOR")
+	field(HSV, "MINOR")
+	field(LSV, "MINOR")
+	field(LLSV, "MAJOR")
+	# info(autosaveFields, "VAL")
+}
+record(bi, "ctrl:$(name)")
+{
+	field(INP,"1")
+	field(PINI, "YES")
+	field(ONAM, "Running")
+	field(ZNAM, "Stopped")
+	info(autosaveFields, "VAL")
+}

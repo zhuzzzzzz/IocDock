@@ -1,0 +1,141 @@
+----------
+IocManager
+----------
+
+
+
+工作流程
+------------------------------------------------------------------------
+(1) 使用命令 "./IocManager.py create" 创建IOC项目, 设置IOC的属性字段, 通用的IOC属性及对应作用的描述如下:
+	[IOC] ------------------------- 所有创建的IOC默认具有此section, 用以存储配置信息
+	name -------------------------- IOC名称
+	bin --------------------------- IOC将使用的容器中的哪个可执行IOC
+	modules ----------------------- 支持的自动安装模块, 目前有四个: autosave, caputlog, ioc-status, os-status
+	container --------------------- IOC项目将在哪个容器中运行
+	host -------------------------- IOC项目将在哪个主机中运行
+	status ------------------------ IOC的状态, 分别有三种: created(该IOC刚创建且还未执行生成st.cmd文件的操作), generated(已执行生成st.cmd文件及相关配置文件和目录的操作), changed(已执行生成st.cmd文件的操作, 但之后IOC的配置属性被修改, 可能需要重新生成)
+	description ------------------- IOC的描述信息
+
+(2) 进行IOC项目的管理.
+	- 使用命令 "./IocManager.py set" 进行IOC项目的属性设置.
+	- 使用命令 "./IocManager.py list" 查找IOC项目.
+	- 使用命令 "./IocManager.py remove" 删除IOC项目.
+
+(3) 使用命令 "./IocManager.py exec -g" 根据IOC已设置的属性生成IOC运行文件.
+
+(4) 使用命令 "./IocManager.py exec -o" 将已配置好的IOC文件夹按目录结构导出.
+
+(5) 使用IOC标准执行容器启动, mount已导出的需要运行的IOC项目目录, 作为容器与主机的共享目录:
+
+	docker run -it -v /home/zhu/docker/repository/ioc-for-docker/localhost/test:/opt/EPICS/RUN/test runtime:dev
+	
+	*) runtime:dev为标准的IOC执行容器镜像.
+	*) 此处-v src:dest, 将"exec -o"命令导出的test目录作为共享目录mount容器的运行目录RUN之中.
+
+(6) 使用命令定期备份IOC的运行目录.
+
+
+
+指令详细说明
+------------------------------------------------------------------------
+
+创建IOC
+====================================
+1. 创建多个具有默认配置的IOC, 分别命名为name1, name2, name3.
+	
+	./IocManager.py create name1 name2 name3
+
+2. 从指定的配置文件创建IOC. 支持创建多个IOC, 将对所有IOC应用相同的设置(下同).
+	
+	./IocManager.py create name1 name2 name3 -f /path/to/ioc.ini
+
+3. 创建IOC并指定要安装的模块.
+	
+	./IocManager.py create name --putlog --ioc-status --os-status --autosave
+
+4. 创建IOC并手动指定IOC具体字段的配置属性(此处指定的属性冲突时将覆盖其他同时执行的命令行操作).
+
+	./IocManager.py create name --s section_to_set --o a=b c=d e='fg hi'
+
+	执行后配置文件的效果：
+		[section_to_set]
+		a: b
+		c: d
+		e: fg hi
+
+
+设置IOC属性
+====================================
+1. 从指定的配置文件设置IOC. 支持同时设置多个IOC, 将对所有IOC应用相同的设置(下同).
+	
+	./IocManager.py set name -f /path/to/ioc.ini
+
+2. 指定IOC要安装的模块.
+	
+	./IocManager.py set name --putlog --ioc-status --os-status --autosave
+
+3. 手动指定IOC具体字段的配置属性(此处指定的属性冲突时将覆盖其他同时执行的命令行操作).
+
+	./IocManager.py set name --s section_to_set --o a=b c=d e='fg hi'
+
+
+执行IOC操作
+====================================
+1. 对指定IOC, 根据配置文件生成st.cmd文件, 并自动处理依赖文件及目录的生成.
+	
+	./IocManager.py exec name -g
+
+	1) 当部分属性未指定时, 指定使用默认属性.
+		./IocManager.py exec name -gd
+	2) 不询问是否操作, 静默执行, 当部分属性未指定时生成操作将终止.
+		./IocManager.py exec name -gf
+	3) 使用默认属性设置静默执行.
+		./IocManager.py exec name -gf
+
+2. 对指定的已执行 "exec -g" 操作的IOC, 将生成的IOC项目目录按照 "顶层目录——主机——容器" 的目录结构, 生成可以直接被各个容器mount的目录.
+	
+	./IocManager.py exec name -o
+	
+	1) 指定时存放生成目录的顶层目录路径, 默认为当前工作路径.
+		./IocManager.py exec name -o -p PATH
+	
+
+查找IOC
+====================================
+1. 列举当前能够管理的所有IOC名称.
+
+	./IocManager.py list
+
+2. 列举当前能够管理的所有IOC名称, 并显示IOC的配置属性.
+
+	./IocManager.py list -i
+
+3. 列举当前能够管理的所有IOC名称, 并根据st.cmd文件分析，显示出IOC所包含的所有record.(预计开发)
+
+	./IocManager.py list -r
+
+4. 查找配置中符合指定条件的所有IOC.
+
+	./IocManager.py list -i a='abc'
+
+5. 查找配置中符合多个指定条件的所有IOC.
+
+	./IocManager.py list -i a=abc b='abc def' c=
+
+
+删除IOC
+====================================
+1. 删除指定名称的IOC, 保留配置文件及db目录下用户创建的文件.
+
+	./IocManager.py remove name
+
+2. 删除指定名称的IOC, 删除所有文件.
+
+	./IocManager.py remove -r name
+
+3. 删除指定名称的IOC, 静默执行.
+
+	./IocManager.py remove -f name
+	
+	
+
