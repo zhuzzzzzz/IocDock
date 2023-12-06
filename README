@@ -4,35 +4,48 @@ IocManager
 
 
 
-工作流程
+使用说明
 ------------------------------------------------------------------------
-(1) 使用命令 "./IocManager.py create" 创建IOC项目, 设置IOC的属性字段, 通用的IOC属性及对应作用的描述如下:
-	[IOC] ------------------------- 所有创建的IOC默认具有此section, 用以存储配置信息
+(1) 使用命令 "./IocManager.py create" 创建IOC项目, 设置IOC的属性字段, 通用的IOC属性及对应的作用描述如下:
+	
+	[IOC] ------------------------- 所有创建的IOC默认具有此section, 用以存储IOC的通用配置信息
 	name -------------------------- IOC名称
 	bin --------------------------- IOC将使用的容器中的哪个可执行IOC
-	modules ----------------------- 支持的自动安装模块, 目前有四个: autosave, caputlog, ioc-status, os-status
+	module ------------------------ 支持的自动安装模块, 目前有四个: autosave, caputlog, ioc-status, os-status
 	container --------------------- IOC项目将在哪个容器中运行
 	host -------------------------- IOC项目将在哪个主机中运行
-	status ------------------------ IOC的状态, 分别有三种: created(该IOC刚创建且还未执行生成st.cmd文件的操作), generated(已执行生成st.cmd文件及相关配置文件和目录的操作), changed(已执行生成st.cmd文件的操作, 但之后IOC的配置属性被修改, 可能需要重新生成)
+	status ------------------------ IOC的配置状态, 按操作顺序流程分别有四种: created(该IOC刚创建且还未执行任何操作), configured(已向目录添加了db文件且设置了加载db文件的宏替换属性, 并生成了.substitution文件), generated(已生成了st.cmd及相关运行文件和目录, 生成的目录可直接移植至容器使用), changed(configured或generated状态下修改了IOC的配置属性, 需要重新确认配置生成.substitution文件和运行文件)
 	description ------------------- IOC的描述信息
+	[DB] -------------------------- 默认section, 用以存储IOC加载的db文件信息
+	file -------------------------- db文件列表
+	load* ------------------------- 设置加载db文件用到的宏替换, 格式: *.db, A=abc, B=def
+	load* ------------------------- 设置不使用宏替换加载db文件, 格式: *.db
 
-(2) 进行IOC项目的管理.
+(2) IOC项目管理.
+	
 	- 使用命令 "./IocManager.py set" 进行IOC项目的属性设置.
 	- 使用命令 "./IocManager.py list" 查找IOC项目.
 	- 使用命令 "./IocManager.py remove" 删除IOC项目.
 
-(3) 使用命令 "./IocManager.py exec -g" 根据IOC已设置的属性生成IOC运行文件.
+(3) 向IOC目录内添加db文件, 生成 .substitutions文件.
+	
+	1. 将db文件复制至目标IOC目录后, 使用命令 "./IocManager.py exec -d" 将db文件列表添加至IOC项目的属性配置文件.
+	2. 设置IOC属性配置文件内的[DB]项, 按格式设置load*, 对应IOC启动时需要加载的db文件及宏替换.
+	3. 完成上述2步后, 使用命令 "./IocManager.py exec -s" 将所有load*项解析, 生成.substitutions文件.
 
-(4) 使用命令 "./IocManager.py exec -o" 将已配置好的IOC文件夹按目录结构导出.
 
-(5) 使用IOC标准执行容器启动, mount已导出的需要运行的IOC项目目录, 作为容器与主机的共享目录:
+(4) 使用命令 "./IocManager.py exec -g" 根据IOC已设置的属性生成IOC运行文件.
+
+(5) 使用命令 "./IocManager.py exec -o" 将已配置好的IOC文件夹按目录结构导出.
+
+(6) 使用IOC标准执行容器启动, mount已导出的需要运行的IOC项目目录, 作为容器与主机的共享目录:
 
 	docker run -it -v /home/zhu/docker/repository/ioc-for-docker/localhost/test:/opt/EPICS/RUN/test runtime:dev
 	
 	*) runtime:dev为标准的IOC执行容器镜像.
 	*) 此处-v src:dest, 将"exec -o"命令导出的test目录作为共享目录mount容器的运行目录RUN之中.
 
-(6) 使用命令定期备份IOC的运行目录.
+(7) 使用命令定期备份IOC的运行目录.
 
 
 

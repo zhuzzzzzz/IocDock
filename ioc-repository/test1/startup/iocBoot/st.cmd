@@ -23,6 +23,8 @@ save_restoreSet_CallbackTimeout(-1)
 
 cd /opt/EPICS/RUN/test1/startup
 dbLoadTemplate "db/test1.substitutions"
+dbLoadRecords("db/status_ioc.db","IOC=test1")
+dbLoadRecords("db/status_OS.db","HOST=test1:docker")
 
 iocInit
 
