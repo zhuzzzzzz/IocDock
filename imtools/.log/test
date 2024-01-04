@@ -4,7 +4,7 @@ bin = ST-IOC
 module = autosave, caputlog, status-ioc
 container = 
 host = 
-status = unready
+status = ready
 description = test IOC.
 
 [DB]
