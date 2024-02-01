@@ -4,7 +4,7 @@ import configparser
 from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, format_normalize, \
     add_log_file, delete_log_file, check_log_file
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
-    DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX
+    DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR
 
 
 class IOC:
@@ -23,26 +23,27 @@ class IOC:
         # self.startup_path_in_docker
 
         self.verbose = verbose
+        self.first_init = False
 
         if not dir_path or not os.path.isdir(dir_path):
             self.dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, 'default')
             print(f'IOC.__init__: No path given or wrong path given, init at default path: "{self.dir_path}".')
-        else:
-            self.dir_path = os.path.normpath(dir_path)
+        self.dir_path = os.path.normpath(dir_path)
         try_makedirs(self.dir_path, self.verbose)
         self.config_file_path = os.path.join(self.dir_path, CONFIG_FILE_NAME)
 
         self.conf = None
         if not self.read_config():
+            self.first_init = True
             if self.verbose:
                 print(f'IOC.__init__": Initialize a new file "{self.config_file_path}" with default settings.')
             self.set_config('name', os.path.basename(self.dir_path))
+            self.set_config('host', '')
+            self.set_config('image', '')
             self.set_config('bin', '')
             self.set_config('module', '')
-            self.set_config('container', '')
-            self.set_config('host', '')
-            self.set_config('status', 'unready')
             self.set_config('description', '')
+            self.set_config('status', 'unready')
             self.set_config('file', '', section='DB')
         else:
             if self.verbose:
@@ -74,6 +75,7 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
+        self.add_settings_template()
         # set attributes in configure file a normalized format.
         self.normalize_config()
 
@@ -100,6 +102,7 @@ class IOC:
             self.conf.write(f)
 
     def set_config(self, option, value, section='IOC'):
+        section = section.upper()  # sections should only be uppercase.
         if self.conf:
             if section not in self.conf:
                 self.conf.add_section(section)
@@ -214,13 +217,18 @@ class IOC:
         self.set_config('cmd_after_iocinit_a', '', sc)
         self.set_config('file_copy_a', '', sc)
 
-    def add_module_settings_template(self):
-        pass
+    def add_settings_template(self):
+        if self.first_init:
+            sc = 'SETTING'
+            self.set_config('report_info', 'true', sc)
+            self.set_config('caputlog_json', 'false', sc)
+            self.set_config('epics_env_a',
+                            f'REPORT_FILE={os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")}',
+                            sc)
+            self.set_config('epics_env_b', '', sc)
 
-    def add_env_template(self):
-        pass
-
-    # from given path get all source files, and update ioc.ini file.
+    # From given path copy source files and update ioc.ini settings according to file suffix specified.
+    # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
     def get_src_file(self, src_p=None):
         db_suffix = DB_SUFFIX
         proto_suffix = PROTO_SUFFIX
@@ -230,13 +238,25 @@ class IOC:
         else:
             if not os.path.isabs(src_p):
                 src_p = os.path.abspath(src_p)
+        src_p = os.path.normpath(src_p)
         if not os.path.exists(src_p):
-            print(f'IOC("{self.name}").get_db_list: Failed. Provided path "{src_p}" not exists.')
+            print(f'IOC("{self.name}").get_src_file: Failed. Path provided "{src_p}" not exist.')
             return
 
         db_list = ''
         proto_list = ''
         other_list = ''
+        # When add file from other directory, to get the files already in self.src_path first.
+        if src_p != self.src_path:
+            for item in os.listdir(self.src_path):
+                if item.endswith(db_suffix) and item not in db_list:
+                    db_list += f'{item}, '
+                elif item.endswith(proto_suffix) and item not in proto_list:
+                    proto_list += f'{item}, '
+                elif item.endswith(other_suffix) and item not in other_list:
+                    other_list += f'{item}, '
+
+        # Copy files from given path, duplicate files will result in a warning message.
         for item in os.listdir(src_p):
             if item.endswith(db_suffix):
                 if item not in db_list:
@@ -244,7 +264,7 @@ class IOC:
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
                 else:
-                    print(f'IOC("{self.name}").get_db_list: Warning. File "{item}" was already added, skipped. '
+                    print(f'IOC("{self.name}").get_src_file: Warning. File "{item}" was already added, skipped. '
                           f'You\'d better to check whether the db files are conflicting.')
             elif item.endswith(proto_suffix):
                 if item not in proto_list:
@@ -252,7 +272,7 @@ class IOC:
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
                 else:
-                    print(f'IOC("{self.name}").get_db_list: Warning. File "{item}" was already added, skipped. '
+                    print(f'IOC("{self.name}").get_src_file: Warning. File "{item}" was already added, skipped. '
                           f'You\'d better to check whether the .proto files are conflicting.')
             elif item.endswith(other_suffix):
                 if item not in other_list:
@@ -260,40 +280,47 @@ class IOC:
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
                 else:
-                    print(f'IOC("{self.name}").get_db_list: Warning. File "{item}" was already added, skipped. '
-                          f'You\'d better to check whether the files are conflicting.')
+                    print(f'IOC("{self.name}").get_src_file: Warning. File "{item}" was already added, skipped. '
+                          f'You\'d better to check whether files are conflicting.')
 
+        # Update the settings.
         db_list = db_list.rstrip(', ')
         proto_list = proto_list.rstrip(', ')
         other_list = other_list.rstrip(', ')
         if db_list:
             self.set_config('file', db_list, 'DB')
-            print(f'IOC("{self.name}").get_db_list: Add db files. Set attribute "file: {db_list}".')
+            print(f'IOC("{self.name}").get_src_file: Add db files. Set attribute "file: {db_list}".')
         else:
-            print(f'IOC("{self.name}").get_db_list: No db files found in "{src_p}".')
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: No db files found in "{src_p}".')
         if proto_list:
-            print(f'IOC("{self.name}").get_db_list: Add protocol files "{proto_list}".')
+            print(f'IOC("{self.name}").get_src_file: Add protocol files "{proto_list}".')
         else:
-            print(f'IOC("{self.name}").get_db_list: No protocol files found in "{src_p}".')
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: No protocol files found in "{src_p}".')
         if other_list:
-            print(f'IOC("{self.name}").get_db_list: Add files "{other_list}".')
+            print(f'IOC("{self.name}").get_src_file: Add files "{other_list}".')
         else:
-            print(f'IOC("{self.name}").get_db_list: No files with suffix {other_suffix} found in "{src_p}".')
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: No file found in "{src_p}" with given suffix {other_suffix}.')
 
+    # Generate .substitutions file for st.cmd to load.
+    # This function should be called after getting source files and setting the load_* options.
     def generate_substitution_file(self):
         lines_to_add = []
         for option in self.conf.options('DB'):
             if option.startswith('load_'):
                 load_string = self.conf.get('DB', option)
-                dbf, *conditions = load_string.split(',')
+                db_file, *conditions = load_string.split(',')
                 # print(conditions)
-                dbf = dbf.strip()
-                if dbf not in os.listdir(self.src_path):
-                    print(f'IOC("{self.name}").generate_substitution_file: Failed. File "{dbf}" not found in '
-                          f'"src/" directory. You need to add it before executing this command.')
+                db_file = db_file.strip()
+                if db_file not in os.listdir(self.src_path):
+                    print(f'IOC("{self.name}").generate_substitution_file: Failed. DB file "{db_file}" not found in '
+                          f'self.src_path while parsing option "{option}: {load_string}".')
                     return False
                 else:
-                    file_copy(os.path.join(self.src_path, dbf), os.path.join(self.db_path, dbf), 'r', self.verbose)
+                    file_copy(os.path.join(self.src_path, db_file), os.path.join(self.db_path, db_file),
+                              'r', self.verbose)
                 ks = ''
                 vs = ''
                 for c in conditions:
@@ -309,32 +336,36 @@ class IOC:
                 else:
                     ks = ks.strip(', ')
                     vs = vs.strip(', ')
-                lines_to_add.append(f'\nfile db/{dbf} {{\n')
+                lines_to_add.append(f'\nfile db/{db_file} {{\n')
                 lines_to_add.append(f'    pattern {{ {ks} }}\n')
                 lines_to_add.append(f'        {{ {vs} }}\n')
                 lines_to_add.append(f'}}\n')
         if lines_to_add:
             # write .substitutions file.
             file_path = os.path.join(self.db_path, f'{self.name}.substitutions')
+            if os.path.exists(file_path):
+                if self.verbose:
+                    print(f'IOC("{self.name}").generate_substitution_file: File "{self.name}.substitutions" exists, '
+                          f'firstly remove it before writing a new one.')
+                file_remove(file_path, self.verbose)
             try:
                 with open(file_path, 'w') as f:
                     f.writelines(lines_to_add)
-            except PermissionError as e:
-                if self.verbose:
-                    print(f'IOC("{self.name}").generate_substitution_file: File "{self.name}.substitutions" exists, '
-                          f'firstly remove it before write a new one.')
-                file_remove(file_path, self.verbose)
-                with open(file_path, 'w') as f:
-                    f.writelines(lines_to_add)
-            # set readable and executable permission.
-            os.chmod(file_path, 0o555)
+            except Exception as e:
+                print(f'IOC("{self.name}").generate_substitution_file: Failed. '
+                      f'Exception "{e}" occurs while trying to write "{self.name}.substitutions" file.')
+                return False
+            # set readonly permission.
+            os.chmod(file_path, 0o444)
             print(f'IOC("{self.name}").generate_substitution_file: Success. "{self.name}.substitutions" created.')
             return True
         else:
             print(f'IOC("{self.name}").generate_substitution_file: Failed. '
-                  f'At least one "load_" option should be defined.')
+                  f'At least one "load_" option should be defined to generate "{self.name}.substitutions".')
             return False
 
+    # Generate all startup files for running an IOC project.
+    # This function should be called after that generate_check is passed.
     def generate_st_cmd(self, force_executing=False, force_default=False):
         if not self.generate_check():
             print(f'IOC("{self.name}").generate_st_cmd": Failed. Checks failed before generating startup files.')
@@ -347,7 +378,7 @@ class IOC:
                            f'dbLoadTemplate "db/{self.name}.substitutions"\n', ]
         lines_after_iocinit = ['\niocInit\n\n']
 
-        # question whether to use default for unspecified IOC executable binary.
+        # Question whether to use default if unspecified IOC executable binary.
         if not self.get_config('bin'):
             if force_default:
                 self.set_config('bin', DEFAULT_IOC)
@@ -369,7 +400,7 @@ class IOC:
                         break
                     print('Invalid input, please try again.')
 
-        # question whether to use default for unspecified install modules.
+        # Question whether to use default if unspecified install modules.
         if not self.get_config('module'):
             if force_default:
                 self.set_config('module', DEFAULT_MODULES)
@@ -393,7 +424,7 @@ class IOC:
 
         if self.verbose:
             print(f'IOC("{self.name}").generate_st_cmd": Setting "module: {self.get_config("module")}" '
-                  f'will be implied to generate startup files.')
+                  f'will be used to generate startup files.')
 
         # specify interpreter.
         bin_IOC = self.get_config('bin')
@@ -408,7 +439,30 @@ class IOC:
         lines_before_dbload.append(f'dbLoadDatabase "dbd/{bin_IOC}.dbd"\n')
         lines_before_dbload.append(f'{bin_IOC}_registerRecordDeviceDriver pdbbase\n\n'.replace('-', '_'))
 
-        # autosave
+        # EPICS_env settings.
+        sc = 'SETTING'
+        # st.cmd
+        # lines_before_dbload
+        temp = ['#settings\n', ]
+        for option in self.conf.options(sc):
+            if option.startswith('epics_env_'):
+                env_def = self.get_config(option, sc)
+                if env_def == '':  # empty options automatically skipped
+                    continue
+                env_name, env_val = condition_parse(env_def)
+                if env_name:
+                    temp.append(f'epicsEnvSet("{env_name}","{env_val}")\n')
+                else:
+                    print(env_name, env_val)
+                    print(f'IOC("{self.name}").generate_st_cmd: Failed. Bad SETTING define detected '
+                          f'in ioc.ini "{option}: {env_def}". You may need to '
+                          f'check and set the attributes correctly.')
+                    return
+        else:
+            temp.append('\n')
+        lines_before_dbload.extend(temp)
+
+        # autosave configurations.
         if self.check_config('module', 'autosave'):
             # st.cmd
             # lines_before_dbload
@@ -432,8 +486,8 @@ class IOC:
             # lines after iocinit
             temp = [
                 '#autosave after iocInit\n',
-                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/${self.name}-automake-pass0.req", "autosaveFields_pass0")\n',
-                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/${self.name}-automake.req", "autosaveFields")\n',
+                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/${self.name}-automake-pass0.req","autosaveFields_pass0")\n',
+                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/${self.name}-automake.req","autosaveFields")\n',
                 f'create_monitor_set("${self.name}-automake-pass0.req",10)\n',
                 f'create_monitor_set("${self.name}-automake.req",10)\n',
                 '\n',
@@ -443,7 +497,7 @@ class IOC:
             try_makedirs(os.path.join(self.log_path, 'autosave'), self.verbose)
             try_makedirs(os.path.join(self.settings_path, 'autosave'), self.verbose)
 
-        # caputlog
+        # caputlog configurations.
         if self.check_config('module', 'caputlog'):
             # st.cmd
             # lines_before_dbload
@@ -458,11 +512,19 @@ class IOC:
             lines_before_dbload.extend(temp)
             # st.cmd
             # lines after iocinit
-            temp = [
-                '#caPutLog after iocInit\n',
-                'caPutLogInit "127.0.0.1:7004" 0\n',
-                '\n',
-            ]
+            # check whether to use JSON format log.
+            if self.check_config('caputlog_json', 'true', 'SETTING'):
+                temp = [
+                    '#caPutLog after iocInit\n',
+                    'caPutJsonLogInit "127.0.0.1:7004" 0\n',
+                    '\n',
+                ]
+            else:
+                temp = [
+                    '#caPutLog after iocInit\n',
+                    'caPutLogInit "127.0.0.1:7004" 0\n',
+                    '\n',
+                ]
             lines_after_iocinit.extend(temp)
             # caPutLog .acf file
             # try_makedirs(self.settings_path, self.verbose)  # shutil.copy不会递归创建不存在的文件夹
@@ -470,7 +532,7 @@ class IOC:
             template_file_path = os.path.join(self.template_path, 'template.acf')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
-        # status-ioc
+        # status-ioc configurations.
         if self.check_config('module', 'status-ioc'):
             # st.cmd
             # lines_at_dbload
@@ -480,7 +542,7 @@ class IOC:
             template_file_path = os.path.join(self.template_path, 'db', 'status_ioc.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
-        # status-os
+        # status-os configurations.
         if self.check_config('module', 'status-os'):
             # st.cmd
             # lines_at_dbload
@@ -490,7 +552,7 @@ class IOC:
             template_file_path = os.path.join(self.template_path, 'db', 'status_OS.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
-        # asyn
+        # asyn configurations.
         if self.conf.has_section('ASYN'):
             sc = 'ASYN'
             # st.cmd
@@ -514,7 +576,7 @@ class IOC:
             template_file_path = os.path.join(self.template_path, 'db', 'asynRecord.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
-        # StreamDevice
+        # StreamDevice configurations.
         if self.conf.has_section('STREAM'):
             sc = 'STREAM'
             # st.cmd
@@ -543,7 +605,7 @@ class IOC:
                     file_copy(os.path.join(self.src_path, item), os.path.join(self.settings_path, item), 'r',
                               self.verbose)
 
-        # handle raw commands
+        # raw commands configurations.
         if self.conf.has_section('RAW'):
             sc = 'RAW'
             # st.cmd
@@ -581,46 +643,70 @@ class IOC:
                         continue
                     file_copy(src, dest, mode, self.verbose)
 
-        # generate substitutions file
+        # write report code at the end of st.cmd file if defined "report_info: true".
+        if self.check_config('report_info', 'true', 'SETTING'):
+            temp = [
+                '#report info\n',
+                'system "touch ${REPORT_FILE}"\n',
+
+                'system "echo \#date > ${REPORT_FILE}"\n',
+                'date >> ${REPORT_FILE}\n',
+                'system "echo >> ${REPORT_FILE}"\n',
+
+                'system "echo \#ip >> ${REPORT_FILE}"\n',
+                'system "hostname -I >> ${REPORT_FILE}"\n',
+                'system "echo >> ${REPORT_FILE}"\n',
+
+                'system "echo \#pv list >> ${REPORT_FILE}"\n',
+                'dbl >> ${REPORT_FILE}\n',
+                'system "echo >> ${REPORT_FILE}"\n',
+
+                '\n'
+            ]
+            lines_after_iocinit.extend(temp)
+
+        # generate .substitutions file.
         if not self.generate_substitution_file():
-            print(f'IOC("{self.name}").generate_st_cmd": Failed. Run function IOC.generate_substitution_file failed.')
+            print(f'IOC("{self.name}").generate_st_cmd": Failed. Generate .substitutions file failed.')
             return
 
-        # write st.cmd
+        # write st.cmd file.
         file_path = os.path.join(self.boot_path, 'st.cmd')
+        if os.path.exists(file_path):
+            if self.verbose:
+                print(f'IOC("{self.name}").generate_st_cmd: File "{self.name}.substitutions" exists, '
+                      f'firstly remove it before writing a new one.')
+            file_remove(file_path, self.verbose)
         try:
             with open(file_path, 'w') as f:
                 f.writelines(lines_before_dbload)
                 f.writelines(lines_at_dbload)
                 f.writelines(lines_after_iocinit)
-        except PermissionError as e:
-            if self.verbose:
-                print(f'IOC("{self.name}").generate_st_cmd": File st.cmd exists, remove it before writing a new one.')
-            file_remove(file_path, self.verbose)
-            with open(file_path, 'w') as f:
-                f.writelines(lines_before_dbload)
-                f.writelines(lines_at_dbload)
-                f.writelines(lines_after_iocinit)
-                if self.verbose:
-                    print(f'IOC("{self.name}").generate_st_cmd: Successfully create "st.cmd" file.')
-        # set readable and executable permission
+        except Exception as e:
+            print(f'IOC("{self.name}").generate_st_cmd: Failed. '
+                  f'Exception "{e}" occurs while trying to write st.cmd file.')
+            return
+        # set readable and executable permission.
         os.chmod(file_path, 0o555)
+        if self.verbose:
+            print(f'IOC("{self.name}").generate_st_cmd: Successfully create "st.cmd" file.')
 
         # set status: ready and save self.conf to ioc.ini file
         self.set_config('status', 'ready')
+
         # log ioc.ini
         add_log_file(self.name, self.verbose)
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
-    # check configuration before generating startup files.
+    # Configurations checks before generating startup files.
     def generate_check(self):
         check_flag = True
-        # execute normal check in self.check_consistency firstly.
+        # Execute normal checks in self.check_consistency firstly.
         if not self.check_consistency():
-            print(f'IOC("{self.name}").generate_check": Failed. Run self.check_consistency() failed.')
+            print(f'IOC("{self.name}").generate_check": Failed. Normal checks failed.')
             check_flag = False
 
-        # check whether section ASYN was set correctly.
+        # Check whether section ASYN was set correctly.(now only check port type and other settings are not empty.)
         if self.conf.has_section('ASYN'):
             sc = 'ASYN'
             if self.get_config('port_type', sc) not in PORT_SUPPORT:
@@ -643,7 +729,7 @@ class IOC:
                               f'"{option}" for section "{sc}", please check and reset correctly.')
                         check_flag = False
 
-        # check whether section STREAM was set correctly.
+        # check whether section STREAM was set correctly.(now only check port type and other settings are not empty.)
         if self.conf.has_section('STREAM'):
             sc = 'STREAM'
             if self.get_config('port_type', sc) not in PORT_SUPPORT:
@@ -666,31 +752,31 @@ class IOC:
                         check_flag = False
         return check_flag
 
-    # check consistency with ioc.ini and st.cmd and running containers.
+    # Check consistency with ioc.ini and st.cmd and running containers.
     def check_consistency(self, run_check=False):
         consistency_flag = True
         if run_check:
-            # checks before running the IOC project.
-            # only generated projects can do run-check.
+            # Checks before copying the IOC project for container mounting(running the IOC project).
+            # Only generated projects can do run-check.
             if not self.check_config('status', 'ready'):
                 print(f'IOC("{self.name}").check_consistency: Failed for run-check. IOC startup files not generated.')
                 return False
 
-            # check whether ioc.ini file be modified after generating startup files.
+            # Check whether ioc.ini file be modified after generating startup files.
             if not check_log_file(self.name, self.verbose):
                 print(f'IOC("{self.name}").check_consistency: Failed for run-check. Settings has been changed after '
                       f'generating startup files.')
                 self.set_config('status', 'unready')
                 return False
 
-            # check whether .substitutions file is created.
+            # Check whether .substitutions file is created.
             if not os.path.isfile(os.path.join(self.db_path, f'{self.name}.substitutions')):
                 print(
                     f'IOC("{self.name}").check_consistency: Failed for run-check. '
                     f'"{self.name}.substitutions" not found.')
                 consistency_flag = False
 
-            # if StreamDevice defined, check protocol file
+            # Check protocol file if StreamDevice defined.
             if self.conf.has_section('STREAM'):
                 ps = self.get_config('protocol_file', 'STREAM').split(',')
                 for item in ps:
@@ -699,36 +785,35 @@ class IOC:
                               f'StreamDevice not found in "{self.name}/settings/".')
                         consistency_flag = False
         else:
-            # normal checks for IOC project.
-            # check name in ioc.ini equal to directory name.
+            # Normal checks for an IOC project.
+            # Check whether name in ioc.ini is equal to directory name.
             if self.get_config('name') != os.path.basename(self.dir_path):
                 print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Name defined in ioc.ini '
-                      f'"{self.get_config("name")}" is not as same as the directory name. This will be automatically '
-                      f'set to directory name when next IOC object initialization, '
-                      f'but you\'d better to check the settings again.')
+                      f'"{self.get_config("name")}" is not same as the directory name. This will be automatically '
+                      f'corrected when IOC project next initializing, you should be aware that what\'s happening.')
                 consistency_flag = False
 
-            # check status 'ready' for file change, if changed set status 'unready'.
+            # Check status 'ready' for file change, set status 'unready' if file changed.
             if self.check_config('status', 'ready') and not check_log_file(self.name, self.verbose):
                 print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Settings has been changed after'
                       f' generating startup files.')
                 self.set_config('status', 'unready')
                 consistency_flag = False
 
-            # check whether modules to be installed was set correctly.
+            # Check whether modules to be installed was set correctly.
             module_list = self.get_config('module').strip().split(',')
             for s in module_list:
                 if s == '':
                     continue
                 else:
                     if s.strip().lower() not in MODULES_PROVIDED:
-                        print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Invalid option '
-                              f'"module: {s}", please check and reset the settings correctly.')
+                        print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Invalid module "{s}" '
+                              f'set in option "module", please check and reset the settings correctly.')
                         consistency_flag = False
 
-            # asyn and stream should not exist at the same time.
+            # Check that asyn and stream not exist at the same time.
             if self.conf.has_section('ASYN') and self.conf.has_section('STREAM'):
-                print(f'IOC("{self.name}").check_consistency: Failed for normal-check. ASYN and StreamDevice'
+                print(f'IOC("{self.name}").check_consistency: Failed for normal-check. ASYN and StreamDevice '
                       f'should not be set simultaneously, please check and reset the settings correctly.')
                 consistency_flag = False
         return consistency_flag

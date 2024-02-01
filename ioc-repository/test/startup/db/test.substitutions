@@ -1,5 +1,0 @@
-
-file db/ramper.db {
-    pattern { name }
-        { xxx }
-}

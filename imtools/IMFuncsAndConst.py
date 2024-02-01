@@ -1,20 +1,25 @@
 import os
-import re
 import shutil
 
-###
+# directory name or file name for IocManager
 CONFIG_FILE_NAME = 'ioc.ini'
 REPOSITORY_DIR = 'ioc-repository'
-MOUNT_DIR = 'ioc-for-docker'
-LOG_DIR = 'ioc-log'
+MOUNT_DIR = 'ioc-for-docker'  # default directory for docker mounting
+LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+LOG_DIR = 'ioc-log'  # version backup directory for ioc.ini file and other run-time log files
 
-###
+# path for newest backup file of ioc.ini
+BACKUP_PATH = os.path.join(os.getcwd(), 'imtools', '.log')
+
+# path in running container
 CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
 CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
 CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
+ST_EPICS_BASE = 'base:dev'
 
+#
 DEFAULT_IOC = 'ST-IOC'
-# asyn, stream device needs to be set separately for different hosts.
+# asyn, stream device needs to be set separately for different hosts, so they are not supported by default.
 MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
 DEFAULT_MODULES = 'autosave, caputlog, status-ioc'
 PORT_SUPPORT = ('tcp/ip', 'serial')
@@ -23,9 +28,6 @@ PORT_SUPPORT = ('tcp/ip', 'serial')
 DB_SUFFIX = ('.db',)
 PROTO_SUFFIX = ('.proto',)
 OTHER_SUFFIX = ('.others',)
-
-###
-BACKUP_PATH = os.path.join(os.getcwd(), 'imtools', '.log')
 
 
 def try_makedirs(d, verbose=False):
@@ -64,21 +66,23 @@ def dir_remove(dir_path, verbose=False):
             print(f'dir_remove: "{dir_path}" removed.')
 
 
+# be careful of that whether the input path is relative or absolute
 def file_copy(src, dest, mode='r', verbose=False):
     if not os.path.exists(src):
         print(f'file_copy: failed, "{src}" source file not found.')
         return False
-    # if destination file exists, first remove it.
+    # if destination file exists, remove it.
     if os.path.exists(dest):
         if verbose:
             print(f'file_copy: destination "{dest}" exists, first remove it.')
         file_remove(dest, verbose)
-    # if destination dir no exists, first create it.
+    # if destination dir no exists, create it.
     dest_dir = os.path.dirname(dest)
     if not os.path.isdir(dest_dir):
         if verbose:
             print(f'file_copy: destination directory "{dest_dir}" not exists, first create it.')
         try_makedirs(dest_dir, verbose)
+
     try:
         shutil.copy(src, dest)
     except PermissionError as e:
@@ -130,9 +134,10 @@ def condition_parse(condition: str, split_once=None):
         # if set, split once at most.
         c_s = condition.strip().split(sep='=', maxsplit=1)
     else:
-        # if not set, split as much as the number of '='.
+        # if not set, split as much times as the number of '='.
         c_s = condition.strip().split(sep='=')
     # print(c_s)
+    # condition should only be split one time
     if len(c_s) == 2 and len(c_s[0]) > 0:
         key = c_s[0].strip()
         value = c_s[1].strip()
@@ -144,8 +149,7 @@ def condition_parse(condition: str, split_once=None):
 
 def format_normalize(raw_str: str):
     # a standard format of value, for example "ramper.db,name = xxx1" will be changed to "ramper.db, name=xxx1"
-    # space char will be reduced to 1.
-    raw_str = ' '.join(filter(None, raw_str.split(' ')))
+    raw_str = ' '.join(filter(None, raw_str.split(' ')))  # number of space char will be reduced to 1.
     raw_str = raw_str.replace(', ', ',')
     raw_str = raw_str.replace(' ,', ',')
     raw_str = raw_str.replace(' =', '=')
@@ -154,41 +158,6 @@ def format_normalize(raw_str: str):
     raw_str = raw_str.replace(': ', ':')
     raw_str = raw_str.replace(',', ', ')
     return raw_str
-
-
-def db_file_interpret(db_file, macro_substitutions):
-    msl = []
-    for item in macro_substitutions.split(','):
-        key, val = condition_parse(item, True)
-        if key:
-            msl.append((f'$({key})', val))
-        else:
-            print(f'db_file_interpret, invalid macro_substitutions string "{macro_substitutions}".')
-            return None
-    print(msl)
-
-    if not os.path.isfile(db_file):
-        print(f'db_file_interpret, "{db_file}" to interpret not exists.')
-        return None
-    with open(db_file, 'r') as f:
-        lines = f.readlines()
-    name_pattern = r'\'([^\']*)\'|\"([^\"]*)\"'
-    pv_list = []
-    for line in lines:
-        if line.strip().startswith('record'):
-            match = re.search(name_pattern, line)
-            name_string = 'unmatched record name'
-            if match.group(1):
-                name_string = match.group(1).strip("'")
-            elif match.group(2):
-                name_string = match.group(2).strip('"')
-            else:
-                pass
-            for ms in msl:
-                name_string = name_string.replace(ms[0], ms[1])
-            pv_list.append(name_string)
-    print(pv_list)
-    return pv_list
 
 
 #########################################################
@@ -230,8 +199,3 @@ def check_log_file(name, verbose):
             lines1 = f1.readlines()
             lines2 = f2.readlines()
             return lines1 == lines2
-
-
-if __name__ == '__main__':
-    db_file_interpret('/home/zhu/docker/repository/ioc-repository/test/src/ramper.db',
-                      "name=test, P= , R=:asyn, PORT=xxx, ADDR=xxx, IMAX=xxx, OMAX=xxx")
