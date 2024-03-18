@@ -8,9 +8,6 @@ script_dir=$(dirname $script_abs)
 create_host=("hostA" "hostB")
 create_num=3
 
-TOP="$HOME/docker/repository/"
-cd $TOP
-
 
 if [ "$1" == 'delete' -o "$1" == 'del' ]; then
 	for item in "${create_host[@]}"; do 

@@ -1,0 +1,36 @@
+name: docker-manager
+services:
+  srv-portainer:
+    container_name: "portainer"
+    image: "portainer/portainer-ce:latest"
+    ports: 
+      - "8000:8000"
+      - "9443:9443"
+    restart: always
+    volumes:
+      - type: bind 
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: volume 
+        source: portainer_data
+        target: /data
+  srv-registry:
+    container_name: "registry"
+    image: "registry:2"
+    ports: 
+#      - "5000:5000"
+      - "443:443"
+    restart: always
+    volumes:
+      - type: bind 
+        source: ./registry
+        target: /var/lib/registry  
+      - type: bind 
+        source: ./certs
+        target: /certs
+    environment:
+      - REGISTRY_HTTP_ADDR=0.0.0.0:443
+      - REGISTRY_HTTP_TLS_CERTIFICATE=/certs/dals_domain.crt
+      - REGISTRY_HTTP_TLS_KEY=/certs/dals_domain.key
+volumes:
+  portainer_data:

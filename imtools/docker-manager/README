@@ -1,0 +1,4 @@
+- All scripts should be run as root!
+- Run ```.set-docker-environment.sh``` only once for new system.
+- Run ```./start-docker-manager.sh``` to start/restart portainer manager and registry server.
+- Execute ```docker compose down``` in thie directory to stop server.
