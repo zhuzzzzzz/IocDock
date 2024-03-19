@@ -217,7 +217,7 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
 
 def execute_ioc(args):
     if args.gen_compose_file:
-        gen_compose_files(args.mount_path, args.verbose)
+        gen_compose_files(args.base, args.mount_path, args.verbose)
     else:
         if not args.name:
             print(f'execute_ioc: No IOC project was specified.')
@@ -233,8 +233,8 @@ def execute_ioc(args):
                     elif args.run_check:
                         ioc_temp.check_consistency(run_check=True)
                     elif args.out_to_docker:
-                        repository_to_container(name, mount_path=args.mount_path, force_overwrite=args.force_overwrite,
-                                                verbose=args.verbose)
+                        repository_to_container(name, mount_path=args.mount_path,
+                                                force_overwrite=args.force_overwrite, verbose=args.verbose)
                     else:
                         print(f'execute_ioc: No "exec" option specified for IOC "{name}".')
                 else:
@@ -264,7 +264,7 @@ def repository_to_container(name, mount_path=None, force_overwrite=False, verbos
                 print(f'repository_to_container: Option "host" not defined in IOC "{ioc_temp.name}", '
                       f'automatically use "localhost" as host name.')
         if not mount_path:
-            mount_path = os.getcwd()
+            mount_path = os.path.normpath(os.path.join(os.getcwd(), '..'))
             if verbose:
                 print(f'repository_to_container: Argument "mount_path" not given, '
                       f'automatically use current work directory as generate path.')
@@ -302,9 +302,9 @@ def repository_to_container(name, mount_path=None, force_overwrite=False, verbos
 
 
 # Generate Docker Compose file for all hosts and IOC projects in given path.
-def gen_compose_files(mount_path, verbose):
+def gen_compose_files(base_image, mount_path, verbose):
     if not mount_path:
-        mount_path = os.getcwd()
+        os.path.normpath(os.path.join(os.getcwd(), '..'))
         if verbose:
             print(f'gen_compose_files: Argument "mount_path" not given, '
                   f'automatically use current work directory as generate path.')
@@ -384,7 +384,7 @@ def gen_compose_files(mount_path, verbose):
                 # add iocLogServer service for host.
                 temp_yaml = {
                     'container_name': f'log-{host_dir}',
-                    'image': ST_EPICS_BASE,
+                    'image': base_image,
                     'tty': True,
                     'restart': 'always',
                     'network_mode': 'host',
@@ -422,6 +422,20 @@ def gen_compose_files(mount_path, verbose):
             file_path = os.path.join(top_path, host_dir, 'compose.yaml')
             with open(file_path, 'w') as file:
                 yaml.dump(yaml_data, file, default_flow_style=False)
+
+
+# From .log directory generate backup file of IOC project settings.
+def repository_backup():
+    # check setting of IOC projects in .log/ directory are newest and not modified.
+
+    # collect ioc.ini files to tar.gz file.
+    pass
+
+
+# Restore IOC projects from backup file.
+def backup_restore():
+    # restore IOC projects form tar.gz file.
+    pass
 
 
 # Collect files from the container directory to central repository LOG directory.
@@ -506,7 +520,7 @@ if __name__ == '__main__':
     parser_execute.add_argument('-c', '--run-check', action="store_true", help='execute run check.')
     parser_execute.add_argument('-o', '--out-to-docker', action="store_true",
                                 help='copy run-time files of all generated IOC projects to a mount path for docker.')
-    parser_execute.add_argument('--mount-path', type=str, default='',
+    parser_execute.add_argument('--mount-path', type=str, default='..',
                                 help='mount path used by "--out-to-docker" and "--gen-compose-file". '
                                      'default in current work path.')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
@@ -514,6 +528,8 @@ if __name__ == '__main__':
                                      'in the mount path, this will delete all files that are generated in running.')
     parser_execute.add_argument('-d', '--gen-compose-file', action="store_true",
                                 help='generate Docker Compose file for all hosts and IOC projects.')
+    parser_execute.add_argument('--base', type=str, default='base:dev',
+                                help='base image used for running iocLogserver, default "base:dev".')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_execute.set_defaults(func='parser_execute')
 

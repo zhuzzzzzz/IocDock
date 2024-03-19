@@ -26,7 +26,7 @@ set -e
 
 # set host DNS entry.
 echo Set \"/etc/hosts\".
-REGISTRY_IP="192.168.8.22" # Should set this variable the actual ip that the server uses.
+REGISTRY_IP="192.168.20.253" # Should set this variable the actual ip that the server uses.
 REGISTRY_NAME="image.dals"
 
 new_line="$REGISTRY_IP\t$REGISTRY_NAME"
@@ -46,7 +46,7 @@ echo -e "$new_line" >> hosts
 cat /etc/hosts.old >> hosts
 mv hosts "$file"
 
-if [ "$1" == 'worker' -o "$1" == 'client' ]; then
+if [ ! "$1" == 'manager' ]; then
 	echo Finished.
 	exit
 fi

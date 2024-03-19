@@ -5,20 +5,22 @@
 script_abs=$(readlink -f "$0")
 script_dir=$(dirname $script_abs)
 
-create_host=("hostA" "hostB")
+base_image="image.dals/base:beta-0.1.1"
+ioc_image="image.dals/ioc-exec:beta-0.1.1"
+create_host=("worker_test" "worker_test1" "worker_test2")
 create_num=3
 
 
 if [ "$1" == 'delete' -o "$1" == 'del' ]; then
 	for item in "${create_host[@]}"; do 
-		create_prefix=$item
+		create_prefix=${item}_
 	    	for ((i=1; i<=$create_num; i++)); do
 			./IocManager.py remove "$create_prefix$i" -rf
 		done
 	done
 elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 	for item in "${create_host[@]}"; do 
-		create_prefix=$item
+		create_prefix=${item}_
 		for ((i=1; i<=$create_num; i++)); do
 			echo 
 			echo "####### $create_prefix$i #######" 
@@ -29,15 +31,16 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			# set options
 			./IocManager.py set "$create_prefix$i" -s db -o "load_a = ramper.db, name=$create_prefix$i" 
 			./IocManager.py set "$create_prefix$i" -o " host = $item "
+			./IocManager.py set "$create_prefix$i" -o " image = $ioc_image "
 			# add set options here..
 			 
 			
 			# generate startup files
-			./IocManager.py exec "$create_prefix$i" -s
+			./IocManager.py exec "$create_prefix$i" -s 
 			# copy files to default mount path 
-			./IocManager.py exec "$create_prefix$i" -o
+			./IocManager.py exec "$create_prefix$i" -o 
 			# generate compose files in default mount path 
-			./IocManager.py exec -d
+			./IocManager.py exec -d --base $base_image
 		done
 
 		echo 
