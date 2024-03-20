@@ -23,7 +23,7 @@ services:
     restart: always
     volumes:
       - type: bind 
-        source: ./registry
+        source: ./../../../registry
         target: /var/lib/registry  
       - type: bind 
         source: ./certs

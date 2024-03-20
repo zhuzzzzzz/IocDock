@@ -56,15 +56,15 @@ fi
 echo Set certificates and prepare for docker compose up.
 CERT_DIR="certs"
 CERT_PREFIX="dals_domain"
-REGISTRY_DIR="registry"
+REGISTRY_PATH="../../../registry"
 
 if [ ! -f "$CERT_DIR/$CERT_PREFIX.crt" -o ! -f "$CERT_DIR/$CERT_PREFIX.key" ]; then
 	cd $CERT_DIR
 	./make-certs.sh
 	cd $script_dir
 fi
-if [ ! -d "$REGISTRY_DIR" ]; then
-	mkdir $REGISTRY_DIR
+if [ ! -d "$REGISTRY_PATH" ]; then
+	mkdir $REGISTRY_PATH
 fi
 
 echo Finished. You can start docker-manager now.
