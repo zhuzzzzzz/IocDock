@@ -51,6 +51,7 @@ if [ ! "$1" == 'manager' ]; then
 	exit
 fi
 
+# codes for manager only.
 # check certificates and registry dir(for docker-manager).
 echo Set certificates and prepare for docker compose up.
 CERT_DIR="certs"
