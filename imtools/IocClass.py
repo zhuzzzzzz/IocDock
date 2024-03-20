@@ -2,7 +2,7 @@ import os
 import configparser
 
 from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, format_normalize, \
-    add_snapshot_file, delete_snapshot_file, check_snapshot_file
+    add_snapshot_file, delete_snapshot_file, check_snapshot_file, relative_and_absolute_path_to_abs
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
     DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR
 
@@ -61,6 +61,7 @@ class IOC:
         try_makedirs(self.settings_path, self.verbose)
         self.log_path = os.path.join(self.dir_path, 'log')
         try_makedirs(self.log_path, self.verbose)
+        self.startup_path = os.path.join(self.dir_path, 'startup')
         self.db_path = os.path.join(self.dir_path, 'startup', 'db')
         try_makedirs(self.db_path, self.verbose)
         self.boot_path = os.path.join(self.dir_path, 'startup', 'iocBoot')
@@ -229,16 +230,11 @@ class IOC:
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
-    def get_src_file(self, src_p=None):
+    def get_src_file(self, src_dir=None):
         db_suffix = DB_SUFFIX
         proto_suffix = PROTO_SUFFIX
         other_suffix = OTHER_SUFFIX
-        if not src_p:
-            src_p = self.src_path
-        else:
-            if not os.path.isabs(src_p):
-                src_p = os.path.abspath(src_p)
-        src_p = os.path.normpath(src_p)
+        src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
         if not os.path.exists(src_p):
             print(f'IOC("{self.name}").get_src_file: Failed. Path provided "{src_p}" not exist.')
             return

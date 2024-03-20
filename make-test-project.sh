@@ -38,7 +38,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			# generate startup files
 			./IocManager.py exec "$create_prefix$i" -s 
 			# copy files to default mount path 
-			./IocManager.py exec "$create_prefix$i" -o 
+			./IocManager.py exec "$create_prefix$i" -o --force-overwrite
 			# generate compose files in default mount path 
 			./IocManager.py exec -d --base $base_image
 		done

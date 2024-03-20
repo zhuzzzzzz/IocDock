@@ -241,7 +241,7 @@ eval $string
 echo
 
 #
-string="./IocManager.py exec -d $VERBOSE; tree ./ioc-for-docker; cat ./ioc-for-docker/localhost/compose.yaml"
+string="./IocManager.py exec -d $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
 echo_line "$string"
 eval $string
 

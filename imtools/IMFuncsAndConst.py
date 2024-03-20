@@ -128,6 +128,19 @@ def dir_copy(source_folder, destination_folder, verbose=False):
         return True
 
 
+# return a normalized path or return a path relative to current work path if a relative path was given.
+# use a default path if no input_path was given.
+def relative_and_absolute_path_to_abs(input_path, default_path):
+    if not input_path:
+        input_path = default_path
+    if not os.path.isabs(input_path):
+        output_path = os.path.join(os.getcwd(), input_path)
+    else:
+        output_path = input_path
+    output_path = os.path.normpath(output_path)
+    return output_path
+
+
 def condition_parse(condition: str, split_once=None):
     # set max_split to control how many parts to split the condition.
     if split_once:

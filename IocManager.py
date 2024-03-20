@@ -4,11 +4,13 @@ import configparser
 import yaml
 import os
 import datetime
+import tarfile
 from collections.abc import Iterable
 
-from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse,
+from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
+                                     relative_and_absolute_path_to_abs,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
-                                     BACKUP_DIR, SNAPSHOT_PATH)
+                                     BACKUP_DIR)
 from imtools.IocClass import IOC
 
 
@@ -217,11 +219,13 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
 
 
 def execute_ioc(args):
+    # operation for all IOC projects.
     if args.gen_compose_file:
-        gen_compose_files(args.base, args.mount_path, args.verbose)
+        gen_compose_files(base_image=args.base, mount_dir=args.mount_path, verbose=args.verbose)
     elif args.gen_backup:
-        repository_backup(args.verbose)
+        repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
     else:
+        # operation for specific IOC projects.
         if not args.name:
             print(f'execute_ioc: No IOC project was specified.')
         else:
@@ -230,13 +234,13 @@ def execute_ioc(args):
                 if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
                     ioc_temp = IOC(dir_path, args.verbose)
                     if args.add_src_files:
-                        ioc_temp.get_src_file(args.src_path)
+                        ioc_temp.get_src_file(src_dir=args.src_path)
                     elif args.gen_st_cmd:
                         ioc_temp.generate_st_cmd(force_executing=args.force_silent, force_default=args.force_default)
                     elif args.run_check:
                         ioc_temp.check_consistency(run_check=True)
                     elif args.out_to_docker:
-                        repository_to_container(name, mount_path=args.mount_path,
+                        repository_to_container(name, mount_dir=args.mount_path,
                                                 force_overwrite=args.force_overwrite, verbose=args.verbose)
                     else:
                         print(f'execute_ioc: No "exec" option specified for IOC "{name}".')
@@ -245,7 +249,7 @@ def execute_ioc(args):
 
 
 # Generate directory structure of an IOC project for running inside the container.
-def repository_to_container(name, mount_path=None, force_overwrite=False, verbose=False):
+def repository_to_container(name, mount_dir=None, force_overwrite=False, verbose=False):
     dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
     if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
         ioc_temp = IOC(dir_path, verbose)
@@ -266,23 +270,14 @@ def repository_to_container(name, mount_path=None, force_overwrite=False, verbos
             if verbose:
                 print(f'repository_to_container: Option "host" not defined in IOC "{ioc_temp.name}", '
                       f'automatically use "localhost" as host name.')
-        if not mount_path:
-            mount_path = os.path.normpath(os.path.join(os.getcwd(), '..'))
-            if verbose:
-                print(f'repository_to_container: Argument "mount_path" not given, '
-                      f'automatically use current work directory as generate path.')
-        else:
-            if not os.path.isabs(mount_path):
-                mount_path = os.path.abspath(mount_path)
-
-        mount_path = os.path.normpath(mount_path)
+        mount_path = relative_and_absolute_path_to_abs(mount_dir, '..')
         if not os.path.isdir(mount_path):
             print(f'repository_to_container: Failed. Argument "mount_path: {mount_path}" is not a directory.')
             return
         top_path = os.path.join(mount_path, MOUNT_DIR, host_name, container_name)
         if not os.path.isdir(top_path) or force_overwrite:
             if dir_copy(ioc_temp.dir_path, top_path, verbose):
-                print(f'repository_to_container: Success. IOC "{name}" directory created in mount path.')
+                print(f'repository_to_container: Success. IOC "{name}" directory created in {mount_path}.')
                 # set readonly permission.
                 os.chmod(os.path.join(top_path, 'ioc.ini'), mode=0o444)
             else:
@@ -299,25 +294,21 @@ def repository_to_container(name, mount_path=None, force_overwrite=False, verbos
                           f'what happened for IOC "{name}" in details.')
                     return
             else:
-                print(f'repository_to_container: Success. IOC "{name}" directory updated in mount path.')
+                print(f'repository_to_container: Success. IOC "{name}" directory updated in {mount_path}.')
     else:
         print(f'repository_to_container: Failed. IOC "{name}" not found.')
 
 
 # Generate Docker Compose file for all hosts and IOC projects in given path.
-def gen_compose_files(base_image, mount_path, verbose):
-    if not mount_path:
-        os.path.normpath(os.path.join(os.getcwd(), '..'))
-        if verbose:
-            print(f'gen_compose_files: Argument "mount_path" not given, '
-                  f'automatically use current work directory as generate path.')
-    else:
-        if not os.path.isabs(mount_path):
-            mount_path = os.path.abspath(mount_path)
+def gen_compose_files(base_image, mount_dir, verbose):
+    mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
     top_path = os.path.join(mount_path, MOUNT_DIR)
     if not os.path.isdir(top_path):
-        print(f'gen_compose_files: Failed. Argument "mount_path: {mount_path}" is not a directory.')
+        print(f'gen_compose_files: Failed. Working directory {top_path} is not exist!')
         return
+    else:
+        if verbose:
+            print(f'gen_compose_files: Working at {top_path}.')
 
     for host_dir in os.listdir(top_path):
         host_path = os.path.join(top_path, host_dir)
@@ -333,14 +324,12 @@ def gen_compose_files(base_image, mount_path, verbose):
             conf = configparser.ConfigParser()
             if conf.read(ioc_path):
                 if not conf.get('IOC', 'image'):
-                    print(f'gen_compose_files: Warning. Failed to generate compose file for IOC project "{ioc_dir}", '
-                          f'can\'t get image setting.')
+                    print(f'gen_compose_files: Warning. Can\'t get image setting of IOC project "{ioc_dir}".')
                     continue
                 else:
                     ioc_list.append((ioc_dir, conf.get('IOC', 'image')))
             else:
-                print(f'gen_compose_files: Warning. Path "{ioc_path}" exists but not a valid '
-                      f'configuration file.')
+                print(f'gen_compose_files: Warning. Path "{ioc_path}" is not a valid configuration file.')
                 continue
 
         if not ioc_list:
@@ -427,8 +416,8 @@ def gen_compose_files(base_image, mount_path, verbose):
                 yaml.dump(yaml_data, file, default_flow_style=False)
 
 
-# From .log directory generate backup file of IOC project settings.
-def repository_backup(verbose):
+# Generate backup file of IOC project settings.
+def repository_backup(backup_mode, backup_dir, verbose):
     # check setting of IOC projects in .log/ directory are newest and not modified.
     ioc_list = get_all_ioc()
     flag = all([ioc_item.check_consistency() for ioc_item in ioc_list])
@@ -436,32 +425,39 @@ def repository_backup(verbose):
         print(f'repository_backup: Failed. Normal checks failed for all IOC project.')
         return
     else:
+        backup_path = relative_and_absolute_path_to_abs(backup_dir, BACKUP_DIR)
         # collect ioc.ini files and source files into tar.gz file.
-        if not os.path.exists(os.path.join(os.getcwd(), BACKUP_DIR)):
-            try_makedirs(os.path.join(os.getcwd(), BACKUP_DIR), verbose)
-        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        tar_dir = os.path.join(os.getcwd(), BACKUP_DIR, now_time)
-        try_makedirs(tar_dir, verbose)
+        if not os.path.exists(backup_path):
+            try_makedirs(backup_path, verbose)
+        now_time = datetime.datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
+        tar_dir = os.path.join(backup_path, now_time)
         for ioc_item in ioc_list:
+            ioc_tar_dir = os.path.join(tar_dir, ioc_item.name)
+            try_makedirs(ioc_tar_dir, verbose)
             # copy entire repository file into tar directory.
-            dir_copy(ioc_item.dir_path, os.path.join(tar_dir, ioc_item.name), verbose=verbose)
+            file_copy(ioc_item.config_file_path, os.path.join(ioc_tar_dir, CONFIG_FILE_NAME), mode='rw',
+                      verbose=verbose)
+            dir_copy(ioc_item.src_path, os.path.join(ioc_tar_dir, 'src'), verbose=verbose)
+            if backup_mode == 'all':
+                dir_copy(ioc_item.startup_path, os.path.join(ioc_tar_dir, 'startup'), verbose=verbose)
+                dir_copy(ioc_item.log_path, os.path.join(ioc_tar_dir, 'log'), verbose=verbose)
+                dir_copy(ioc_item.settings_path, os.path.join(ioc_tar_dir, 'settings'), verbose=verbose)
+        else:
+            with tarfile.open(os.path.join(backup_path, f'{now_time}.tar.gz'), "w:gz") as tar:
+                tar.add(tar_dir, arcname=os.path.basename(tar_dir))
+            dir_remove(tar_dir, verbose=verbose)
+            print(f'repository_backup: Finished. Backup files created at {backup_path} in "{backup_mode}" mode.')
 
 
 # Restore IOC projects from backup file.
-def backup_restore():
+def backup_restore(backup_dir, verbose):
     # restore IOC projects form tar.gz file.
-    pass
-
-
-# Collect files from the container directory to central repository LOG directory.
-def container_to_repository(container_path, repository_LOG_path):
     pass
 
 
 if __name__ == '__main__':
     # argparse
-    parser = argparse.ArgumentParser(description='IOC project manager for docker. This script should be run inside'
-                                                 ' the repository directory, where there exists an "imtools" folder.')
+    parser = argparse.ArgumentParser(description='Manager of IOC projects for docker.')
 
     subparsers = parser.add_subparsers(
         help='For subparser command help, run "./iocManager.py [create|set|exec|list|remove] -h".')
@@ -522,31 +518,40 @@ if __name__ == '__main__':
     parser_execute = subparsers.add_parser('exec', help='Execute functions for IOC projects.')
     parser_execute.add_argument('name', type=str, nargs='*', help='name for IOC project, a name list is supported.')
     parser_execute.add_argument('-a', '--add-src-files', action="store_true",
-                                help='add source files from given path.')
+                                help='from given path add source files and update settings. '
+                                     'set "--src-path" to choose a path.')
     parser_execute.add_argument('--src-path', type=str, default='',
-                                help='source path used by "--add-src-files", default the "src/" directory of '
-                                     'the IOC project itself.')
-    parser_execute.add_argument('-s', '--gen-st-cmd', action="store_true",
-                                help='generate st.cmd file and the other startup files.')
-    parser_execute.add_argument('--force-silent', action="store_true",
-                                help='force silent when running "--gen-st-cmd" option, do not ask for confirmation.')
-    parser_execute.add_argument('--force-default', action="store_true",
-                                help='using default when running "--gen-st-cmd" option.')
-    parser_execute.add_argument('-c', '--run-check', action="store_true", help='execute run check.')
-    parser_execute.add_argument('-o', '--out-to-docker', action="store_true",
-                                help='copy run-time files of all generated IOC projects to a mount path for docker.')
-    parser_execute.add_argument('--mount-path', type=str, default='..',
-                                help='mount path used by "--out-to-docker" and "--gen-compose-file". '
-                                     'default in current work path.')
-    parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
-                                help='used by "--out-to-docker". force overwrite if the IOC project already exists '
-                                     'in the mount path, this will delete all files that are generated in running.')
+                                help='path where to get source files. default the "src" directory in the IOC project.')
+    parser_execute.add_argument('-c', '--run-check', action="store_true", help='execute run-checks.')
     parser_execute.add_argument('-d', '--gen-compose-file', action="store_true",
-                                help='generate Docker Compose file for all hosts and IOC projects.')
+                                help='generate Docker Compose file for all hosts and IOC projects. set "--mount-path" '
+                                     'to select a mount top path. set "--base" to choose base image for iocLogserver.')
     parser_execute.add_argument('--base', type=str, default='base:dev',
-                                help='base image used for running iocLogserver, default "base:dev".')
+                                help='base image used for running iocLogserver. default "base:dev".')
+    parser_execute.add_argument('--mount-path', type=str, default='..',
+                                help='top path of mount path. default the upper directory "../".')
+    parser_execute.add_argument('-o', '--out-to-docker', action="store_true",
+                                help='copy run-time files of all generated IOC projects into a mount path for docker. '
+                                     'set "--mount-path" to choose a top path for mounting. ')
+    parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
+                                help='force overwrite if the IOC project already exists '
+                                     'in the mount path, this will delete all files that are generated during running.')
+    parser_execute.add_argument('-s', '--gen-st-cmd', action="store_true",
+                                help='generate st.cmd file and the other startup files. set "--force-silent" to force '
+                                     'silent running. set "--force-default" to use default settings.')
+    parser_execute.add_argument('--force-silent', action="store_true",
+                                help='force silent while generating startup files.')
+    parser_execute.add_argument('--force-default', action="store_true",
+                                help='use default when generating startup files.')
     parser_execute.add_argument('-b', '--gen-backup', action="store_true",
-                                help='generate backup files for all IOC projects.')
+                                help='generate backup files of all IOC projects. set "--backup-path" to choose a backup'
+                                     'directory. set "--backup-mode" to choose a backup mode.')
+    parser_execute.add_argument('--backup-path', type=str, default='../ioc-backup',
+                                help='path used for backup files of IOC projects. default "../ioc-backup".')
+    parser_execute.add_argument('--backup-mode', type=str, default='src',
+                                help='backup mode for IOC projects. "all": back up all files including running files'
+                                     '(such as files generated by autosave, etc). "src": just back up files of IOC '
+                                     'settings and source files. default "src".')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_execute.set_defaults(func='parser_execute')
 
