@@ -2,7 +2,7 @@ import os
 import configparser
 
 from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, format_normalize, \
-    add_log_file, delete_log_file, check_log_file
+    add_snapshot_file, delete_snapshot_file, check_snapshot_file
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
     DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR
 
@@ -163,7 +163,7 @@ class IOC:
     def remove(self, all_remove=False):
         if all_remove:
             # delete log file
-            delete_log_file(self.name, self.verbose)
+            delete_snapshot_file(self.name, self.verbose)
             dir_remove(self.dir_path, self.verbose)
         else:
             for item in (os.path.join(self.dir_path, 'startup'), self.settings_path, self.log_path):
@@ -695,7 +695,7 @@ class IOC:
         self.set_config('status', 'ready')
 
         # log ioc.ini
-        add_log_file(self.name, self.verbose)
+        add_snapshot_file(self.name, self.verbose)
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
     # Configurations checks before generating startup files.
@@ -763,7 +763,7 @@ class IOC:
                 return False
 
             # Check whether ioc.ini file be modified after generating startup files.
-            if not check_log_file(self.name, self.verbose):
+            if not check_snapshot_file(self.name, self.verbose):
                 print(f'IOC("{self.name}").check_consistency: Failed for run-check. Settings has been changed after '
                       f'generating startup files.')
                 self.set_config('status', 'unready')
@@ -794,7 +794,7 @@ class IOC:
                 consistency_flag = False
 
             # Check status 'ready' for file change, set status 'unready' if file changed.
-            if self.check_config('status', 'ready') and not check_log_file(self.name, self.verbose):
+            if self.check_config('status', 'ready') and not check_snapshot_file(self.name, self.verbose):
                 print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Settings has been changed after'
                       f' generating startup files.')
                 self.set_config('status', 'unready')

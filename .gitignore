@@ -5,3 +5,7 @@ __pycache__/
 
 # directory for docker mount
 ioc-for-docker/
+
+# 
+ioc-repository/
+.snapshot/

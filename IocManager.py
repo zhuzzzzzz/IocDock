@@ -3,11 +3,12 @@ import argparse
 import configparser
 import yaml
 import os
+import datetime
 from collections.abc import Iterable
 
 from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
-                                     ST_EPICS_BASE)
+                                     BACKUP_DIR, SNAPSHOT_PATH)
 from imtools.IocClass import IOC
 
 
@@ -118,7 +119,7 @@ def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
         print(f'remove_ioc: Failed. IOC "{name}" not found.')
 
 
-# Get IOC projects in given name list for given path. return the list of all IOCs, if name list not given.
+# Get IOC projects in given name list for given path. return object list of all IOC projects, if name list not given.
 def get_all_ioc(dir_path=None, from_list=None):
     ioc_list = []
     if not dir_path:
@@ -218,6 +219,8 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
 def execute_ioc(args):
     if args.gen_compose_file:
         gen_compose_files(args.base, args.mount_path, args.verbose)
+    elif args.gen_backup:
+        repository_backup(args.verbose)
     else:
         if not args.name:
             print(f'execute_ioc: No IOC project was specified.')
@@ -425,11 +428,23 @@ def gen_compose_files(base_image, mount_path, verbose):
 
 
 # From .log directory generate backup file of IOC project settings.
-def repository_backup():
+def repository_backup(verbose):
     # check setting of IOC projects in .log/ directory are newest and not modified.
-
-    # collect ioc.ini files to tar.gz file.
-    pass
+    ioc_list = get_all_ioc()
+    flag = all([ioc_item.check_consistency() for ioc_item in ioc_list])
+    if not flag:
+        print(f'repository_backup: Failed. Normal checks failed for all IOC project.')
+        return
+    else:
+        # collect ioc.ini files and source files into tar.gz file.
+        if not os.path.exists(os.path.join(os.getcwd(), BACKUP_DIR)):
+            try_makedirs(os.path.join(os.getcwd(), BACKUP_DIR), verbose)
+        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        tar_dir = os.path.join(os.getcwd(), BACKUP_DIR, now_time)
+        try_makedirs(tar_dir, verbose)
+        for ioc_item in ioc_list:
+            # copy entire repository file into tar directory.
+            dir_copy(ioc_item.dir_path, os.path.join(tar_dir, ioc_item.name), verbose=verbose)
 
 
 # Restore IOC projects from backup file.
@@ -530,6 +545,8 @@ if __name__ == '__main__':
                                 help='generate Docker Compose file for all hosts and IOC projects.')
     parser_execute.add_argument('--base', type=str, default='base:dev',
                                 help='base image used for running iocLogserver, default "base:dev".')
+    parser_execute.add_argument('-b', '--gen-backup', action="store_true",
+                                help='generate backup files for all IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_execute.set_defaults(func='parser_execute')
 

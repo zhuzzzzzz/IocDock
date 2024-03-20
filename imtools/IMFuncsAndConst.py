@@ -5,17 +5,17 @@ import shutil
 CONFIG_FILE_NAME = 'ioc.ini'
 REPOSITORY_DIR = 'ioc-repository'
 MOUNT_DIR = 'ioc-for-docker'  # default directory for docker mounting
-LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
-LOG_DIR = 'ioc-log'  # version backup directory for ioc.ini file and other run-time log files
+BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other run-time log files
 
-# path for newest backup file of ioc.ini
-BACKUP_PATH = os.path.join(os.getcwd(), 'imtools', '.log')
+LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+
+# path for newest snapshot file of ioc.ini
+SNAPSHOT_PATH = os.path.join(os.getcwd(), 'imtools', '.snapshot')
 
 # path in running container
 CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
 CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
 CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
-ST_EPICS_BASE = 'base:dev'
 
 #
 DEFAULT_IOC = 'ST-IOC'
@@ -162,37 +162,37 @@ def format_normalize(raw_str: str):
 
 #########################################################
 # codes for monitoring untracked changes of ioc.ini.
-def add_log_file(name, verbose):
+def add_snapshot_file(name, verbose):
     file_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
-    log_path = os.path.join(BACKUP_PATH, name)
+    log_path = os.path.join(SNAPSHOT_PATH, name)
     if os.path.isfile(file_path):
         if file_copy(file_path, log_path, 'r', verbose):
             if verbose:
-                print(f'log_file: ioc.ini file of "{name}" logged successfully.')
+                print(f'add_snapshot_file: snapshot file of "{name}" successfully created.')
             else:
                 if verbose:
-                    print(f'log_file: failed, ioc.ini file of "{name}" logged failed.')
+                    print(f'add_snapshot_file: failed, snapshot file of "{name}" created failed.')
     else:
         if verbose:
-            print(f'log_file: failed, source file to log "{file_path}" is not exist.')
+            print(f'add_snapshot_file: failed, source file "{file_path}" is not exist.')
 
 
-def delete_log_file(name, verbose):
-    log_path = os.path.join(BACKUP_PATH, name)
+def delete_snapshot_file(name, verbose):
+    log_path = os.path.join(SNAPSHOT_PATH, name)
     if os.path.isfile(log_path):
         file_remove(log_path, verbose)
     else:
         if verbose:
-            print(f'delete_log_file: failed, delete file "{log_path}" not exist.')
+            print(f'delete_snapshot_file: failed, file "{log_path}" to delete is not exist.')
 
 
-def check_log_file(name, verbose):
+def check_snapshot_file(name, verbose):
     file_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
-    log_path = os.path.join(BACKUP_PATH, name)
+    log_path = os.path.join(SNAPSHOT_PATH, name)
     if not os.path.isfile(log_path):
         if verbose:
-            print(f'check_log_file: no log file found for {name}, create a new one.')
-        add_log_file(name, verbose)
+            print(f'check_snapshot_file: no snapshot file found for {name}, create a new one.')
+        add_snapshot_file(name, verbose)
         return True
     else:
         with open(file_path, 'r') as f1, open(log_path, 'r') as f2:
