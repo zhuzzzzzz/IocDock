@@ -2,7 +2,7 @@ name: portainer-agent
 services:
   agent-portainer:
     container_name: "portainer_agent"
-    image: "portainer/agent:2.19.4"
+    image: "image.dals/portainer-agent:2.19.4"
     ports: 
       - "9001:9001"
     restart: always
