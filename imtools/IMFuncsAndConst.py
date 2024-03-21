@@ -10,7 +10,7 @@ BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other
 LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 
 # path for newest snapshot file of ioc.ini
-SNAPSHOT_PATH = os.path.join(os.getcwd(), 'imtools', '.snapshot')
+SNAPSHOT_PATH = os.path.join(os.getcwd(), 'imtools', 'ioc-snapshot')
 
 # path in running container
 CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
@@ -34,7 +34,7 @@ def try_makedirs(d, verbose=False):
     verbose = False
     try:
         os.makedirs(d)
-    except OSError as e:
+    except Exception as e:
         if verbose:
             print(f'try_makedirs("{d}") failed, {e}.')
         return False
@@ -47,7 +47,7 @@ def try_makedirs(d, verbose=False):
 def file_remove(file_path, verbose=False):
     try:
         os.remove(file_path)
-    except OSError as e:
+    except Exception as e:
         print(f'file_remove: "{file_path}" removed failed, {e}.')
     else:
         if verbose:
@@ -60,6 +60,8 @@ def dir_remove(dir_path, verbose=False):
     except shutil.Error as e:
         print(f'dir_remove: "{dir_path}" removed failed, {e}.')
     except FileNotFoundError as e:
+        print(f'dir_remove: "{dir_path}" removed failed, {e}.')
+    except Exception as e:
         print(f'dir_remove: "{dir_path}" removed failed, {e}.')
     else:
         if verbose:
@@ -82,7 +84,7 @@ def file_copy(src, dest, mode='r', verbose=False):
         if verbose:
             print(f'file_copy: destination directory "{dest_dir}" not exists, first create it.')
         try_makedirs(dest_dir, verbose)
-
+    #
     try:
         shutil.copy(src, dest)
     except PermissionError as e:
@@ -182,9 +184,9 @@ def add_snapshot_file(name, verbose):
         if file_copy(file_path, log_path, 'r', verbose):
             if verbose:
                 print(f'add_snapshot_file: snapshot file of "{name}" successfully created.')
-            else:
-                if verbose:
-                    print(f'add_snapshot_file: failed, snapshot file of "{name}" created failed.')
+        else:
+            if verbose:
+                print(f'add_snapshot_file: failed, snapshot file of "{name}" created failed.')
     else:
         if verbose:
             print(f'add_snapshot_file: failed, source file "{file_path}" is not exist.')
