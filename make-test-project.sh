@@ -7,7 +7,7 @@ script_dir=$(dirname $script_abs)
 
 base_image="image.dals/base:beta-0.1.1"
 ioc_image="image.dals/ioc-exec:beta-0.1.1"
-create_host=("worker_test" "worker_test1" "worker_test2")
+create_host=("worker_standard" "worker_test" "worker_test1" "worker_test2")
 create_num=3
 
 

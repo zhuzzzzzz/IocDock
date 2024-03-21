@@ -46,10 +46,17 @@ echo -e "$new_line" >> hosts
 cat /etc/hosts.old >> hosts
 mv hosts "$file"
 
-if [ ! "$1" == 'manager' ]; then
-	echo Finished.
+
+if [ ! "$1" == 'manager' -a ! $(hostname) == 'docker-manager' ]; then
+	echo Configuration finished for docker agent OS.
 	exit
+elif [ "$1" == 'manager' -a ! $(hostname) == 'docker-manager' ]; then
+	echo Faild. Configuration for docker manager OS should only run in host docker-manager!
+	exit
+elif [ ! "$1" == 'manager' -a $(hostname) == 'docker-manager' ]; then
+	echo Configuration for docker manager OS activated automatically by host name detecting. 
 fi
+
 
 # codes for manager only.
 # check certificates and registry dir(for docker-manager).
