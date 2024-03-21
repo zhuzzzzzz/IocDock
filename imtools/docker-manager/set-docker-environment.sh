@@ -36,15 +36,10 @@ if [ ! -f "$file" ]; then
     touch "$file"  
 fi
 #
-echo -n \# >> /etc/hosts.old
-date >> /etc/hosts.old
-echo \# backup of /etc/hosts >> /etc/hosts.old
-cat $file >> /etc/hosts.old
-echo >> /etc/hosts.old
-#
-echo -e "$new_line" >> hosts
-cat /etc/hosts.old >> hosts
-mv hosts "$file"
+echo -n \# >> /etc/hosts
+date >> /etc/hosts
+echo -e "$new_line" >> $file
+echo >> $file
 
 
 if [ ! "$1" == 'manager' -a ! $(hostname) == 'docker-manager' ]; then
