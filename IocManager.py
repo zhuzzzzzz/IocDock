@@ -349,12 +349,12 @@ def gen_compose_files(base_image, mount_dir, verbose):
                     'volumes': [
                         {
                             'type': 'bind',
-                            'source': f'{os.path.join(top_path, host_dir, ioc_data[0])}',
+                            'source': f'./{ioc_data[0]}',
                             'target': f'{os.path.join(CONTAINER_IOC_RUN_PATH, ioc_data[0])}',
                         },
                         {
                             'type': 'bind',
-                            'source': f'{os.path.join(top_path, host_dir, LOG_FILE_DIR)}',
+                            'source': f'./{LOG_FILE_DIR}',
                             'target': f'{os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR)}',
                         },
                         {
@@ -383,7 +383,7 @@ def gen_compose_files(base_image, mount_dir, verbose):
                     'volumes': [
                         {
                             'type': 'bind',
-                            'source': f'{os.path.join(top_path, host_dir, LOG_FILE_DIR)}',
+                            'source': f'./{os.path.join(LOG_FILE_DIR)}',
                             'target': f'{os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR)}',
                         },
                         {
