@@ -34,3 +34,4 @@ services:
       - REGISTRY_HTTP_TLS_KEY=/certs/dals_domain.key
 volumes:
   portainer_data:
+    external: true
