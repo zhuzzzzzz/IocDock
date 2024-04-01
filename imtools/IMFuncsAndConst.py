@@ -1,33 +1,35 @@
 import os
 import shutil
 
-# directory name or file name for IocManager
+#
+# directory name or file name definition for IocManager
+TOOLS_DIR = 'imtools'
+SNAPSHOT_PATH = os.path.join(os.getcwd(), TOOLS_DIR, 'ioc-snapshot')  # path for newest snapshot file of ioc.ini
 CONFIG_FILE_NAME = 'ioc.ini'
 REPOSITORY_DIR = 'ioc-repository'
 MOUNT_DIR = 'ioc-for-docker'  # default directory for docker mounting
 BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other run-time log files
 
-LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+# source file format used by IOC.get_src_file()
+DB_SUFFIX = ('.db',)
+PROTO_SUFFIX = ('.proto',)
+OTHER_SUFFIX = ('.others',)
 
-# path for newest snapshot file of ioc.ini
-SNAPSHOT_PATH = os.path.join(os.getcwd(), 'imtools', 'ioc-snapshot')
-
-# path in running container
+#
+# path definition in running container
 CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
 CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
 CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
 
+LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+
 #
+# IOC settings
 DEFAULT_IOC = 'ST-IOC'
-# asyn, stream device needs to be set separately for different hosts, so they are not supported by default.
 MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
+# asyn, stream device needs to be set separately for different hosts, so they are not supported by default.
 DEFAULT_MODULES = 'autosave, caputlog, status-ioc'
 PORT_SUPPORT = ('tcp/ip', 'serial')
-
-# source file format.
-DB_SUFFIX = ('.db',)
-PROTO_SUFFIX = ('.proto',)
-OTHER_SUFFIX = ('.others',)
 
 
 def try_makedirs(d, verbose=False):
@@ -132,7 +134,9 @@ def dir_copy(source_folder, destination_folder, verbose=False):
 
 # return a normalized path or return a path relative to current work path if a relative path was given.
 # use a default path if no input_path was given.
-def relative_and_absolute_path_to_abs(input_path, default_path):
+def relative_and_absolute_path_to_abs(input_path, default_path=None):
+    if not default_path:
+        default_path = ''
     if not input_path:
         input_path = default_path
     if not os.path.isabs(input_path):
@@ -214,3 +218,7 @@ def check_snapshot_file(name, verbose):
             lines1 = f1.readlines()
             lines2 = f2.readlines()
             return lines1 == lines2
+
+
+if __name__ == '__main__':
+    print(relative_and_absolute_path_to_abs(''))

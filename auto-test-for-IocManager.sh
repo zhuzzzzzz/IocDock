@@ -1,7 +1,12 @@
 #!/bin/bash
 
-script_abs=$(readlink -f "$0")
-script_dir=$(dirname $script_abs)
+# run "./auto-test-for-IocManager.sh create" to test "create" functions of IocManager.
+# run "./auto-test-for-IocManager.sh set" to test "set" functions of IocManager.
+# run "./auto-test-for-IocManager.sh exec" to test "exec" functions of IocManager.
+# run "./auto-test-for-IocManager.sh list" to test "list" functions of IocManager.
+# run "./auto-test-for-IocManager.sh all" to test all functions of IocManager.
+# set "-v" option for showing details.
+
 
 PRINT='-p' # '' or '-p'
 VERBOSE='' # '' or '-v'
@@ -230,32 +235,32 @@ echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py exec test0 test $VERBOSE -c"
+string="./IocManager.py exec test0 test $VERBOSE --run-check"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py exec test0 test $VERBOSE -o"
+string="./IocManager.py exec test0 test $VERBOSE -e"
 echo_line "$string"
 eval $string
 echo
 
 #
-string="./IocManager.py exec -d $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
+string="./IocManager.py exec -c $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
 echo_line "$string"
 eval $string
 
 #
 mkdir tt
-string="./IocManager.py exec test0 test $VERBOSE -o --mount-path ./tt; tree ./tt"
+string="./IocManager.py exec test0 test $VERBOSE -e --mount-path ./tt; tree ./tt"
 echo_line "$string"
 eval $string
 
-string="touch ./tt/ioc-for-docker/localhost/test/log/aaa.log; ./IocManager.py exec test0 test $VERBOSE -o --mount-path ./tt; tree ./tt"
+string="touch ./tt/ioc-for-docker/localhost/test/log/aaa.log; ./IocManager.py exec test0 test $VERBOSE -e --mount-path ./tt; tree ./tt"
 echo_line "$string"
 eval $string
 
-string="./IocManager.py exec test0 test $VERBOSE -o --mount-path ./tt --force-overwrite; tree ./tt"
+string="./IocManager.py exec test0 test $VERBOSE -e --mount-path ./tt --force-overwrite; tree ./tt"
 echo_line "$string"
 eval $string
 

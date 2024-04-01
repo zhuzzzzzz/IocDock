@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# make-test-project.sh make/del
-
-script_abs=$(readlink -f "$0")
-script_dir=$(dirname $script_abs)
+# run "./make-test-project.sh make" to generate IOC project test cases.
+# run "./make-test-project.sh del" to delete IOC project test cases.
+# set variables below to change generating configureation.
 
 base_image="image.dals/base:beta-0.1.1"
 ioc_image="image.dals/ioc-exec:beta-0.1.1"
@@ -33,24 +32,27 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			./IocManager.py set "$create_prefix$i" -o " host = $item "
 			./IocManager.py set "$create_prefix$i" -o " image = $ioc_image "
 			# add set options here..
-			 
+			
 			
 			# generate startup files
 			./IocManager.py exec "$create_prefix$i" -s 
 			# copy files to default mount path 
-			./IocManager.py exec "$create_prefix$i" -o --force-overwrite
-			# generate compose files in default mount path 
-			./IocManager.py exec -d --base $base_image
+			./IocManager.py exec "$create_prefix$i" -e --force-overwrite
 		done
-
-		echo 
-		echo "####### someting occurs below if IOC run-check failed #######" 
+	done
+	echo 
+	echo "####### something occurs below if IOC run-check failed #######" 
+	for item in "${create_host[@]}"; do 
+		create_prefix=${item}_
 		echo 
 		for ((i=1; i<=$create_num; i++)); do
-			./IocManager.py exec "$create_prefix$i" -c
+			./IocManager.py exec "$create_prefix$i" --run-check
 		done
-	
 	done
+	echo
+	echo "####### generate compose files in default mount path #######"
+	# generate compose files in default mount path 
+	./IocManager.py exec -c --base $base_image
 fi
 
 

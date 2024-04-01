@@ -4,7 +4,8 @@ import configparser
 from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, format_normalize, \
     add_snapshot_file, delete_snapshot_file, check_snapshot_file, relative_and_absolute_path_to_abs
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
-    DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR
+    DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR, \
+    TOOLS_DIR
 
 
 class IOC:
@@ -14,6 +15,7 @@ class IOC:
         # self.config_file_path
         # self.settings_path
         # self.log_path
+        # self.startup_path
         # self.db_path
         # self.boot_path
         # self.src_path
@@ -62,13 +64,13 @@ class IOC:
         self.log_path = os.path.join(self.dir_path, 'log')
         try_makedirs(self.log_path, self.verbose)
         self.startup_path = os.path.join(self.dir_path, 'startup')
-        self.db_path = os.path.join(self.dir_path, 'startup', 'db')
+        self.db_path = os.path.join(self.startup_path, 'db')
         try_makedirs(self.db_path, self.verbose)
-        self.boot_path = os.path.join(self.dir_path, 'startup', 'iocBoot')
+        self.boot_path = os.path.join(self.startup_path, 'iocBoot')
         try_makedirs(self.boot_path, self.verbose)
         self.src_path = os.path.join(self.dir_path, 'src')
         try_makedirs(self.src_path, self.verbose)
-        self.template_path = os.path.join(os.getcwd(), 'imtools', 'template')
+        self.template_path = os.path.join(os.getcwd(), TOOLS_DIR, 'template')
         if not os.path.exists(self.template_path):
             print("IOC.__init__: Can't find template directory. You may run the scripts at a wrong path.")
 
@@ -362,7 +364,7 @@ class IOC:
 
     # Generate all startup files for running an IOC project.
     # This function should be called after that generate_check is passed.
-    def generate_st_cmd(self, force_executing=False, force_default=False):
+    def generate_startup_files(self, force_executing=False, force_default=False):
         if not self.generate_check():
             print(f'IOC("{self.name}").generate_st_cmd": Failed. Checks failed before generating startup files.')
             return
@@ -690,7 +692,7 @@ class IOC:
         # set status: ready and save self.conf to ioc.ini file
         self.set_config('status', 'ready')
 
-        # log ioc.ini
+        # add ioc.ini snapshot file
         add_snapshot_file(self.name, self.verbose)
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
@@ -699,7 +701,23 @@ class IOC:
         check_flag = True
         # Execute normal checks in self.check_consistency firstly.
         if not self.check_consistency():
-            print(f'IOC("{self.name}").generate_check": Failed. Normal checks failed.')
+            return
+
+        # Check whether modules to be installed was set correctly.
+        module_list = self.get_config('module').strip().split(',')
+        for s in module_list:
+            if s == '':
+                continue
+            else:
+                if s.strip().lower() not in MODULES_PROVIDED:
+                    print(f'IOC("{self.name}").generate_check: Failed. Invalid module "{s}" '
+                          f'set in option "module", please check and reset the settings correctly.')
+                    check_flag = False
+
+        # Check that asyn and stream not exist at the same time.
+        if self.conf.has_section('ASYN') and self.conf.has_section('STREAM'):
+            print(f'IOC("{self.name}").generate_check: Failed. ASYN and StreamDevice '
+                  f'should set in one IOC project simultaneously, please check and reset the settings correctly.')
             check_flag = False
 
         # Check whether section ASYN was set correctly.(now only check port type and other settings are not empty.)
@@ -781,35 +799,17 @@ class IOC:
                               f'StreamDevice not found in "{self.name}/settings/".')
                         consistency_flag = False
         else:
-            # Normal checks for an IOC project.
+            # Normal checks for an IOC project. Normal check always return True, only give prompt for check results.
             # Check whether name in ioc.ini is equal to directory name.
             if self.get_config('name') != os.path.basename(self.dir_path):
-                print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Name defined in ioc.ini '
-                      f'"{self.get_config("name")}" is not same as the directory name. This will be automatically '
-                      f'corrected when IOC project next initializing, you should be aware that what\'s happening.')
-                consistency_flag = False
+                print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Name defined in ioc.ini '
+                      f'"{self.get_config("name")}" is not same as the directory name. Program exit and automatically '
+                      f'set IOC name according to directory name.')
+                return
 
             # Check status 'ready' for file change, set status 'unready' if file changed.
             if self.check_config('status', 'ready') and not check_snapshot_file(self.name, self.verbose):
-                print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Settings has been changed after'
+                print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
                       f' generating startup files.')
                 self.set_config('status', 'unready')
-                consistency_flag = False
-
-            # Check whether modules to be installed was set correctly.
-            module_list = self.get_config('module').strip().split(',')
-            for s in module_list:
-                if s == '':
-                    continue
-                else:
-                    if s.strip().lower() not in MODULES_PROVIDED:
-                        print(f'IOC("{self.name}").check_consistency: Failed for normal-check. Invalid module "{s}" '
-                              f'set in option "module", please check and reset the settings correctly.')
-                        consistency_flag = False
-
-            # Check that asyn and stream not exist at the same time.
-            if self.conf.has_section('ASYN') and self.conf.has_section('STREAM'):
-                print(f'IOC("{self.name}").check_consistency: Failed for normal-check. ASYN and StreamDevice '
-                      f'should not be set simultaneously, please check and reset the settings correctly.')
-                consistency_flag = False
         return consistency_flag
