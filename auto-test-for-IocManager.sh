@@ -353,7 +353,7 @@ echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py list 'module = cap' $VERBOSE | ./IocManager.py list 'module = aut' $VERBOSE"
+string="./IocManager.py list 'module = cap' $VERBOSE | xargs ./IocManager.py list 'module = aut' $VERBOSE -l "
 echo_line "$string"
 eval $string
 
