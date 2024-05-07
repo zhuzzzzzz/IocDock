@@ -1,6 +1,6 @@
 - 优化命令行命令帮助及提示信息的显示逻辑(Done)
-- README文件改为.md格式
-- 更新README文件 按功能和操作编写使用文档
+- README文件改为.md格式(Done)
+- 更新README文件 按功能和操作编写使用文档(Done)
 - 备份文件的恢复(Done)
 - 导出文件至ioc-for-docker目录时，不应导出全部IOC，当只有部分IOC需要修改时，这将覆盖其他不需修改的IOC目录，导致他们都需要重启操作系统
 以更新NFS mount. 可以设置选择导出哪个或哪些IOC(Done)
