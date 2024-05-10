@@ -67,6 +67,13 @@ echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 if [ $CREATE_TEST == 'n' -a $SET_TEST == 'n' -a $EXEC_TEST == 'n' -a $LIST_TEST == 'n' ]; then
 echo 
 echo no function was specified to test!
+echo
+echo 'run "./auto-test-for-IocManager.sh create" to test "create" functions of IocManager.'
+echo 'run "./auto-test-for-IocManager.sh set" to test "set" functions of IocManager.'
+echo 'run "./auto-test-for-IocManager.sh exec" to test "exec" functions of IocManager.'
+echo 'run "./auto-test-for-IocManager.sh list" to test "list" functions of IocManager.'
+echo 'run "./auto-test-for-IocManager.sh all" to test all functions of IocManager.'
+echo 'set "-v" option for showing details.'
 fi 
 
 

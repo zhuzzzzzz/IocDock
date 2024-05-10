@@ -29,7 +29,7 @@ class IOC:
 
         if not dir_path or not os.path.isdir(dir_path):
             self.dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, 'default')
-            print(f'IOC.__init__: No path given or wrong path given, init at default path: "{self.dir_path}".')
+            print(f'IOC.__init__: No path given or wrong path given, use default path: "{self.dir_path}".')
         self.dir_path = os.path.normpath(dir_path)
         try_makedirs(self.dir_path, self.verbose)
         self.config_file_path = os.path.join(self.dir_path, CONFIG_FILE_NAME)
@@ -45,7 +45,8 @@ class IOC:
             self.set_config('bin', '')
             self.set_config('module', '')
             self.set_config('description', '')
-            self.set_config('status', 'unready')
+            self.set_config('status', 'created')
+            self.set_config('snapshot', '')
             self.set_config('file', '', section='DB')
         else:
             if self.verbose:
@@ -78,7 +79,8 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
-        self.add_settings_template()
+        if self.first_init:
+            self.add_settings_template()
         # set attributes in configure file a normalized format.
         self.normalize_config()
 
@@ -171,7 +173,7 @@ class IOC:
         else:
             for item in (os.path.join(self.dir_path, 'startup'), self.settings_path, self.log_path):
                 dir_remove(item, self.verbose)
-            self.set_config('status', 'unready')
+            self.set_config('snapshot', 'changed')
 
     def add_asyn_template(self, port_type):
         sc = 'ASYN'
@@ -221,14 +223,13 @@ class IOC:
         self.set_config('file_copy_a', '', sc)
 
     def add_settings_template(self):
-        if self.first_init:
-            sc = 'SETTING'
-            self.set_config('report_info', 'true', sc)
-            self.set_config('caputlog_json', 'false', sc)
-            self.set_config('epics_env_a',
-                            f'REPORT_FILE={os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")}',
-                            sc)
-            self.set_config('epics_env_b', '', sc)
+        sc = 'SETTING'
+        self.set_config('report_info', 'true', sc)
+        self.set_config('caputlog_json', 'false', sc)
+        self.set_config('epics_env_a',
+                        f'REPORT_FILE={os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")}',
+                        sc)
+        self.set_config('epics_env_b', '', sc)
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
@@ -689,9 +690,8 @@ class IOC:
         if self.verbose:
             print(f'IOC("{self.name}").generate_st_cmd: Successfully create "st.cmd" file.')
 
-        # set status: ready and save self.conf to ioc.ini file
-        self.set_config('status', 'ready')
-
+        # set status: generated and save self.conf to ioc.ini file
+        self.set_config('status', 'generated')
         # add ioc.ini snapshot file
         add_snapshot_file(self.name, self.verbose)
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
@@ -699,9 +699,6 @@ class IOC:
     # Configurations checks before generating startup files.
     def generate_check(self):
         check_flag = True
-        # Execute normal checks in self.check_consistency firstly.
-        if not self.check_consistency():
-            return
 
         # Check whether modules to be installed was set correctly.
         module_list = self.get_config('module').strip().split(',')
@@ -772,15 +769,16 @@ class IOC:
         if run_check:
             # Checks before copying the IOC project for container mounting(running the IOC project).
             # Only generated projects can do run-check.
-            if not self.check_config('status', 'ready'):
-                print(f'IOC("{self.name}").check_consistency: Failed for run-check. IOC startup files not generated.')
+            if not self.check_config('status', 'exported'):
+                print(f'IOC("{self.name}").check_consistency: Failed for run-check. '
+                      f'IOC startup files should be generated and exported to mount dir.')
                 return False
 
-            # Check whether ioc.ini file be modified after generating startup files.
+            # Check whether ioc.ini file be modified after generating startup files or after exporting to mount dir.
             if not check_snapshot_file(self.name, self.verbose):
                 print(f'IOC("{self.name}").check_consistency: Failed for run-check. Settings has been changed after '
                       f'generating startup files.')
-                self.set_config('status', 'unready')
+                self.set_config('snapshot', 'changed')
                 return False
 
             # Check whether .substitutions file is created.
@@ -807,9 +805,14 @@ class IOC:
                       f'set IOC name according to directory name.')
                 return
 
-            # Check status 'ready' for file change, set status 'unready' if file changed.
-            if self.check_config('status', 'ready') and not check_snapshot_file(self.name, self.verbose):
+            # Check for file change.
+            if self.check_config('status', 'generated') and not check_snapshot_file(self.name, self.verbose):
                 print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                      f' generating startup files.')
-                self.set_config('status', 'unready')
+                      f' generating startup files, you need to re-generate startup files.')
+                self.set_config('snapshot', 'changed')
+            if self.check_config('status', 'exported') and not check_snapshot_file(self.name, self.verbose):
+                print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
+                      f' exporting to mount dir, you need to re-generate and re-export startup files.')
+                self.set_config('snapshot', 'changed')
+
         return consistency_flag

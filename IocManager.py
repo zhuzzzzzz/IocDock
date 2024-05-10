@@ -6,11 +6,12 @@ import os
 import datetime
 import tarfile
 from collections.abc import Iterable
+from tabulate import tabulate
 
 from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
-                                     relative_and_absolute_path_to_abs,
+                                     relative_and_absolute_path_to_abs, check_snapshot_file, add_snapshot_file,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
-                                     BACKUP_DIR)
+                                     BACKUP_DIR, )
 from imtools.IocClass import IOC
 
 
@@ -43,9 +44,12 @@ def create_ioc(name, args, config=None, verbose=False):
                     for option in config.options(section):
                         if section == 'IOC' and option == 'name':  # Name should not be directly copied.
                             continue
+                        if section == 'IOC' and option == 'status':  # status should not be directly copied.
+                            continue
+                        if section == 'IOC' and option == 'snapshot':  # snapshot should not be directly copied.
+                            continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
-                ioc_temp.set_config('status', 'unready')  # Status 'ready' should be changed to 'unready'.
             print(f'create_ioc: Success. IOC "{name}" created.')
             ioc_temp.check_consistency()
             if args.print_ioc:
@@ -85,9 +89,12 @@ def set_ioc(name, args, config=None, verbose=False):
                     for option in config.options(section):
                         if section == 'IOC' and option == 'name':
                             continue
+                        if section == 'IOC' and option == 'status':
+                            continue
+                        if section == 'IOC' and option == 'snapshot':
+                            continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
-                ioc_temp.set_config('status', 'unready')
                 modify_flag = True
             ioc_temp.check_consistency()
             if modify_flag:
@@ -155,30 +162,38 @@ def get_all_ioc(dir_path=None, from_list=None):
 
 
 # Show IOC projects that meeting the specified conditions and section, AND logic is implied to each condition.
-def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_info=False, verbose=False):
+def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_info=False, show_info=False,
+                     verbose=False):
     section = section.upper()  # to support case-insensitive filter for section.
 
     ioc_list = get_all_ioc(from_list=from_list)
     if from_list is not None:
-        print(f'Search IOC projects from list "{from_list}":')
+        print(f'List IOC projects from "{from_list}":')
 
     index_to_remove = []
     if not condition:
-        # Filter IOC projects by not having specified section when no condition is specified.
+        # Filter IOC projects by section when no condition specified.
         # Default will return all IOC projects, because all IOC projects have section "IOC".
         for i in range(0, len(ioc_list)):
             if not ioc_list[i].conf.has_section(section=section):
                 index_to_remove.append(i)
         if verbose:
-            print(f'No condition specified, list IOC projects that with section "{section}":')
+            print(f'No condition specified, list IOC projects that has section "{section}":')
     elif isinstance(condition, str):
         key, value = condition_parse(condition)
         if key:
-            for i in range(0, len(ioc_list)):
-                if not ioc_list[i].check_config(key, value, section):
-                    index_to_remove.append(i)
-            if verbose:
-                print(f'Results for section "{section}" and condition "{condition}":')
+            if key.lower() != 'name':
+                for i in range(0, len(ioc_list)):
+                    if not ioc_list[i].check_config(key, value, section):
+                        index_to_remove.append(i)
+                if verbose:
+                    print(f'Results for section "{section}", condition "{condition}":')
+            else:
+                for i in range(0, len(ioc_list)):
+                    if value not in ioc_list[i].name:
+                        index_to_remove.append(i)
+                if verbose:
+                    print(f'Results for name matching:')
         else:
             # Do not return any result when wrong condition parsed.
             index_to_remove = [i for i in range(0, len(ioc_list))]
@@ -193,15 +208,20 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
             if key:
                 valid_flag = True
                 valid_condition.append(c)
-                for i in range(0, len(ioc_list)):
-                    if not ioc_list[i].check_config(key, value, section):
-                        index_to_remove.append(i)
+                if key.lower() != 'name':
+                    for i in range(0, len(ioc_list)):
+                        if not ioc_list[i].check_config(key, value, section):
+                            index_to_remove.append(i)
+                else:
+                    for i in range(0, len(ioc_list)):
+                        if value not in ioc_list[i].name:
+                            index_to_remove.append(i)
             else:
                 if verbose:
                     print(f'Skipped invalid condition "{c}".')
         if valid_flag:
             if verbose:
-                print(f'Results for conditions section "{section}" and "{valid_condition}":')
+                print(f'Results for section "{section}", condition "{valid_condition}":')
         else:
             # Do not return any result, if there is no valid condition given.
             index_to_remove = [i for i in range(0, len(ioc_list))]
@@ -212,19 +232,27 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
         if verbose:
             print(f'No result. Invalid condition: "{condition}".')
 
+    # get index to print.
     index_to_preserve = []
     for i in range(0, len(ioc_list)):
         if i in index_to_remove:
             continue
         else:
             index_to_preserve.append(i)
+    # print results.
+    raw_print = [["Name", "Host", "Status", "Snapshot"], ]
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
+        elif raw_info:
+            raw_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("status"),
+                              ioc_list[i].get_config("snapshot")])
+            # print(f'{ioc_list[i].name}\t\t\t{ioc_list[i].get_config("host")}\t\t\t{ioc_list[i].get_config("status")}')
         else:
-            print(ioc_list[i].name, end=' ')
+            print(ioc_list[i].name)
     else:
-        print('')
+        if raw_info:
+            print(tabulate(raw_print, headers="firstrow", tablefmt='plain'))
 
     for i in index_to_preserve:
         ioc_list[i].check_consistency()
@@ -238,6 +266,9 @@ def execute_ioc(args):
         repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
     elif args.restore_backup_file:
         restore_backup(backup_path=args.backup_file, force_overwrite=args.force_overwrite, verbose=args.verbose)
+    elif args.run_check:
+        for ioc_temp in get_all_ioc():
+            ioc_temp.check_consistency(run_check=True)
     else:
         # operation for specified IOC projects.
         if not args.name:
@@ -255,8 +286,6 @@ def execute_ioc(args):
                     elif args.gen_startup_file:
                         ioc_temp.generate_startup_files(force_executing=args.force_silent,
                                                         force_default=args.force_default)
-                    elif args.run_check:
-                        ioc_temp.check_consistency(run_check=True)
                     elif args.export_for_mount:
                         export_for_mount(name, mount_dir=args.mount_path, force_overwrite=args.force_overwrite,
                                          verbose=args.verbose)
@@ -277,8 +306,14 @@ def execute_ioc(args):
 def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False):
     dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
     ioc_temp = IOC(dir_path, verbose)
-    if not ioc_temp.check_consistency(run_check=True):
-        print(f'export_for_mount: Failed. Run checks failed.')
+
+    if not (ioc_temp.check_config('status', 'generated') or ioc_temp.check_config('status', 'exported')):
+        print(f'export_for_mount: Failed. Export checks failed for IOC {name}, startup files should be generated.')
+        return
+    if not check_snapshot_file(name, verbose):
+        print(f'export_for_mount: Failed. Export checks failed for IOC {name}, '
+              f'Settings has been changed, startup files should be re-generated.')
+        ioc_temp.set_config('snapshot', 'changed')
         return
 
     container_name = ioc_temp.get_config('container')
@@ -342,6 +377,9 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
                 return
         else:
             print(f'export_for_mount: Success. IOC "{name}" updated in {top_path}.')
+    ioc_temp.set_config('status', 'exported')
+    # add ioc.ini snapshot file
+    add_snapshot_file(name, verbose)
 
 
 # Generate Docker Compose file for all hosts and IOC projects in given path.
@@ -654,12 +692,13 @@ if __name__ == '__main__':
     parser_execute.add_argument('--force-default', action="store_true",
                                 help='use default when generating startup files.')
     parser_execute.add_argument('-e', '--export-for-mount', action="store_true",
-                                help='export runtime files of specified generated IOC projects into a mount path. '
+                                help='export runtime files of specified IOC projects into a mount dir. '
                                      'set "--mount-path" to choose a top path for mount dir. '
-                                     'set "--force-overwrite" to enable overwrite when IOC in mount directory '
+                                     'set "--force-overwrite" to enable overwrite when IOC in mount dir '
                                      'conflicts with the one in repository. ')
     parser_execute.add_argument('--mount-path', type=str, default='..',
-                                help='top path of mount path. default the upper directory "../".')
+                                help=f'top path for mount dir, dir "{MOUNT_DIR}" would be created here if not exists. '
+                                     f'default the upper directory "../".')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
                                 help='force overwrite if the IOC project already exists.')
     parser_execute.add_argument('-c', '--gen-compose-file', action="store_true",
@@ -674,17 +713,17 @@ if __name__ == '__main__':
                                      'set "--backup-path" to choose a backup directory. '
                                      'set "--backup-mode" to choose a backup mode.')
     parser_execute.add_argument('--backup-path', type=str, default='../ioc-backup',
-                                help='path used for storing backup files of IOC projects. default "../ioc-backup".')
+                                help='dir path used for storing backup files of IOC projects. default "../ioc-backup".')
     parser_execute.add_argument('--backup-mode', type=str, default='src',
                                 help='backup mode for IOC projects. "all": back up all files including running files'
                                      '(files generated by autosave, etc.). "src": just back up files of IOC '
                                      'settings and source files. default "src" mode.')
     parser_execute.add_argument('-r', '--restore-backup-file', action="store_true",
-                                help='restore IOC projects from backup file. set "--backup-path" to choose a backup'
+                                help='restore IOC projects from tgz backup file. set "--backup-path" to choose a backup'
                                      'directory. set "--force-overwrite" to enable overwrite when IOC in backup file '
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--backup-file', type=str, default='',
-                                help='backup file of IOC projects. format "../ioc-backup/file".')
+                                help='tgz backup file of IOC projects. format "../ioc-backup/file".')
     parser_execute.add_argument('--run-check', action="store_true",
                                 help='execute run-check for all IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
@@ -698,8 +737,9 @@ if __name__ == '__main__':
     parser_list.add_argument('-s', '--section', type=str, default='IOC',
                              help='specify a section applied for condition filtering. default section: "IOC".')
     parser_list.add_argument('-l', '--ioc-list', type=str, nargs='*',
-                             help='from a IOC list to get IOC projects filtered by given conditions.')
+                             help='from a IOC list to filter IOC projects by given conditions.')
     parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC settings.')
+    parser_list.add_argument('-r', '--raw-info', action="store_true", help='show IOC settings in raw format.')
     parser_list.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_list.set_defaults(func='parse_list')
 
@@ -769,8 +809,8 @@ if __name__ == '__main__':
                 set_ioc(item, args, config=conf_temp, verbose=args.verbose)
     if args.func == 'parse_list':
         # ./iocManager.py list
-        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list, show_info=args.show_info,
-                         verbose=args.verbose)
+        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list, raw_info=args.raw_info,
+                         show_info=args.show_info, verbose=args.verbose)
     if args.func == 'parse_remove':
         # ./iocManager.py remove
         for item in args.name:
