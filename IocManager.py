@@ -244,7 +244,7 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
-        elif raw_info:
+        if raw_info:
             raw_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("status"),
                               ioc_list[i].get_config("snapshot")])
             # print(f'{ioc_list[i].name}\t\t\t{ioc_list[i].get_config("host")}\t\t\t{ioc_list[i].get_config("status")}')
@@ -253,6 +253,7 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
     else:
         if raw_info:
             print(tabulate(raw_print, headers="firstrow", tablefmt='plain'))
+            print('')
 
     for i in index_to_preserve:
         ioc_list[i].check_consistency()
