@@ -14,7 +14,7 @@ BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other
 # source file format used by IOC.get_src_file()
 DB_SUFFIX = ('.db',)
 PROTO_SUFFIX = ('.proto',)
-OTHER_SUFFIX = ('.others',)
+OTHER_SUFFIX = ('.im',)
 
 #
 # path definition in running container

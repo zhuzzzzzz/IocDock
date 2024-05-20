@@ -558,8 +558,10 @@ class IOC:
             # lines_before_dbload
             temp = [
                 '#asyn\n',
-                f'{self.get_config("port_config", sc)}\n',
             ]
+            for option in self.conf.options(sc):
+                if option.startswith('port_config'):
+                    temp.append(f'{self.get_config(option, sc)}\n')
             for option in self.conf.options(sc):
                 if option.startswith('asyn_option_'):
                     temp.append(f'{self.get_config(option, sc)}\n')
@@ -583,8 +585,10 @@ class IOC:
             temp = [
                 '#StreamDevice\n',
                 f'epicsEnvSet("STREAM_PROTOCOL_PATH", {self.settings_path_in_docker})\n',
-                f'{self.get_config("port_config", sc)}\n',
             ]
+            for option in self.conf.options(sc):
+                if option.startswith('port_config'):
+                    temp.append(f'{self.get_config(option, sc)}\n')
             for option in self.conf.options(sc):
                 if option.startswith('asyn_option_'):
                     temp.append(f'{self.get_config(option, sc)}\n')

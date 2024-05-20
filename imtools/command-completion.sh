@@ -156,16 +156,6 @@ _mycommand_completion() {
 		if [ ${COMP_WORDS[1]} == "exec" ]; then 
 			case "$3" in 
 				"--add-src-file")
-				compopt -o nospace
-				file_list=$(compgen -f -- $2) # Variable Type!!!
-				for file in $file_list; do
-					if [ -d $(readlink -f "$file") ]; then
-						COMPREPLY+=( "${file}/" )
-					else
-						COMPREPLY+=( "${file}" )
-					fi
-				done
-				return 0
 				;;
 				"--src-path")
 				compopt -o nospace
@@ -213,6 +203,7 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--restore-backup-file")
+				COMPREPLY=( $(compgen -W "--backup-file " -- $2) )
 				;;
 				"--backup-file")
 				compopt -o nospace
