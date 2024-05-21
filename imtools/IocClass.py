@@ -180,9 +180,9 @@ class IOC:
         if port_type in PORT_SUPPORT:
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
-                self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)', section=sc)
+                self.set_config('port_config_a', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)', section=sc)
             elif port_type == 'serial':
-                self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)',
+                self.set_config('port_config_a', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)',
                                 section=sc)
                 self.set_config('asyn_option_a', 'asynSetOption("L0", -1, "baud", "9600")', section=sc)
                 self.set_config('asyn_option_b', 'asynSetOption("L0", -1, "bits", "8")', section=sc)
@@ -201,9 +201,9 @@ class IOC:
         if port_type in PORT_SUPPORT:
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
-                self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)', section=sc)
+                self.set_config('port_config_a', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)', section=sc)
             elif port_type == 'serial':
-                self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)',
+                self.set_config('port_config_a', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)',
                                 section=sc)
                 self.set_config('asyn_option_a', 'asynSetOption("L0", -1, "baud", "9600")', section=sc)
                 self.set_config('asyn_option_b', 'asynSetOption("L0", -1, "bits", "8")', section=sc)
