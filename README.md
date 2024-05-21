@@ -13,23 +13,23 @@ IOC项目管理工具.
   ```./IocManager.py create IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 创建时设置某些字段  
   ```./IocManager.py create IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件创建   
   ```./IocManager.py create IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 指定使用的模块创建   
-  ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-asyn/--add-stream --port-type ["tcp/ip"/"serial"]```
+  ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
   创建ASYN或STREAM模板并设置端口类型   
   ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-raw``` 创建时设置添加原始命令模板
 
 
 - 将IOC项目所需的源文件从指定目录添加至IOC项目的src/目录, 必要时可多次运行此命令.
-  当前支持自动识别添加的文件名称后缀为 ```.db``` ``` .proto``` ```.im``` .   
-  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a --src-path```
+  当前支持自动识别添加的文件名称后缀为 ```.db``` ```.proto``` ```.im``` .   
+  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a --src-path xxx```
 - 也可直接手动将所有文件复制至src/目录, 指定```-a```且不指定```--src-path```时, 脚本将自动识别添加src/目录内的源文件   
   ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a```
 
 
-- 进一步配置IOC项目, 如 .db文件的加载项, 指定协议文件等等          
+- 进一步配置IOC项目, 如 .db文件的加载项及宏替换, 指定协议文件等等          
   ```./IocManager.py set IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 单独设置某些字段  
   ```./IocManager.py set IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件覆盖设置    
   ```./IocManager.py set IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 设置使用的模块   
-  ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-asyn/--add-stream --port-type ["tcp/ip"/"serial"]```
+  ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
   设置ASYN或STREAM模板并设置端口类型   
   ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-raw``` 设置添加原始命令模板
 
@@ -50,7 +50,7 @@ IOC项目管理工具.
 - 导出IOC项目运行文件至mount目录. 默认不覆盖, 即, 当IOC项目已存在于monut目录时, 只更新部分运行文件(
   IOC运行的一些插件模块的配置文件将被保留). 也可以设置覆盖导入(指定 ```--force-overwrite```,
   此时插件模块的配置文件将被初始化).    
-  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -e --mount-path xxx [--force-overwrite]```
+  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -e [--mount-path xxx] [--force-overwrite]```
 
 #### 为导出的IOC项目生成 docker compose 文件
 
@@ -73,7 +73,7 @@ IOC项目管理工具.
 
 
 - 进行备份, 指定将备份文件存储在某个位置及备份模式, 这将自动在目标位置生成带有时间戳的备份文件   
-  ```./IocManager.py exec -b --backup-path xxx --backup-mode ["src"/"all"]```
+  ```./IocManager.py exec -b --backup-path xxx [--backup-mode "src"/"all"]```
 
 
 - 执行命令进行备份文件的恢复, 指定需要恢复的备份文件及恢复模式(是否覆盖写入),
@@ -91,11 +91,11 @@ IOC项目管理工具.
 
 
 - 根据筛选条件, 列出所有符合条件的IOC项目名称, 可以指定多个与逻辑同时筛选条件    
-  ```./IocManager.py list condition [condition2 condition3 ...]```
+  ```./IocManager.py list condition [condition2 condition3 ...] [-i] [-r]```
 
 
 - 通过名称模糊匹配, 列出IOC项目, 如下将查找所有名称中包含"abc"的IOC项目   
-  ```./IocManager.py list name=abc```
+  ```./IocManager.py list name=abc [-i] [-r]```
 
 
 - 查找具有指定字段设置的IOC项目, 如下将查找所有具有 "GHI" section 且其中abc字段属性值为def的IOC项目   
@@ -130,7 +130,7 @@ snapshot:       ------------------------ IOC配置文件的备份状态. ""(配�
 
 [DB]       ----------------------------- 默认section, 用以存储IOC加载db文件的配置信息
 file:       ---------------------------- db文件列表
-load_a:       -------------------------- 设置宏替换加载项. 格式: *.db, A=abc, B=def. 注意带 "_(x)" 后缀的选项意为支持同时设置多个此类变量, 使用时需依序更改后缀字母, 下同.
+load_a:       -------------------------- 设置带宏替换加载项. 格式: *.db, A=abc, B=def. 注意带 "_(x)" 后缀的选项意为支持同时设置多个此类变量, 使用时需依序更改后缀字母, 下同.
 load_b:       -------------------------- 设置不使用宏替换加载项. 格式: *.db
 
 [SETTING]       ------------------------ 默认section, 用以存储IOC的附加配置信息
@@ -150,7 +150,7 @@ epics_env_b:       --------------------- 设置多个EPICS环境变量.
 <pre>
 [ASYN]
 port_type: tcp/ip
-port_config: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
+port_config_a: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
 load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
 </pre>
 
@@ -159,7 +159,7 @@ load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=x
 <pre>
 [ASYN]
 port_type: serial
-port_config: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
+port_config_a: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
 asyn_option_a: asynSetOption("L0", -1, "baud", "9600")
 asyn_option_b: asynSetOption("L0", -1, "bits", "8")
 asyn_option_c: asynSetOption("L0", -1, "parity", "none")
@@ -174,7 +174,6 @@ load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=x
 <pre>
 [STREAM]
 port_type: tcp/ip
-port_config: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
 port_config_a: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
 protocol_file: x.proto, xx.proto
 </pre>
@@ -184,7 +183,7 @@ protocol_file: x.proto, xx.proto
 <pre>
 [STREAM]
 port_type: serial
-port_config: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
+port_config_a: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
 asyn_option_a: asynSetOption("L0", -1, "baud", "9600")
 asyn_option_b: asynSetOption("L0", -1, "bits", "8")
 asyn_option_c: asynSetOption("L0", -1, "parity", "none")
@@ -194,8 +193,8 @@ asyn_option_f: asynSetOption("L0", -1, "crtscts", "Y")
 protocol_file: xxx.proto
 </pre>
 
-- 开放的IOC启动文件命令设置原始接口. 支持st.cmd文件命令的自定义设置以及文件的复制操作, 将文件从本地计算机的某位置复制到IOC项目的运行文件夹中,
-  再行导出.
+- 开放的IOC启动文件原始命令设置接口. 支持st.cmd文件命令的自定义设置以及文件的复制操作, 在执行IOC项目运行文件的生成时,
+  会将命令直接添加至st.cmd脚本, 会将文件从本地计算机的某位置复制到IOC项目的运行文件夹中. 之后再执行脚本的导出命令将IOC导出即可.
 
 > 注: 使用file_copy_字段的格式: "path to src file" : "path to dest file" [: "mode"].   
 > "mode"不设置时默认为"r", 表示只读复制. 可设置目的文件的权限为"rwx"的任意组合, 同Linux操作系统.

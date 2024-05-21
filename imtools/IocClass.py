@@ -728,11 +728,12 @@ class IOC:
                 print(f'IOC("{self.name}").generate_check": Failed. Invalid option '
                       f'"port_type" in section "{sc}", please check and reset the settings correctly.')
                 check_flag = False
-            if self.get_config('port_config', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option '
-                      f'"port_config" detected in section "{sc}", please check and reset the settings correctly.')
-                check_flag = False
             for option in self.conf.options(sc):
+                if option.startswith('port_config'):
+                    if self.get_config(option, sc) == '':
+                        print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in section '
+                              f'"{sc}", please check and reset the settings correctly.')
+                        check_flag = False
                 if option.startswith('asyn_option_'):
                     if self.get_config(option, sc) == '':
                         print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in '
@@ -751,15 +752,16 @@ class IOC:
                 print(f'IOC("{self.name}").generate_check: Failed. Invalid option '
                       f'"port_type" in section "{sc}", please check and reset the settings correctly.')
                 check_flag = False
-            if self.get_config('port_config', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "port_config" detected in'
-                      f' section "{sc}", please check and reset the settings correctly.')
-                check_flag = False
             if self.get_config('protocol_file', sc) == '':
                 print(f'IOC("{self.name}").generate_check: Failed. Empty option "protocol_file" detected in '
                       f'section "{sc}", please check and reset the settings correctly.')
                 check_flag = False
             for option in self.conf.options(sc):
+                if option.startswith('port_config'):
+                    if self.get_config(option, sc) == '':
+                        print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in section '
+                              f'"{sc}", please check and reset the settings correctly.')
+                        check_flag = False
                 if option.startswith('asyn_option_'):
                     if self.get_config(option, sc) == '':
                         print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in '
