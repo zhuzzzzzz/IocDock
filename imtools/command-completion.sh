@@ -186,6 +186,8 @@ _mycommand_completion() {
 				"--gen-compose-file")
 				;;
 				"--base-image")
+				compopt -o nospace
+				COMPREPLY=( $(compgen -W "image.dals/ " -- $2) )
 				return 0
 				;;
 				"--gen-backup-file")
