@@ -124,6 +124,10 @@ IOC项目管理工具.
 
 ### IOC配置文件说明
 
+<pre>
+可选配置的用*号标注, 未使用*号标注的均为必须设置项. 某些必须设置项会由脚本自动生成而无须手动设置. 
+</pre>
+
 #### 通用配置设置
 
 <pre>
@@ -132,8 +136,8 @@ name:       ---------------------------- IOC项目名称
 host:       ---------------------------- IOC项目将在哪个主机中运行
 image:       --------------------------- IOC项目将使用哪个镜像运行
 bin:       ----------------------------- IOC将使用镜像中的哪个可执行IOC运行
-module:       -------------------------- IOC将安装的模块. 目前支持四个自动安装模块: autosave, caputlog, status-ioc, status-os
-description:       --------------------- IOC的描述信息
+*module:       ------------------------- IOC将安装的模块. 目前支持四个自动安装模块: autosave, caputlog, status-ioc, status-os
+*description:       -------------------- IOC的描述信息
 status:       -------------------------- IOC项目的配置状态. "created"(IOC项目未生成运行文件) 或 "generated"(IOC项目已生成运行文件) 或 "exported"(IOC项目已导出)
 snapshot:       ------------------------ IOC配置文件的备份状态. ""(配置文件未备份) 或 "logged"(配置文件已备份且与备份文件一致) 或 "changed"(配置文件与备份文件不一致)
 
@@ -145,16 +149,27 @@ load_b:       -------------------------- 设置不使用宏替换加载项. 格�
 [SETTING]       ------------------------ 默认section, 用以存储IOC的附加配置信息
 report_info:       --------------------- 设置IOC启动时报告当前IOC的PV信息. "true" 或 "false"
 caputlog_json:       ------------------- 设置caPutLog模块使用JSON格式. "true"(使用json格式) 或 "false"(使用文本格式)
-epics_env_a:       --------------------- 设置EPICS环境变量. 格式: "xxx"="xxx"
-epics_env_b:       --------------------- 设置多个EPICS环境变量.
+*epics_env_a:       -------------------- 设置EPICS环境变量. 格式: "xxx"="xxx"
+*epics_env_b:       -------------------- 设置多个EPICS环境变量.
 </pre>
+
+#### 配置规范和命名规范
+
+> name[IOC]: IOC名称, 与IOC被分配的运行容器名称相关, 一般要符合容器的命名规范, 可以使用小写或下划线、数字, 避免与host字段相同
+
+> host[IOC]: 主机名称, 指IOC将被分配至哪个主机中运行,
+> 其中主机名称的命名方式必须符合正则表达式 ```"^[a-z0-9][a-z0-9_-]*$"```
+
+> image[IOC]: 镜像名称, 指当前可以使用的编译好的镜像
+
+> bin[IOC]: 镜像中可执行的IOC名称, 不同的IOC可能安装有不同的插件, 因此需要正确选择可执行的IOC
 
 #### 特殊配置设置
 
 以下配置均为模板, 实际使用中根据需求调整设置. 对部分可以有重复项的设置(如 load_ , cmd_ , file_copy_ , port_config_ 等)
 的后缀应使用英文字母进行排序区分.
 
-- 基于网络的ASYN配置, 设置项将直接添加至IOC启动脚本文件中
+- 基于网络的ASYN配置模板, 设置项将直接添加至IOC启动脚本文件中
 
 <pre>
 [ASYN]
@@ -163,7 +178,7 @@ port_config_a: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
 load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
 </pre>
 
-- 基于串口的ASYN配置, 设置项将直接添加至IOC启动脚本文件中
+- 基于串口的ASYN配置模板, 设置项将直接添加至IOC启动脚本文件中
 
 <pre>
 [ASYN]
@@ -178,7 +193,7 @@ asyn_option_f: asynSetOption("L0", -1, "crtscts", "Y")
 load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
 </pre>
 
-- 基于网络的StreamDevice配置, 设置项将直接添加至IOC启动脚本文件中. 多个协议文件以逗号分隔.
+- 基于网络的StreamDevice配置模板, 设置项将直接添加至IOC启动脚本文件中. 多个协议文件以逗号分隔.
 
 <pre>
 [STREAM]
@@ -187,7 +202,7 @@ port_config_a: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
 protocol_file: x.proto, xx.proto
 </pre>
 
-- 基于串口的StreamDevice配置, 设置项将直接添加至IOC启动脚本文件中
+- 基于串口的StreamDevice配置模板, 设置项将直接添加至IOC启动脚本文件中
 
 <pre>
 [STREAM]
@@ -210,10 +225,10 @@ protocol_file: xxx.proto
 
 <pre>
 [RAW]
-cmd_before_dbload_a: 
-cmd_at_dbload_a: 
-cmd_after_iocinit_a: 
-file_copy_a: 
+*cmd_before_dbload_a: 
+*cmd_at_dbload_a: 
+*cmd_after_iocinit_a: 
+*file_copy_a: 
 </pre>
 
 ### 项目目录结构
