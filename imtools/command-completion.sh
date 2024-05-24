@@ -1,3 +1,4 @@
+#!/bin/bash
 
 # pipe and xargs will not influence command completion.
 
@@ -8,15 +9,21 @@ _mycommand_completion() {
 	# $2 : current word
 	# $3 : previous word
 
+	#
+	prompt="" 
+	option_set_first=""
+	option_set_last=""
+	
 	# 
 	sub_command_opts="create set exec list remove --help"
 	#
-	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --port-type --add-raw --print-ioc --verbose --help"
+	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
 	_options_prompt="host= image= bin= description= load_=  epics_env_= report_info=true report_info=false caputlog_json=true caputlog_json=false "
 	_section_prompt="DB SETTING ASYN STREAM RAW"
 	_port_type_prompt="tcp/ip serial"
 	#
-	exec_prompt="--add-src-file --src-path --gen-startup-file --force-silent --force-default --export-for-mount --mount-path --force-overwrite --gen-compose-file --base-image --gen-backup-file --backup-path --backup-mode --restore-backup-file --backup-file --run-check --verbose --help"
+	exec_prompt="--verbose --help" # general prompt for all exec commands.
+	exec_ioc_prompt="--gen-startup-file --export-for-mount --add-src-file" # exec commands for specified IOC projects.
 	_backup_mode_prompt="src all"
 	#
 	list_prompt="--section --ioc-list --show-info --raw-info --verbose --help"
@@ -71,44 +78,56 @@ _mycommand_completion() {
 	if [ $COMP_CWORD -gt 2 ]; then
 		
 		# echo "${COMP_WORDS[@]}"
-		
-		# check whether any option was set.
+		# echo  ${#COMP_WORDS[@]}
+
+		# check whether any option was set(before the current word).
 		ioc_list_temp=$ioc_list
+		exec_ioc_prompt_temp=$exec_ioc_prompt
 		_condition_type_prompt_temp=$_condition_type_prompt
-		for word in ${COMP_WORDS[@]}; do
-			case $word in
+		for (( i=0; i<$((${#COMP_WORDS[@]}-1)); i++)); do
+			case ${COMP_WORDS[$i]} in
 				-*)
-				ioc_list_temp="" # once any option was set, ioc projects will not be prompted. used for "create" "set" "exec" "remove".
-				_condition_type_prompt_temp="" # once any option was set, conditions will not be prompted. used for "list".
+				option_set_first=${COMP_WORDS[$i]} # get that first option.
+				ioc_list_temp="" # ioc projects will not be prompted. used for "create" "set" "exec" "remove". 
+				exec_ioc_prompt_temp="" # commands for specified IOC projects will not be prompted, otherwise those should be prompt. used for "exec". 
+				_condition_type_prompt_temp="" # conditions will not be prompted. used for "list".
 				break
 				;;
 			esac
 		done
+		
+		# get the option at last(right before the current word).
+		for (( i=0; i<$((${#COMP_WORDS[@]}-1)); i++)); do
+			case ${COMP_WORDS[$i]} in
+				-*)
+				option_set_last=${COMP_WORDS[$i]}
+				;;
+			esac
+		done
+		
+		# if "--hosts" was set at last, get hosts list.
+		if [ "$option_set_last" == "--hosts" ]; then
+			# get hosts list.
+			if [ -d "$MOUNT_PATH" ]; then 
+				hosts_list=$(ls $MOUNT_PATH)   
+			else
+				hosts_list="" 
+			fi	
+		fi
+		
 		# options completion for "create" and "set".
 		if [ ${COMP_WORDS[1]} == "create" -o ${COMP_WORDS[1]} == "set" ]; then 
-			# if only "--options" specified,  _options_prompt should be prompted.
-			for word in ${COMP_WORDS[@]}; do
-				case $word in
-					"--options")
-					prompt=$_options_prompt
-					;;
-					-*)
-					prompt=""
-					break
-					;;
-				esac
-			done
 			case "$3" in 
-				"--options")
+				"-o"|"--options")
 				compopt -o nospace
 				COMPREPLY=( $(compgen -W "${_options_prompt}" $2) )
 				return 0
 				;;
-				"--section")
+				"-s"|"--section")
 				COMPREPLY=( $(compgen -W "${_section_prompt}" -- $2) )
 				return 0
 				;;
-				"--ini-file")
+				"-f"|"--ini-file")
 				compopt -o nospace
 				file_list=$(compgen -f -- $2) # Variable Type!!!
 				for file in $file_list; do
@@ -129,8 +148,10 @@ _mycommand_completion() {
 				"--autosave")
 				;;
 				"--add-asyn")
+				prompt="--port-type"
 				;;
 				"--add-stream")
+				prompt="--port-type"
 				;;
 				"--port-type")
 				COMPREPLY=( $(compgen -W "${_port_type_prompt}" -- $2) )
@@ -138,13 +159,17 @@ _mycommand_completion() {
 				;;
 				"--add-raw")
 				;;
-				"--print-ioc")
+				"-p"|"--print-ioc")
 				;;
-				"--verbose")
+				"-v"|"--verbose")
 				;;
-				"--help")
+				"-h"|"--help")
 				;;
 				*)
+				if [ "$option_set_last" == "--options" -o "$option_set_last" == "-o" ]; then 
+					compopt -o nospace
+					prompt=$_options_prompt
+				fi
 				;;
 			esac
 			prompt="$prompt $create_prompt"
@@ -155,7 +180,8 @@ _mycommand_completion() {
 		# options completion for "exec".
 		if [ ${COMP_WORDS[1]} == "exec" ]; then 
 			case "$3" in 
-				"--add-src-file")
+				"-a"|"--add-src-file")
+				prompt="--src-path"
 				;;
 				"--src-path")
 				compopt -o nospace
@@ -165,13 +191,17 @@ _mycommand_completion() {
 				done
 				return 0
 				;;
-				"--gen-startup-file")
+				"-s"|"--gen-startup-file")
+				prompt="--force-silent --force-default"
 				;;
 				"--force-silent")
+				prompt="--force-default"
 				;;
 				"--force-default")
+				prompt="--force-silent"
 				;;
-				"--export-for-mount")
+				"-e"|"--export-for-mount")
+				prompt="--mount-path --force-overwrite"
 				;;
 				"--mount-path")
 				compopt -o nospace
@@ -182,15 +212,28 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--force-overwrite")
+				if [ "$option_set_first" == "--export-for-mount" ]; then
+					prompt="--mount-path"
+				elif [ "$option_set_first" == "--restore-backup-file" ]; then
+					prompt="--backup-path"
+				else
+					return 0
+				fi
 				;;
-				"--gen-compose-file")
+				"-c"|"--gen-compose-file")
+				prompt="--base-image --hosts"
+				;;
+				"--hosts")
+				COMPREPLY=( $(compgen -W "${hosts_list}" -- $2) )
+				return 0
 				;;
 				"--base-image")
 				compopt -o nospace
 				COMPREPLY=( $(compgen -W "image.dals/ " -- $2) )
 				return 0
 				;;
-				"--gen-backup-file")
+				"-b"|"--gen-backup-file")
+				prompt="--backup-path --backup-mode"
 				;;
 				"--backup-path")
 				compopt -o nospace
@@ -204,7 +247,7 @@ _mycommand_completion() {
 				COMPREPLY=( $(compgen -W "${_backup_mode_prompt}" -- $2) )
 				return 0
 				;;
-				"--restore-backup-file")
+				"-r"|"--restore-backup-file")
 				COMPREPLY=( $(compgen -W "--backup-file " -- $2) )
 				;;
 				"--backup-file")
@@ -221,14 +264,28 @@ _mycommand_completion() {
 				;;
 				"--run-check")
 				;;
-				"--verbose")
+				"-v"|"--verbose")
 				;;
-				"--help")
+				"-h"|"--help")
 				;;
 				*)
+				if [ "$option_set_last" == "--mount-path" ]; then 
+					prompt="--force-overwrite"
+				elif [ "$option_set_last" == "--hosts" ]; then 
+					prompt="--base-image ${hosts_list}"
+				elif [ "$option_set_last" == "--base-image" ]; then 
+					prompt="--hosts"
+				elif [ "$option_set_last" == "--backup-path" ]; then 
+					prompt="--backup-mode"
+				elif [ "$option_set_last" == "--backup-mode" ]; then 
+					prompt="--backup-path"
+				elif [ "$option_set_last" == "--backup-file" ]; then 
+					prompt="--force-overwrite"
+				fi
 				;;
 			esac
-			prompt=$exec_prompt
+			prompt="$prompt $exec_ioc_prompt_temp"
+			prompt="$prompt $exec_prompt"
 			prompt="$prompt $ioc_list_temp"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 			return 0
@@ -236,33 +293,31 @@ _mycommand_completion() {
 		# options completion for "list".
 		if [ ${COMP_WORDS[1]} == "list" ]; then 
 			case "$3" in
-				"--section")
+				"-s"|"--section")
 				COMPREPLY=( $(compgen -W "${_section_prompt}" -- $2) )
 				return 0
 				;;
-				"--ioc-list")
+				"-l"|"--ioc-list")
+				COMPREPLY=( $(compgen -W "${ioc_list}" -- $2) )
+				return 0
 				;;
-				"--show-info")
+				"-i"|"--show-info")
 				;;
-				"--raw-info")
+				"-r"|"--raw-info")
 				;;
-				"--verbose")
+				"-v"|"--verbose")
 				;;
-				"--help")
+				"-h"|"--help")
 				;;
 				*)
+				if [ "$option_set_last" == "--ioc-list" -o "$option_set_last" == "-l" ]; then 
+					prompt="--section --show-info --raw-info --verbose $ioc_list"
+					COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
+					return 0
+				fi
 				;;
 			esac
-			# "--ioc-list" option should be used at last, and no other options will be prompted under this situation.
-			for word in ${COMP_WORDS[@]}; do
-				case $word in
-					"--ioc-list")
-					COMPREPLY=( $(compgen -W "${ioc_list}" -- $2) )
-					return 0
-					;;
-				esac
-			done
-			prompt=$list_prompt
+			prompt="$prompt $list_prompt"
 			prompt="$prompt $_condition_type_prompt_temp"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 			return 0
@@ -270,13 +325,13 @@ _mycommand_completion() {
 		# options completion for "remove".
 		if [ ${COMP_WORDS[1]} == "remove" ]; then 
 			case "$3" in
-				"--remove-all")
+				"-r"|"--remove-all")
 				;;
-				"--force")
+				"-f"|"--force")
 				;;				
-				"--verbose")
+				"-v"|"--verbose")
 				;;
-				"--help")
+				"-h"|"--help")
 				;;
 				*)
 				;;

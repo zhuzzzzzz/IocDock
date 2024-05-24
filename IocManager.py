@@ -262,7 +262,7 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
 def execute_ioc(args):
     # operation for all IOC projects.
     if args.gen_compose_file:
-        gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path, verbose=args.verbose)
+        gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path, hosts=args.hosts, verbose=args.verbose)
     elif args.gen_backup_file:
         repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
     elif args.restore_backup_file:
@@ -386,7 +386,7 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
 # Generate Docker Compose file for all hosts and IOC projects in given path.
 # base_image: image with epics base for iocLogServer.
 # mount_dir: top dir for MOUNT_DIR.
-def gen_compose_files(base_image, mount_dir, verbose):
+def gen_compose_files(base_image, mount_dir, hosts, verbose):
     mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
     top_path = os.path.join(mount_path, MOUNT_DIR)
     if not os.path.isdir(top_path):
@@ -396,7 +396,12 @@ def gen_compose_files(base_image, mount_dir, verbose):
         if verbose:
             print(f'gen_compose_files: Working at {top_path}.')
 
+    processed_dir = []
     for host_dir in os.listdir(top_path):
+        if hosts == ['allprojects'] or host_dir in hosts:
+            processed_dir.append(host_dir)
+        else:
+            continue
         host_path = os.path.join(top_path, host_dir)
         if not os.path.isdir(host_path):
             continue
@@ -500,7 +505,15 @@ def gen_compose_files(base_image, mount_dir, verbose):
                 yaml.dump(yaml_data, file, default_flow_style=False)
             print(f'gen_compose_files: Create compose file for host "{host_dir}".')
     else:
-        print(f'gen_compose_files: Creating compose files Finished.')
+        if hosts == ['allprojects']:
+            print(f'gen_compose_files: Creating compose files for all IOC projects finished.')
+        else:
+            for item in hosts:
+                if item not in processed_dir:
+                    print(f'gen_compose_files: Creating compose files for host "{item}" failed.')
+            else:
+                if not hosts:
+                    print(f'gen_compose_files: No host was specified to generate compose file!')
 
 
 # Generate backup file of IOC project settings.
@@ -703,9 +716,13 @@ if __name__ == '__main__':
     parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
                                 help='force overwrite if the IOC project already exists.')
     parser_execute.add_argument('-c', '--gen-compose-file', action="store_true",
-                                help='generate Docker Compose file for all hosts and IOC projects in mount directory. '
+                                help='generate Docker Compose file hosts and IOC projects in mount directory. '
                                      'set "--mount-path" to select a top path to find mount dir. '
-                                     'set "--base-image" to choose a base image uesd for running iocLogserver.')
+                                     'set "--base-image" to choose a base image uesd for running iocLogserver.'
+                                     'set "--hosts" to choose hosts in mount dir to generate Docker Compose file.'
+                                )
+    parser_execute.add_argument('--hosts', type=str, nargs='*', default=[],
+                                help='hosts in mount dir to generate Docker Compose file.')
     parser_execute.add_argument('--base-image', type=str, default='base:dev',
                                 help='base image used for running iocLogserver. default "base:dev".')
     parser_execute.add_argument('-b', '--gen-backup-file', action="store_true",
