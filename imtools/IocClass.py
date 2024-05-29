@@ -753,58 +753,72 @@ class IOC:
         return check_flag
 
     # Check consistency with ioc.ini and st.cmd and running containers.
-    def check_consistency(self, run_check=False):
+    def check_consistency(self, run_check=False, print_info=True):
         consistency_flag = True
-        if run_check:
-            # Checks before copying the IOC project for container mounting(running the IOC project).
-            # Only generated projects can do run-check.
-            if not self.check_config('status', 'exported'):
-                print(f'IOC("{self.name}").check_consistency: Failed for run-check. '
-                      f'IOC startup files should be generated and exported to mount dir.')
-                return False
 
-            # Check whether ioc.ini file be modified after generating startup files or after exporting to mount dir.
-            if not check_snapshot_file(self.name, self.verbose):
-                print(f'IOC("{self.name}").check_consistency: Failed for run-check. Settings has been changed after '
-                      f'generating startup files.')
-                self.set_config('snapshot', 'changed')
-                return False
+        # output redirect.
+        with open(os.devnull, 'w') as devnull:
+            original_stdout = sys.stdout
+            original_stderr = sys.stderr
+            sys.stdout = devnull
+            sys.stderr = devnull
+            if print_info:
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
 
-            # Check whether .substitutions file is created.
-            if not os.path.isfile(os.path.join(self.db_path, f'{self.name}.substitutions')):
-                print(
-                    f'IOC("{self.name}").check_consistency: Failed for run-check. '
-                    f'"{self.name}.substitutions" not found.')
-                consistency_flag = False
+            #####
+            if run_check:
+                # Checks before copying the IOC project for container mounting(running the IOC project).
+                # Only generated projects can do run-check.
+                if not self.check_config('status', 'exported'):
+                    print(f'IOC("{self.name}").check_consistency: Failed for run-check. '
+                          f'IOC project is not in "exported" status.')
+                    return False
+                # Check whether ioc.ini file be modified after generating startup files or after exporting to mount dir.
+                if not check_snapshot_file(self.name, self.verbose):
+                    print(f'IOC("{self.name}").check_consistency: Failed for run-check. Settings has been changed and '
+                          f'IOC project may need to be re-generated and exported.')
+                    self.set_config('snapshot', 'changed')
+                    return False
+                # Check whether .substitutions file is created.
+                if not os.path.isfile(os.path.join(self.db_path, f'{self.name}.substitutions')):
+                    print(f'IOC("{self.name}").check_consistency: Failed for run-check. '
+                          f'"{self.name}.substitutions" not found.')
+                    consistency_flag = False
+                # Check protocol file if StreamDevice defined.
+                if self.conf.has_section('STREAM'):
+                    ps = self.get_config('protocol_file', 'STREAM').split(',')
+                    for item in ps:
+                        if item not in os.listdir(self.settings_path):
+                            print(
+                                f'IOC("{self.name}").check_consistency: Failed for run-check. Protocol file "{item}" for '
+                                f'StreamDevice not found in "{self.name}/settings/".')
+                            consistency_flag = False
+            else:
+                # Normal checks for an IOC project. Normal check always return True, only give prompt for check results.
+                # Check whether name in ioc.ini is equal to directory name.
+                if self.get_config('name') != os.path.basename(self.dir_path):
+                    sys.stderr.write(
+                        f'IOC("{self.name}").check_consistency: Warning by normal-check. Name defined in ioc.ini '
+                        f'"{self.get_config("name")}" is not same as the directory name. Program exit and automatically '
+                        f'set IOC name according to directory name.\n')
+                    return
+                # Check for file change and project status.
+                if self.check_config('status', 'generated') and not check_snapshot_file(self.name, self.verbose):
+                    sys.stderr.write(
+                        f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
+                        f' generating startup files, you need to re-generate startup files.\n')
+                    self.set_config('snapshot', 'changed')
+                if self.check_config('status', 'exported') and not check_snapshot_file(self.name, self.verbose):
+                    sys.stderr.write(
+                        f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
+                        f' exporting to mount dir, you need to re-generate and re-export startup files.\n')
+                    self.set_config('snapshot', 'changed')
+                if self.check_config('status', 'generated') and self.check_config('snapshot', 'logged'):
+                    sys.stderr.write(f'IOC("{self.name}").check_consistency: Warning by normal-check. '
+                                     f'IOC project has been generated but not exported to mount dir yet.\n')
 
-            # Check protocol file if StreamDevice defined.
-            if self.conf.has_section('STREAM'):
-                ps = self.get_config('protocol_file', 'STREAM').split(',')
-                for item in ps:
-                    if item not in os.listdir(self.settings_path):
-                        print(f'IOC("{self.name}").check_consistency: Failed for run-check. Protocol file "{item}" for '
-                              f'StreamDevice not found in "{self.name}/settings/".')
-                        consistency_flag = False
-        else:
-            # Normal checks for an IOC project. Normal check always return True, only give prompt for check results.
-            # Check whether name in ioc.ini is equal to directory name.
-            if self.get_config('name') != os.path.basename(self.dir_path):
-                sys.stderr.write(
-                    f'IOC("{self.name}").check_consistency: Warning by normal-check. Name defined in ioc.ini '
-                    f'"{self.get_config("name")}" is not same as the directory name. Program exit and automatically '
-                    f'set IOC name according to directory name.\n')
-                return
-
-            # Check for file change.
-            if self.check_config('status', 'generated') and not check_snapshot_file(self.name, self.verbose):
-                sys.stderr.write(
-                    f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                    f' generating startup files, you need to re-generate startup files.\n')
-                self.set_config('snapshot', 'changed')
-            if self.check_config('status', 'exported') and not check_snapshot_file(self.name, self.verbose):
-                sys.stderr.write(
-                    f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                    f' exporting to mount dir, you need to re-generate and re-export startup files.\n')
-                self.set_config('snapshot', 'changed')
-
+            #####
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
         return consistency_flag

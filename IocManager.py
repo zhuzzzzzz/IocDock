@@ -182,7 +182,9 @@ def get_all_ioc(dir_path=None, from_list=None):
     for ioc_name in items:
         subdir_path = os.path.join(dir_path, ioc_name)
         if os.path.isdir(subdir_path) and CONFIG_FILE_NAME in os.listdir(subdir_path):
-            ioc_list.append(IOC(subdir_path))
+            ioc_temp = IOC(subdir_path)
+            ioc_temp.check_consistency(print_info=False)
+            ioc_list.append(ioc_temp)
     return ioc_list
 
 
