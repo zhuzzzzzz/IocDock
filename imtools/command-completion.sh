@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set exec list remove --help"
+	sub_command_opts="create set exec list remove rename --help"
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
 	_options_prompt="host= image= bin= description= load_=  epics_env_= report_info=true report_info=false caputlog_json=true caputlog_json=false "
@@ -30,6 +30,8 @@ _mycommand_completion() {
 	_condition_type_prompt="name= host= status=created status=generated status=exported snapshot=logged snapshot=changed"
 	#
 	remove_prompt="--remove-all --force --verbose --help"
+	#
+	rename_prompt="--verbose --help"
 
 
 	# sub-commands completion.( 2nd position )
@@ -65,6 +67,10 @@ _mycommand_completion() {
 			;;
 			"remove")
 			prompt="" # "remove" should specify an IOC project firstly.
+			prompt="$ioc_list $prompt"
+			;;
+			"rename")
+			prompt="" # "rename" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			*)
@@ -340,6 +346,17 @@ _mycommand_completion() {
 			prompt="$prompt $ioc_list_temp"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 			return 0
+		fi	
+		# options completion for "rename".
+		if [ ${COMP_WORDS[1]} == "rename" ]; then 
+			if [ $COMP_CWORD -eq 3 ]; then 
+				compopt -o nospace
+				COMPREPLY=( $(compgen -W "${ioc_list}" -- $2) )
+				return 0
+			else
+				COMPREPLY=( $(compgen -W "${rename_prompt}" -- $2) )
+				return 0
+			fi
 		fi		
 
 	fi

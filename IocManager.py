@@ -3,6 +3,7 @@ import argparse
 import configparser
 import yaml
 import os
+import sys
 import datetime
 import tarfile
 from collections.abc import Iterable
@@ -138,6 +139,30 @@ def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
                 print(f'remove_ioc: Success. IOC "{name}" removed, directory "src/" and file "ioc.ini" are preserved.')
     else:
         print(f'remove_ioc: Failed. IOC "{name}" not found.')
+
+
+def rename_ioc(old_name, new_name, verbose):
+    dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, old_name)
+    if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+        try:
+            os.rename(dir_path, os.path.join(os.getcwd(), REPOSITORY_DIR, new_name))
+        except Exception as e:
+            print(f'rename_ioc: Failed. Changing directory name failed, "{e}".')
+        else:
+            if verbose:
+                IOC(os.path.join(os.getcwd(), REPOSITORY_DIR, new_name), verbose=verbose)
+            else:
+                with open(os.devnull, 'w') as devnull:
+                    original_stdout = sys.stdout
+                    original_stderr = sys.stderr
+                    sys.stdout = devnull
+                    sys.stderr = devnull
+                    IOC(os.path.join(os.getcwd(), REPOSITORY_DIR, new_name), verbose=verbose)
+                    sys.stdout = original_stdout
+                    sys.stderr = original_stderr
+            print(f'rename_ioc: Success. IOC project name changed from "{old_name}" to "{new_name}".')
+    else:
+        print(f'rename_ioc: Failed. IOC "{old_name}" not found.')
 
 
 # Get IOC projects in given name list for given path. return object list of all IOC projects, if name list not given.
@@ -745,7 +770,7 @@ if __name__ == '__main__':
     parser_execute.add_argument('--run-check', action="store_true",
                                 help='execute run-check for all IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
-    parser_execute.set_defaults(func='parser_execute')
+    parser_execute.set_defaults(func='parse_execute')
 
     #
     parser_list = subparsers.add_parser('list', help='List existing IOC projects filtered by given conditions.')
@@ -769,6 +794,13 @@ if __name__ == '__main__':
     parser_remove.add_argument('-f', '--force', action="store_true", help='force removal, do not ask.')
     parser_remove.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_remove.set_defaults(func='parse_remove')
+
+    #
+    parser_rename = subparsers.add_parser('rename', help='Rename IOC project.')
+    parser_rename.add_argument('name', type=str, nargs=2,
+                               help='only accept 2 arguments, old name and new name of the IOC project.')
+    parser_rename.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_rename.set_defaults(func='parse_rename')
 
     args = parser.parse_args()
     if not any(vars(args).values()):
@@ -833,6 +865,9 @@ if __name__ == '__main__':
         # ./iocManager.py remove
         for item in args.name:
             remove_ioc(item, all_remove=args.remove_all, force_removal=args.force, verbose=args.verbose)
-    if args.func == 'parser_execute':
+    if args.func == 'parse_execute':
         # ./iocManager.py exec
         execute_ioc(args)
+    if args.func == 'parse_rename':
+        # ./iocManager.py rename
+        rename_ioc(args.name[0], args.name[1], args.verbose)
