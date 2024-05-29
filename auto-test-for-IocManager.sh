@@ -118,17 +118,17 @@ echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py create test7 $PRINT $VERBOSE -f './imtools/template/test/test.ini'"
+string="./IocManager.py create test7 $PRINT $VERBOSE -f './imtools/template/test/ioc.ini'"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py create test8 $PRINT $VERBOSE -f './imtools/template/test/test.ini' --caputlog"
+string="./IocManager.py create test8 $PRINT $VERBOSE -f './imtools/template/test/ioc.ini' --caputlog"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py create test9 $PRINT $VERBOSE -f './imtools/template/test/test.ini' -o 'module=abc'"
+string="./IocManager.py create test9 $PRINT $VERBOSE -f './imtools/template/test/ioc.ini' -o 'module=abc'"
 echo_line "$string"
 eval $string
 
@@ -180,17 +180,17 @@ echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py set test $PRINT $VERBOSE -f './imtools/template/test/test.ini'"
+string="./IocManager.py set test $PRINT $VERBOSE -f './imtools/template/test/ioc.ini'"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py set test $PRINT $VERBOSE -f './imtools/template/test/test.ini' --caputlog"
+string="./IocManager.py set test $PRINT $VERBOSE -f './imtools/template/test/ioc.ini' --caputlog"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py set test $PRINT $VERBOSE -f './imtools/template/test/test.ini' -o 'module=abc'"
+string="./IocManager.py set test $PRINT $VERBOSE -f './imtools/template/test/ioc.ini' -o 'module=abc'"
 echo_line "$string"
 eval $string
 
@@ -222,7 +222,7 @@ echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py set test0 test $PRINT $VERBOSE -f './imtools/template/test/test.ini'"
+string="./IocManager.py set test0 test $PRINT $VERBOSE -f './imtools/template/test/ioc.ini'"
 echo_line "$string"
 eval $string
 
@@ -253,7 +253,7 @@ eval $string
 echo
 
 #
-string="./IocManager.py exec -c $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
+string="./IocManager.py exec -c --hosts localhost $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
 echo_line "$string"
 eval $string
 
@@ -319,15 +319,15 @@ string="./IocManager.py create test6 -p --add-raw"
 eval $string
 
 #
-string="./IocManager.py create test7 -p -f './imtools/template/test/test.ini'"
+string="./IocManager.py create test7 -p -f './imtools/template/test/ioc.ini'"
 eval $string
 
 #
-string="./IocManager.py create test8 -p -f './imtools/template/test/test.ini' --caputlog"
+string="./IocManager.py create test8 -p -f './imtools/template/test/ioc.ini' --caputlog"
 eval $string
 
 #
-string="./IocManager.py create test9 -p -f './imtools/template/test/test.ini' -o 'module=abc'"
+string="./IocManager.py create test9 -p -f './imtools/template/test/ioc.ini' -o 'module=abc'"
 eval $string
 
 #

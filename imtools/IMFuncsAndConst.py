@@ -167,8 +167,19 @@ def condition_parse(condition: str, split_once=None):
         return None, None
 
 
+def multi_line_parse(input_str: str):
+    lines = input_str.strip().split(sep='\n')
+    res = []
+    for item in lines:
+        if item != '':
+            res.append(item)
+    return res
+
+
 def format_normalize(raw_str: str):
     # a standard format of value, for example "ramper.db,name = xxx1" will be changed to "ramper.db, name=xxx1"
+    raw_str = raw_str.replace(';', '\n')
+    raw_str = '\n'.join(filter(None, raw_str.split('\n')))  # number of return char will be reduced to 1.
     raw_str = ' '.join(filter(None, raw_str.split(' ')))  # number of space char will be reduced to 1.
     raw_str = raw_str.replace(', ', ',')
     raw_str = raw_str.replace(' ,', ',')

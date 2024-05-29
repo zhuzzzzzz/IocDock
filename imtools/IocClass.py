@@ -1,8 +1,10 @@
 import os
 import configparser
+import sys
 
-from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, format_normalize, \
-    add_snapshot_file, delete_snapshot_file, check_snapshot_file, relative_and_absolute_path_to_abs
+from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
+    format_normalize, relative_and_absolute_path_to_abs, \
+    add_snapshot_file, delete_snapshot_file, check_snapshot_file
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
     DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR, \
     TOOLS_DIR
@@ -48,6 +50,7 @@ class IOC:
             self.set_config('status', 'created')
             self.set_config('snapshot', '')
             self.set_config('file', '', section='DB')
+            self.set_config('load', '', section='DB')
         else:
             if self.verbose:
                 print(f'IOC.__init__: Initialize IOC from file "{self.config_file_path}".')
@@ -149,7 +152,12 @@ class IOC:
             for section in self.conf.sections():
                 print(f'[{section}]')
                 for key, value in self.conf.items(section):
-                    print(f'{key}: {value}')
+                    if len(multi_line_parse(value)) > 1:
+                        temp_value = f'\n{value.strip()}'
+                    else:
+                        temp_value = value.strip()
+                    temp_value = temp_value.replace('\n', '\n\t')
+                    print(f'{key}: {temp_value}')
                 else:
                     print('')
 
@@ -178,20 +186,25 @@ class IOC:
     def add_asyn_template(self, port_type):
         sc = 'ASYN'
         if port_type in PORT_SUPPORT:
+            if self.conf.has_section(sc):
+                self.conf.remove_section(sc)
+                self.write_config()
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
-                self.set_config('port_config_a', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)', section=sc)
+                self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
             elif port_type == 'serial':
-                self.set_config('port_config_a', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)',
+                self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n',
                                 section=sc)
-                self.set_config('asyn_option_a', 'asynSetOption("L0", -1, "baud", "9600")', section=sc)
-                self.set_config('asyn_option_b', 'asynSetOption("L0", -1, "bits", "8")', section=sc)
-                self.set_config('asyn_option_c', 'asynSetOption("L0", -1, "parity", "none")', section=sc)
-                self.set_config('asyn_option_d', 'asynSetOption("L0", -1, "stop", "1")', section=sc)
-                self.set_config('asyn_option_e', 'asynSetOption("L0", -1, "clocal", "Y")', section=sc)
-                self.set_config('asyn_option_f', 'asynSetOption("L0", -1, "crtscts", "Y")', section=sc)
-            self.set_config('load_a',
-                            'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")',
+                asyn_option_str = ''
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "baud", "9600")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "bits", "8")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "parity", "none")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "stop", "1")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "clocal", "Y")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "crtscts", "Y")\n'
+                self.set_config('asyn_option', asyn_option_str, section=sc)
+            self.set_config('load',
+                            'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n',
                             section=sc)
         else:
             print(f'IOC("{self.name}").add_asyn_template: Failed. Invalid port type "{port_type}".')
@@ -199,37 +212,44 @@ class IOC:
     def add_stream_template(self, port_type):
         sc = 'STREAM'
         if port_type in PORT_SUPPORT:
+            if self.conf.has_section(sc):
+                self.conf.remove_section(sc)
+                self.write_config()
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
-                self.set_config('port_config_a', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)', section=sc)
+                self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
+                self.conf.remove_option(sc, 'asyn_option')
+                self.write_config()
             elif port_type == 'serial':
-                self.set_config('port_config_a', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)',
+                self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n',
                                 section=sc)
-                self.set_config('asyn_option_a', 'asynSetOption("L0", -1, "baud", "9600")', section=sc)
-                self.set_config('asyn_option_b', 'asynSetOption("L0", -1, "bits", "8")', section=sc)
-                self.set_config('asyn_option_c', 'asynSetOption("L0", -1, "parity", "none")', section=sc)
-                self.set_config('asyn_option_d', 'asynSetOption("L0", -1, "stop", "1")', section=sc)
-                self.set_config('asyn_option_e', 'asynSetOption("L0", -1, "clocal", "Y")', section=sc)
-                self.set_config('asyn_option_f', 'asynSetOption("L0", -1, "crtscts", "Y")', section=sc)
+                asyn_option_str = ''
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "baud", "9600")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "bits", "8")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "parity", "none")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "stop", "1")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "clocal", "Y")\n'
+                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "crtscts", "Y")\n'
+                self.set_config('asyn_option', asyn_option_str, section=sc)
             self.set_config('protocol_file', 'xxx.proto', section=sc)
         else:
             print(f'IOC("{self.name}").add_stream_template: Failed. Invalid port type "{port_type}".')
 
     def add_raw_cmd_template(self):
         sc = 'RAW'
-        self.set_config('cmd_before_dbload_a', '', sc)
-        self.set_config('cmd_at_dbload_a', '', sc)
-        self.set_config('cmd_after_iocinit_a', '', sc)
-        self.set_config('file_copy_a', '', sc)
+        if self.conf.has_section(sc):
+            return
+        self.set_config('cmd_before_dbload', '', sc)
+        self.set_config('cmd_at_dbload', '', sc)
+        self.set_config('cmd_after_iocinit', '', sc)
+        self.set_config('file_copy', '', sc)
 
     def add_settings_template(self):
         sc = 'SETTING'
+        epics_env_str = f'REPORT_FILE={os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")}\n'
         self.set_config('report_info', 'true', sc)
         self.set_config('caputlog_json', 'false', sc)
-        self.set_config('epics_env_a',
-                        f'REPORT_FILE={os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")}',
-                        sc)
-        self.set_config('epics_env_b', '', sc)
+        self.set_config('epics_env', epics_env_str, sc)
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
@@ -307,38 +327,34 @@ class IOC:
     # This function should be called after getting source files and setting the load_* options.
     def generate_substitution_file(self):
         lines_to_add = []
-        for option in self.conf.options('DB'):
-            if option.startswith('load_'):
-                load_string = self.conf.get('DB', option)
-                db_file, *conditions = load_string.split(',')
-                # print(conditions)
-                db_file = db_file.strip()
-                if db_file not in os.listdir(self.src_path):
-                    print(f'IOC("{self.name}").generate_substitution_file: Failed. DB file "{db_file}" not found in '
-                          f'self.src_path while parsing option "{option}: {load_string}".')
+        for load_line in multi_line_parse(self.get_config('load', 'DB')):
+            db_file, *conditions = load_line.split(',')
+            # print(conditions)
+            db_file = db_file.strip()
+            if db_file not in os.listdir(self.src_path):
+                print(f'IOC("{self.name}").generate_substitution_file: Failed. DB file "{db_file}" not found in '
+                      f'path "{self.src_path}" while parsing string "{load_line}" in "load" option.')
+                return False
+            else:
+                file_copy(os.path.join(self.src_path, db_file), os.path.join(self.db_path, db_file), 'r', self.verbose)
+            ks = ''
+            vs = ''
+            for c in conditions:
+                k, v = condition_parse(c)
+                if k:
+                    ks += f'{k}, '
+                    vs += f'{v}, '
+                else:
+                    print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad load string '
+                          f'"{load_line}" defined in ioc.ini. You may need to check and set the attributes correctly.')
                     return False
-                else:
-                    file_copy(os.path.join(self.src_path, db_file), os.path.join(self.db_path, db_file),
-                              'r', self.verbose)
-                ks = ''
-                vs = ''
-                for c in conditions:
-                    k, v = condition_parse(c)
-                    if k:
-                        ks += f'{k}, '
-                        vs += f'{v}, '
-                    else:
-                        print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad condition '
-                              f'"{option}: {load_string}" defined in ioc.ini. You may need to '
-                              f'check and set the attributes correctly.')
-                        return False
-                else:
-                    ks = ks.strip(', ')
-                    vs = vs.strip(', ')
-                lines_to_add.append(f'\nfile db/{db_file} {{\n')
-                lines_to_add.append(f'    pattern {{ {ks} }}\n')
-                lines_to_add.append(f'        {{ {vs} }}\n')
-                lines_to_add.append(f'}}\n')
+            else:
+                ks = ks.strip(', ')
+                vs = vs.strip(', ')
+            lines_to_add.append(f'\nfile db/{db_file} {{\n')
+            lines_to_add.append(f'    pattern {{ {ks} }}\n')
+            lines_to_add.append(f'        {{ {vs} }}\n')
+            lines_to_add.append(f'}}\n')
         if lines_to_add:
             # write .substitutions file.
             file_path = os.path.join(self.db_path, f'{self.name}.substitutions')
@@ -360,7 +376,7 @@ class IOC:
             return True
         else:
             print(f'IOC("{self.name}").generate_substitution_file: Failed. '
-                  f'At least one "load_" option should be defined to generate "{self.name}.substitutions".')
+                  f'At least one load string should be defined to generate "{self.name}.substitutions".')
             return False
 
     # Generate all startup files for running an IOC project.
@@ -443,20 +459,15 @@ class IOC:
         # st.cmd
         # lines_before_dbload
         temp = ['#settings\n', ]
-        for option in self.conf.options(sc):
-            if option.startswith('epics_env_'):
-                env_def = self.get_config(option, sc)
-                if env_def == '':  # empty options automatically skipped
-                    continue
-                env_name, env_val = condition_parse(env_def)
-                if env_name:
-                    temp.append(f'epicsEnvSet("{env_name}","{env_val}")\n')
-                else:
-                    print(env_name, env_val)
-                    print(f'IOC("{self.name}").generate_st_cmd: Failed. Bad SETTING define detected '
-                          f'in ioc.ini "{option}: {env_def}". You may need to '
-                          f'check and set the attributes correctly.')
-                    return
+        for env_def in multi_line_parse(self.get_config("epics_env", sc)):
+            env_name, env_val = condition_parse(env_def)
+            if env_name:
+                temp.append(f'epicsEnvSet("{env_name}","{env_val}")\n')
+            else:
+                print(env_name, env_val)
+                print(f'IOC("{self.name}").generate_st_cmd: Failed. Bad environment "{env_def}" defined in SETTING '
+                      f'section. You may need to check and set the attributes correctly.')
+                return
         else:
             temp.append('\n')
         lines_before_dbload.extend(temp)
@@ -558,20 +569,13 @@ class IOC:
             # lines_before_dbload
             temp = [
                 '#asyn\n',
+                f'{self.get_config("port_config", sc)}\n',
+                f'{self.get_config("asyn_option", sc)}\n',
+                '\n',
             ]
-            for option in self.conf.options(sc):
-                if option.startswith('port_config'):
-                    temp.append(f'{self.get_config(option, sc)}\n')
-            for option in self.conf.options(sc):
-                if option.startswith('asyn_option_'):
-                    temp.append(f'{self.get_config(option, sc)}\n')
-            else:
-                temp.append('\n')
             lines_before_dbload.extend(temp)
             # lines_at_dbload
-            for option in self.conf.options(sc):
-                if option.startswith('load_'):
-                    lines_at_dbload.append(f'{self.get_config(option, sc)}\n')
+            lines_at_dbload.append(f'{self.get_config("load", sc)}\n')
             # add asynRecord.db
             file_path = os.path.join(self.db_path, 'asynRecord.db')
             template_file_path = os.path.join(self.template_path, 'db', 'asynRecord.db')
@@ -585,15 +589,10 @@ class IOC:
             temp = [
                 '#StreamDevice\n',
                 f'epicsEnvSet("STREAM_PROTOCOL_PATH", {self.settings_path_in_docker})\n',
+                f'{self.get_config("port_config", sc)}\n',
+                f'{self.get_config("asyn_option", sc)}\n',
+                '\n',
             ]
-            for option in self.conf.options(sc):
-                if option.startswith('port_config'):
-                    temp.append(f'{self.get_config(option, sc)}\n')
-            for option in self.conf.options(sc):
-                if option.startswith('asyn_option_'):
-                    temp.append(f'{self.get_config(option, sc)}\n')
-            else:
-                temp.append('\n')
             lines_before_dbload.extend(temp)
             # protocol file
             ps = self.get_config('protocol_file', sc).split(',')
@@ -613,38 +612,29 @@ class IOC:
             sc = 'RAW'
             # st.cmd
             # lines_before_dbload
-            for option in self.conf.options(sc):
-                if option.startswith('cmd_before_dbload_'):
-                    lines_before_dbload.append(f'{self.get_config(option, sc)}\n')
-            else:
-                lines_before_dbload.append('\n')
+            lines_before_dbload.append(f'{self.get_config("cmd_before_dbload", sc)}\n')
+            lines_before_dbload.append('\n')
             # lines_at_dbload
-            for option in self.conf.options(sc):
-                if option.startswith('cmd_at_dbload_'):
-                    lines_at_dbload.append(f'{self.get_config(option, sc)}\n')
+            lines_at_dbload.append(f'{self.get_config("cmd_at_dbload", sc)}\n')
             # lines after iocinit
-            for option in self.conf.options(sc):
-                if option.startswith('cmd_after_iocinit_'):
-                    lines_after_iocinit.append(f'{self.get_config(option, sc)}\n')
-            else:
-                lines_after_iocinit.append('\n')
+            lines_after_iocinit.append(f'{self.get_config("cmd_after_iocinit", sc)}\n')
             # file copy
-            for option in self.conf.options(sc):
-                if option.startswith('file_copy_'):
-                    fs = self.get_config(option, sc).split(sep=':')
-                    if len(fs) == 2:
-                        src = fs[0]
-                        dest = fs[1]
-                        mode = 'r'
-                    elif len(fs) == 3:
-                        src = fs[0]
-                        dest = fs[1]
-                        mode = fs[2]
-                    else:
-                        print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid option "{option}": '
-                              f'"{self.get_config(option, sc)}" for file copy, skipped.')
-                        continue
-                    file_copy(src, dest, mode, self.verbose)
+
+            for item in multi_line_parse(self.get_config('file_copy', sc)):
+                fs = item.split(sep=':')
+                if len(fs) == 2:
+                    src = fs[0]
+                    dest = fs[1]
+                    mode = 'r'
+                elif len(fs) == 3:
+                    src = fs[0]
+                    dest = fs[1]
+                    mode = fs[2]
+                else:
+                    print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid string "{item}" specified for '
+                          f'file copy, skipped.')
+                    continue
+                file_copy(src, dest, mode, self.verbose)
 
         # write report code at the end of st.cmd file if defined "report_info: true".
         if self.check_config('report_info', 'true', 'SETTING'):
@@ -728,22 +718,18 @@ class IOC:
                 print(f'IOC("{self.name}").generate_check": Failed. Invalid option '
                       f'"port_type" in section "{sc}", please check and reset the settings correctly.')
                 check_flag = False
-            for option in self.conf.options(sc):
-                if option.startswith('port_config'):
-                    if self.get_config(option, sc) == '':
-                        print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in section '
-                              f'"{sc}", please check and reset the settings correctly.')
-                        check_flag = False
-                if option.startswith('asyn_option_'):
-                    if self.get_config(option, sc) == '':
-                        print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in '
-                              f'section "{sc}", please check and reset the settings correctly.')
-                        check_flag = False
-                if option.startswith('load_'):
-                    if self.get_config(option, sc) == '':
-                        print(f'IOC("{self.name}").generate_check: Failed. Empty option detected in '
-                              f'"{option}" for section "{sc}", please check and reset correctly.')
-                        check_flag = False
+            if self.get_config('port_config', sc) == '':
+                print(f'IOC("{self.name}").generate_check: Failed. Empty option "port_config" detected in section '
+                      f'"{sc}", please check and reset the settings correctly.')
+                check_flag = False
+            if self.check_config('port_type', 'serial', sc) and self.get_config('asyn_option', sc) == '':
+                print(f'IOC("{self.name}").generate_check: Failed. Empty option "asyn_option" detected in section '
+                      f'"{sc}", please check and reset the settings correctly.')
+                check_flag = False
+            if self.get_config('load', sc) == '':
+                print(f'IOC("{self.name}").generate_check: Failed. Empty option "load" detected in section '
+                      f'"{sc}", please check and reset the settings correctly.')
+                check_flag = False
 
         # check whether section STREAM was set correctly.(now only check port type and other settings are not empty.)
         if self.conf.has_section('STREAM'):
@@ -756,17 +742,14 @@ class IOC:
                 print(f'IOC("{self.name}").generate_check: Failed. Empty option "protocol_file" detected in '
                       f'section "{sc}", please check and reset the settings correctly.')
                 check_flag = False
-            for option in self.conf.options(sc):
-                if option.startswith('port_config'):
-                    if self.get_config(option, sc) == '':
-                        print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in section '
-                              f'"{sc}", please check and reset the settings correctly.')
-                        check_flag = False
-                if option.startswith('asyn_option_'):
-                    if self.get_config(option, sc) == '':
-                        print(f'IOC("{self.name}").generate_check: Failed. Empty option "{option}" detected in '
-                              f' section "{sc}", please check and reset the settings correctly.')
-                        check_flag = False
+            if self.get_config('port_config', sc) == '':
+                print(f'IOC("{self.name}").generate_check: Failed. Empty option "port_config" detected in section '
+                      f'"{sc}", please check and reset the settings correctly.')
+                check_flag = False
+            if self.check_config('port_type', 'serial', sc) and self.get_config('asyn_option', sc) == '':
+                print(f'IOC("{self.name}").generate_check: Failed. Empty option "asyn_option" detected in '
+                      f' section "{sc}", please check and reset the settings correctly.')
+                check_flag = False
         return check_flag
 
     # Check consistency with ioc.ini and st.cmd and running containers.
@@ -806,19 +789,22 @@ class IOC:
             # Normal checks for an IOC project. Normal check always return True, only give prompt for check results.
             # Check whether name in ioc.ini is equal to directory name.
             if self.get_config('name') != os.path.basename(self.dir_path):
-                print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Name defined in ioc.ini '
-                      f'"{self.get_config("name")}" is not same as the directory name. Program exit and automatically '
-                      f'set IOC name according to directory name.')
+                sys.stderr.write(
+                    f'IOC("{self.name}").check_consistency: Warning by normal-check. Name defined in ioc.ini '
+                    f'"{self.get_config("name")}" is not same as the directory name. Program exit and automatically '
+                    f'set IOC name according to directory name.\n')
                 return
 
             # Check for file change.
             if self.check_config('status', 'generated') and not check_snapshot_file(self.name, self.verbose):
-                print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                      f' generating startup files, you need to re-generate startup files.')
+                sys.stderr.write(
+                    f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
+                    f' generating startup files, you need to re-generate startup files.\n')
                 self.set_config('snapshot', 'changed')
             if self.check_config('status', 'exported') and not check_snapshot_file(self.name, self.verbose):
-                print(f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                      f' exporting to mount dir, you need to re-generate and re-export startup files.')
+                sys.stderr.write(
+                    f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
+                    f' exporting to mount dir, you need to re-generate and re-export startup files.\n')
                 self.set_config('snapshot', 'changed')
 
         return consistency_flag

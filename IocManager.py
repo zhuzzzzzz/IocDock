@@ -809,7 +809,7 @@ if __name__ == '__main__':
             if not conf_temp.has_section(args.section):
                 conf_temp.add_section(args.section)
             for item in args.options:
-                k, v = condition_parse(item, 1)
+                k, v = condition_parse(item, split_once=1)
                 if k:
                     conf_temp.set(args.section, k, v)
                     if args.verbose:

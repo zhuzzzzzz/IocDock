@@ -5,7 +5,9 @@
 # set variables below to change generating configureation.
 
 base_image="image.dals/base:beta-0.1.1"
+base_image="base:beta-0.1.1"
 ioc_image="image.dals/ioc-exec:beta-0.1.1"
+ioc_image="ioc-exec:beta-0.1.1"
 create_host=("worker-standard" "worker_test" "worker_test1" "worker_test2")
 create_num=3
 
@@ -24,11 +26,11 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			echo 
 			echo "####### $create_prefix$i #######" 
 			# create IOC project
-			./IocManager.py create "$create_prefix$i" -f "./imtools/template/test/test.ini"
+			./IocManager.py create "$create_prefix$i" -f "./imtools/template/test/ioc.ini"
 			# add source files
 			./IocManager.py exec "$create_prefix$i" -a --src-path ./imtools/template/test
 			# set options
-			./IocManager.py set "$create_prefix$i" -s db -o "load_a = ramper.db, name=$create_prefix$i" 
+			./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i;ramper.db, name=$create_prefix$i:2" -p
 			./IocManager.py set "$create_prefix$i" -o " host = $item "
 			./IocManager.py set "$create_prefix$i" -o " image = $ioc_image "
 			# add set options here..
@@ -42,17 +44,11 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 	done
 	echo 
 	echo "####### something occurs below if IOC run-check failed #######" 
-	for item in "${create_host[@]}"; do 
-		create_prefix=${item}_
-		echo 
-		for ((i=1; i<=$create_num; i++)); do
-			./IocManager.py exec "$create_prefix$i" --run-check
-		done
-	done
+	./IocManager.py exec "$create_prefix$i" --run-check
 	echo
 	echo "####### generate compose files in default mount path #######"
 	# generate compose files in default mount path 
-	./IocManager.py exec -c --base $base_image
+	./IocManager.py exec -c --hosts allprojects --base $base_image
 fi
 
 

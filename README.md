@@ -64,7 +64,7 @@ IOC项目管理工具.
 #### 为导出的IOC项目生成 docker compose 文件
 
 - 为导出目录的所有主机文件夹生成docker compose文件. 需要指定iocLogserver所使用的base镜像.    
-  ```./IocManager.py exec -c --mount-path xxx --base-image xxx```
+  ```./IocManager.py exec -c --hosts allprojects --mount-path xxx --base-image xxx```
 
 #### 运行部署的IOC项目
 
@@ -124,9 +124,16 @@ IOC项目管理工具.
 
 ### IOC配置文件说明
 
-<pre>
-可选配置的用*号标注, 未使用*号标注的均为必须项, 需要进行配置才能使IOC项目正常运行. 部分必须设置项会由脚本自动生成而无须手动设置. 
-</pre>
+> 说明:
+>
+>> 可选的配置已在下方用 ```*``` 号标注, 未标注则均为必须设置项, 需要进行配置才能使IOC项目正常运行.
+> > 部分必须设置项会由脚本自动生成而无须手动设置.
+>
+>> 部分配置项(
+> > 如 ```load[DB]``` ```port_config[ASYN/STREAM]``` ```asyn_option[ASYN/STREAM]``` ```load[ASYN]```
+> > ```epics_env[SETTING]```
+> > 或 ```[RAW]```中所有属性 )支持多行设置, 可以在使用 ```./IocManager create``` 或 ```./IocManager set```
+> > 指定属性时使用分号 ```;``` 间隔代表多行设置; 也可在直接编辑配置文件时通过换行及缩进来进行多行配置.
 
 #### 通用配置设置
 
@@ -143,22 +150,23 @@ snapshot:       ------------------------ IOC配置文件的备份状态. ""(配�
 
 [DB]       ----------------------------- 默认section, 用以存储IOC加载db文件的配置信息
 file:       ---------------------------- db文件列表
-load_a:       -------------------------- 设置带宏替换加载项. 格式: *.db, A=abc, B=def. 注意带 "_(x)" 后缀的选项意为支持同时设置多个此类变量, 使用时需依序更改后缀字母, 下同.
-load_b:       -------------------------- 设置不使用宏替换加载项. 格式: *.db
+load:       -------------------------- 设置带宏替换加载项. 格式: *.db, A=abc, B=def. 注意带 "_(x)" 后缀的选项意为支持同时设置多个此类变量, 使用时需依序更改后缀字母, 下同.
+            -------------------------- 设置不使用宏替换加载项. 格式: *.db
 
 [SETTING]       ------------------------ 默认section, 用以存储IOC的附加配置信息
 report_info:       --------------------- 设置IOC启动时报告当前IOC的PV信息. "true" 或 "false"
 caputlog_json:       ------------------- 设置caPutLog模块使用JSON格式. "true"(使用json格式) 或 "false"(使用文本格式)
-*epics_env_a:       -------------------- 设置EPICS环境变量. 格式: "xxx"="xxx"
-*epics_env_b:       -------------------- 设置多个EPICS环境变量.
+*epics_env:       ---------------------- 设置EPICS环境变量. 格式: "xxx"="xxx"
+                    -------------------- 设置多个EPICS环境变量.
 </pre>
 
 #### 配置规范和命名规范
 
-```name[IOC]```: IOC名称, 决定IOC被分配的运行容器名称, 要符合容器的命名规范, 可以使用小写或下划线、数字(参考下方host字段), 避免与host字段相同
+```name[IOC]```: IOC名称, 决定IOC被分配的运行容器名称, 要符合容器的命名规范, 可以使用小写或下划线、数字(
+参考下方host字段), 避免与host字段相同
 
 ```host[IOC]```: 主机名称, 指IOC将被分配至哪个主机中运行,
-  其中主机名称的命名方式必须符合正则表达式 ```"^[a-z0-9][a-z0-9_-]*$"```
+其中主机名称的命名方式必须符合正则表达式 ```"^[a-z0-9][a-z0-9_-]*$"```
 
 ```image[IOC]```: 镜像名称, 指当前将使用的镜像, 需要从镜像仓库中选择一个适合的镜像
 
@@ -168,16 +176,16 @@ caputlog_json:       ------------------- 设置caPutLog模块使用JSON格式. "
 
 #### 特殊配置设置
 
-以下配置均为模板, 实际使用中根据需求调整设置. 对部分可以有重复项的设置(如 load_ , cmd_ , file_copy_ , port_config_ 等)
-的后缀应使用英文字母进行排序区分.
+以下配置均为模板, 实际使用中根据需求调整设置. 对部分可以有重复项的设置(如load, cmd, file_copy, port_config等)
+可以按前述, 用分号或换行缩进的方式进行设置.
 
 - 基于网络的ASYN配置模板, 设置项将直接添加至IOC启动脚本文件中
 
 <pre>
 [ASYN]
 port_type: tcp/ip
-port_config_a: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
-load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
+port_config: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
+load: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
 </pre>
 
 - 基于串口的ASYN配置模板, 设置项将直接添加至IOC启动脚本文件中
@@ -185,14 +193,14 @@ load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=x
 <pre>
 [ASYN]
 port_type: serial
-port_config_a: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
-asyn_option_a: asynSetOption("L0", -1, "baud", "9600")
-asyn_option_b: asynSetOption("L0", -1, "bits", "8")
-asyn_option_c: asynSetOption("L0", -1, "parity", "none")
-asyn_option_d: asynSetOption("L0", -1, "stop", "1")
-asyn_option_e: asynSetOption("L0", -1, "clocal", "Y")
-asyn_option_f: asynSetOption("L0", -1, "crtscts", "Y")
-load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
+port_config: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
+asyn_option: asynSetOption("L0", -1, "baud", "9600")
+  asynSetOption("L0", -1, "bits", "8")
+  asynSetOption("L0", -1, "parity", "none")
+  asynSetOption("L0", -1, "stop", "1")
+  asynSetOption("L0", -1, "clocal", "Y")
+  asynSetOption("L0", -1, "crtscts", "Y")
+load: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")
 </pre>
 
 - 基于网络的StreamDevice配置模板, 设置项将直接添加至IOC启动脚本文件中. 多个协议文件以逗号分隔.
@@ -200,7 +208,7 @@ load_a: dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=x
 <pre>
 [STREAM]
 port_type: tcp/ip
-port_config_a: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
+port_config: drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)
 protocol_file: x.proto, xx.proto
 </pre>
 
@@ -209,13 +217,13 @@ protocol_file: x.proto, xx.proto
 <pre>
 [STREAM]
 port_type: serial
-port_config_a: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
-asyn_option_a: asynSetOption("L0", -1, "baud", "9600")
-asyn_option_b: asynSetOption("L0", -1, "bits", "8")
-asyn_option_c: asynSetOption("L0", -1, "parity", "none")
-asyn_option_d: asynSetOption("L0", -1, "stop", "1")
-asyn_option_e: asynSetOption("L0", -1, "clocal", "Y")
-asyn_option_f: asynSetOption("L0", -1, "crtscts", "Y")
+port_config: drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)
+asyn_option: asynSetOption("L0", -1, "baud", "9600")
+  asynSetOption("L0", -1, "bits", "8")
+  asynSetOption("L0", -1, "parity", "none")
+  asynSetOption("L0", -1, "stop", "1")
+  asynSetOption("L0", -1, "clocal", "Y")
+  asynSetOption("L0", -1, "crtscts", "Y")
 protocol_file: xxx.proto
 </pre>
 
@@ -227,10 +235,10 @@ protocol_file: xxx.proto
 
 <pre>
 [RAW]
-*cmd_before_dbload_a: 
-*cmd_at_dbload_a: 
-*cmd_after_iocinit_a: 
-*file_copy_a: 
+*cmd_before_dbload: 
+*cmd_at_dbload: 
+*cmd_after_iocinit: 
+*file_copy: 
 </pre>
 
 ### 项目目录结构
@@ -268,12 +276,11 @@ protocol_file: xxx.proto
 更新日志及功能说明
 ------------------------------------------------------------------------
 
-beta v0.3.3   
-======= 2024/05/24 =======
+beta v0.3.4   
+======= 2024/05/29 =======
 
-1. IOC项目导出优化
-2. shell命令补全bug处理及使用逻辑优化, 另外也支持缩写命令的补全识别
-3. 添加项目升级脚本
+1. config文件option支持同属性的多行配置
+2. README文档更新
 
 
 
