@@ -1,15 +1,32 @@
 # IocManager
 
-IOC项目管理工具.
+IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC项目.
 
 ### 一般使用帮助
 
-#### 更新IOC脚本工具
+#### 更新IOC项目管理工具
 
-> 在需要进行版本更新时, 按如下操作即可.
->> - 执行 ```git pull origin master``` 拉取git仓库的项目最新代码
->> - 阅读根目录中 ```auto-update.sh``` 说明文档部分(Instructions部分)
->> - 按说明文档, 执行 ```. auto-update.sh``` 命令完成脚本更新
+> 在需要进行版本更新时, 按如下操作.
+>> - 执行 ```git pull origin master``` 拉取git仓库的项目最新代码.
+>> - 阅读根目录中 ```auto-update.sh``` 说明文档部分(Instructions部分).
+>> - 按说明文档, 执行 ```. auto-update.sh``` 命令完成脚本更新.
+
+#### 一般工作流程
+
+> 需要创建IOC项目并希望其正确运行在容器中时, 按如下操作.
+>> 1. 新建IOC项目, 并将IOC项目所需的各文件添加至新建项目的"src/"目录
+>
+>> 2. 编辑IOC项目的配置文件, 确定IOC项目将运行在哪个主机, 将使用的镜像及镜像内的可执行IOC, 设置DB部分中的load字段,
+      确定IOC项目的.db文件加载项
+>
+>> 3. 如要使用ASYN, STREAM或其他EPICS插件时, 首先确保已选择镜像中的可执行IOC支持相关功能. 然后使用命令行工具添加相关的配置文件模板,
+      之后再进行配置. (ASYN, STREAM可直接添加已有的ASYN, STREAM模板, 其他插件则需要添加RAW模板)
+>
+>> 4. IOC项目配置完成后执行命令生成IOC项目运行所需的项目文件
+>
+>> 5. 正确生成项目文件后IOC项目需要导出至mount目录统一运行
+>
+>> 6. 运行前执行一遍检查命令以确保IOC项目得到正确配置
 
 ### 工具使用帮助
 
@@ -17,44 +34,48 @@ IOC项目管理工具.
 
 通过命令行方式创建IOC项目, 添加设置或手动修改IOC项目的配置文件, 配置好IOC. 命令的详细使用方式见脚本命令行帮助.
 
-- 创建IOC项目并进行简单配置   
-  ```./IocManager.py create IOC [IOC2 IOC3 ...]``` 直接创建单个或多个IOC项目      
-  ```./IocManager.py create IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 创建时设置某些字段  
-  ```./IocManager.py create IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件创建   
-  ```./IocManager.py create IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 指定使用的模块创建   
-  ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
-  创建ASYN或STREAM模板并设置端口类型   
-  ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-raw``` 创建时设置添加原始命令模板
+> - 使用```create```命令, 创建IOC项目并进行简单配置   
+    ```./IocManager.py create IOC [IOC2 IOC3 ...]``` 直接创建单个或多个IOC项目      
+    ```./IocManager.py create IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 创建时设置某些字段  
+    ```./IocManager.py create IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件创建   
+    ```./IocManager.py create IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave```
+    指定使用的模块创建   
+    ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
+    创建ASYN或STREAM模板并设置端口类型   
+    ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-raw``` 创建时设置添加原始命令模板
+
+>
+>> - 将IOC项目所需的源文件从指定目录添加至IOC项目的src/目录. 必要时可多次运行此命令.
+     当前支持自动识别添加的文件名称后缀为 ```.db``` ```.proto``` ```.im```    
+     ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a --src-path xxx```
+>> - 也可直接手动将所有文件复制至src/目录. 指定```-a```且不指定```--src-path```时,
+     脚本默认将自动识别添加项目自身src/目录内的源文件   
+     ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a```
 
 
-- 将IOC项目所需的源文件从指定目录添加至IOC项目的src/目录, 必要时可多次运行此命令.
-  当前支持自动识别添加的文件名称后缀为 ```.db``` ```.proto``` ```.im``` .   
-  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a --src-path xxx```
-- 也可直接手动将所有文件复制至src/目录, 指定```-a```且不指定```--src-path```时, 脚本将自动识别添加src/目录内的源文件   
-  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -a```
+> - 创建IOC项目后如需要进一步配置IOC项目, 使用```set```命令. 如 .db文件的加载项及宏替换, 指定协议文件,
+    需要额外指定的启动命令等等          
+    ```./IocManager.py set IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 单独设置某些字段  
+    ```./IocManager.py set IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件覆盖设置    
+    ```./IocManager.py set IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 设置使用的模块   
+    ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
+    设置ASYN或STREAM模板并设置端口类型   
+    ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-raw``` 设置添加原始命令模板
 
-
-- 进一步配置IOC项目, 如 .db文件的加载项及宏替换, 指定协议文件等等          
-  ```./IocManager.py set IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 单独设置某些字段  
-  ```./IocManager.py set IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件覆盖设置    
-  ```./IocManager.py set IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 设置使用的模块   
-  ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
-  设置ASYN或STREAM模板并设置端口类型   
-  ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-raw``` 设置添加原始命令模板
-
-
-- 也可打开IOC项目的ioc.ini文件直接手动编辑配置文件
+> - 也可打开IOC项目的ioc.ini文件直接手动编辑配置文件, 编辑时须注意文件格式.
 
 #### 生成IOC项目的运行文件
 
-对已创建并配置完成的IOC项目, 需要生成IOC项目的运行文件及IOC启动文件. 执行如下步骤.
+对已创建并配置完成的IOC项目, 需要生成IOC项目的运行文件及IOC启动文件, 执行如下步骤. 
+执行此操作后, 工具将自动备份当前IOC项目的配置文件并更新IOC的项目状态属性用以进行项目周期管理.
 
 - 生成IOC项目的运行文件及启动文件   
   ```./IocManager.py exec IOC [IOC2 IOC3 ...] -s```
 
 #### 导出IOC项目运行文件
 
-对已生成运行文件的IOC项目, 需要将其导出至mount目录, 以便可以使用容器平台运行. 执行如下步骤.
+对已生成运行文件的IOC项目, 需要将其导出至mount目录, 以便可以使用容器平台运行, 执行如下步骤. 
+执行此操作后, 工具将自动备份当前IOC项目的配置文件并更新IOC的项目状态属性.
 
 - 导出IOC项目运行文件至mount目录. 默认不覆盖, 即, 当IOC项目已存在于monut目录时, 只更新部分运行文件(
   IOC运行的一些插件模块的配置文件将被保留). 也可以设置覆盖导入(指定 ```--force-overwrite```,
@@ -63,7 +84,7 @@ IOC项目管理工具.
 
 #### 为导出的IOC项目生成 docker compose 文件
 
-- 为导出目录的所有主机文件夹生成docker compose文件. 需要指定iocLogserver所使用的base镜像. 指定 ```--hosts```
+- 为导出目录中存在的虚拟机文件夹生成docker compose文件. 需要指定iocLogserver所使用的base镜像. 指定 ```--hosts```
   来指定主机名称, 当需要为所有主机都执行生成操作时, 可将参数设置为 ```"allprojects"```.   
   ```./IocManager.py exec -c --hosts allprojects --mount-path xxx --base-image xxx```
 
@@ -78,7 +99,7 @@ IOC项目管理工具.
 可以将当前本地仓库的所有IOC项目打包压缩为tgz文件. 备份时可选择两种模式, "src": 仅备份IOC项目源文件及配置文件; "all":
 备份包括运行时插件模块产生的文件在内的所有IOC文件.
 
-- 备份时将默认先进行IOC项目的运行检查, 确保IOC项目是最新的且是正常可运行的   
+- 备份时默认将先进行IOC项目的运行检查, 确保IOC项目是最新的且是正常可运行的, 通过后方能继续备份. 也可手动先进行运行检查   
   ```./IocManager.py exec --run-check```
 
 
@@ -286,8 +307,6 @@ beta v0.4.0
 
 1. config文件option支持同属性的多行配置
 2. IOC项目支持重命名命令
-3. README文档更新
-
 
 
 
