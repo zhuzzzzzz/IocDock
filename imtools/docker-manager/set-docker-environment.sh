@@ -46,8 +46,12 @@ if [ ! "$1" == 'manager' -a ! $(hostname) == 'docker-manager' ]; then
 	echo Configuration finished for docker agent OS.
 	exit
 elif [ "$1" == 'manager' -a ! $(hostname) == 'docker-manager' ]; then
-	echo Faild. Configuration for docker manager OS should only run in host docker-manager!
-	exit
+	if [ "$2" == '-f' ]; then
+		echo Force configuration for docker manager OS.
+	else
+		echo Faild. Configuration for docker manager OS should only run in host docker-manager!
+		exit
+	fi
 elif [ ! "$1" == 'manager' -a $(hostname) == 'docker-manager' ]; then
 	echo Configuration for docker manager OS activated automatically by host name detecting. 
 fi
@@ -69,4 +73,5 @@ if [ ! -d "$REGISTRY_PATH" ]; then
 	mkdir $REGISTRY_PATH
 fi
 
+echo
 echo Finished. You can start docker-manager now.
