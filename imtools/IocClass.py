@@ -4,7 +4,7 @@ import sys
 
 from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
     format_normalize, relative_and_absolute_path_to_abs, \
-    add_snapshot_file, delete_snapshot_file, check_snapshot_file
+    add_snapshot_file, delete_snapshot_file, check_snapshot_file, get_manager_path
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
     DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR, \
     TOOLS_DIR
@@ -30,7 +30,7 @@ class IOC:
         self.first_init = False
 
         if not dir_path or not os.path.isdir(dir_path):
-            self.dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, 'default')
+            self.dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, 'default')
             print(f'IOC.__init__: No path given or wrong path given, use default path: "{self.dir_path}".')
         self.dir_path = os.path.normpath(dir_path)
         try_makedirs(self.dir_path, self.verbose)
@@ -74,7 +74,7 @@ class IOC:
         try_makedirs(self.boot_path, self.verbose)
         self.src_path = os.path.join(self.dir_path, 'src')
         try_makedirs(self.src_path, self.verbose)
-        self.template_path = os.path.join(os.getcwd(), TOOLS_DIR, 'template')
+        self.template_path = os.path.join(get_manager_path(), TOOLS_DIR, 'template')
         if not os.path.exists(self.template_path):
             print("IOC.__init__: Can't find template directory. You may run the scripts at a wrong path.")
 

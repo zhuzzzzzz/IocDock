@@ -11,6 +11,7 @@ from tabulate import tabulate
 
 from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
                                      relative_and_absolute_path_to_abs, check_snapshot_file, add_snapshot_file,
+                                     get_manager_path,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
                                      BACKUP_DIR, )
 from imtools.IocClass import IOC
@@ -21,7 +22,7 @@ def create_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
         # May add a name string filter here?
         #
-        dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
+        dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
         if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
             print(f'create_ioc: Failed. IOC "{name}" already exists.')
         else:
@@ -65,7 +66,7 @@ def create_ioc(name, args, config=None, verbose=False):
 # not accept iterable for input
 def set_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
-        dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
+        dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
         if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
             # Initialize an existing IOC, edit ioc.ini by given configparser.ConfigParser() object.
             ioc_temp = IOC(dir_path, verbose)
@@ -115,7 +116,7 @@ def set_ioc(name, args, config=None, verbose=False):
 # Remove only generated files or remove all files.
 # do not accept iterable for input
 def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
-    dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
+    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
     if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
         if not force_removal:
             if all_remove:
@@ -142,22 +143,22 @@ def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
 
 
 def rename_ioc(old_name, new_name, verbose):
-    dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, old_name)
+    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, old_name)
     if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
         try:
-            os.rename(dir_path, os.path.join(os.getcwd(), REPOSITORY_DIR, new_name))
+            os.rename(dir_path, os.path.join(get_manager_path(), REPOSITORY_DIR, new_name))
         except Exception as e:
             print(f'rename_ioc: Failed. Changing directory name failed, "{e}".')
         else:
             if verbose:
-                IOC(os.path.join(os.getcwd(), REPOSITORY_DIR, new_name), verbose=verbose)
+                IOC(os.path.join(get_manager_path(), REPOSITORY_DIR, new_name), verbose=verbose)
             else:
                 with open(os.devnull, 'w') as devnull:
                     original_stdout = sys.stdout
                     original_stderr = sys.stderr
                     sys.stdout = devnull
                     sys.stderr = devnull
-                    IOC(os.path.join(os.getcwd(), REPOSITORY_DIR, new_name), verbose=verbose)
+                    IOC(os.path.join(get_manager_path(), REPOSITORY_DIR, new_name), verbose=verbose)
                     sys.stdout = original_stdout
                     sys.stderr = original_stderr
             print(f'rename_ioc: Success. IOC project name changed from "{old_name}" to "{new_name}".')
@@ -169,7 +170,7 @@ def rename_ioc(old_name, new_name, verbose):
 def get_all_ioc(dir_path=None, from_list=None):
     ioc_list = []
     if not dir_path:
-        dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR)
+        dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR)
     items = os.listdir(dir_path)
     if from_list:
         temp_items = []
@@ -303,7 +304,7 @@ def execute_ioc(args):
             print(f'execute_ioc: No IOC project specified.')
         else:
             for name in args.name:
-                dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
+                dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
                 if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
                     if args.verbose:
                         print('')
@@ -332,7 +333,7 @@ def execute_ioc(args):
 # force_overwrite: "True" overwrite all files of existing IOC project in mount dir.
 # force_overwrite: "False" only overwrite files that are not generated during running.
 def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False):
-    dir_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name)
+    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
     ioc_temp = IOC(dir_path, verbose)
 
     if not (ioc_temp.check_config('status', 'generated') or ioc_temp.check_config('status', 'exported')):
@@ -613,7 +614,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
     ioc_existed = [ioc_item.name for ioc_item in get_all_ioc()]
     for ioc_item in os.listdir(temp_in_dir):
         ioc_dir = os.path.join(temp_in_dir, ioc_item)
-        current_path = os.path.join(os.getcwd(), REPOSITORY_DIR, ioc_item)
+        current_path = os.path.join(get_manager_path(), REPOSITORY_DIR, ioc_item)
         if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, CONFIG_FILE_NAME)):
             if ioc_item not in ioc_existed:
                 print(f'restore_backup: Restoring IOC project "{ioc_item}".')
@@ -737,9 +738,9 @@ if __name__ == '__main__':
                                      'set "--mount-path" to choose a top path for mount dir. '
                                      'set "--force-overwrite" to enable overwrite when IOC in mount dir '
                                      'conflicts with the one in repository. ')
-    parser_execute.add_argument('--mount-path', type=str, default='..',
-                                help=f'top path for mount dir, dir "{MOUNT_DIR}" would be created here if not exists. '
-                                     f'default the upper directory "../".')
+    parser_execute.add_argument('--mount-path', type=str, default=f'{os.path.join(get_manager_path(), "..")}',
+                                help=f'top path for mount dir, dir "{MOUNT_DIR}" would be created there if not exists. '
+                                     f'default the upper directory of the manager tool, "$MANAGER_PATH/../".')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
                                 help='force overwrite if the IOC project already exists.')
     parser_execute.add_argument('-c', '--gen-compose-file', action="store_true",
@@ -757,8 +758,10 @@ if __name__ == '__main__':
                                      'packed and compressed into a tgz file. '
                                      'set "--backup-path" to choose a backup directory. '
                                      'set "--backup-mode" to choose a backup mode.')
-    parser_execute.add_argument('--backup-path', type=str, default='../ioc-backup',
-                                help='dir path used for storing backup files of IOC projects. default "../ioc-backup".')
+    parser_execute.add_argument('--backup-path', type=str,
+                                default=f'{os.path.join(get_manager_path(), "..", "ioc-backup")}',
+                                help='dir path used for storing backup files of IOC projects. '
+                                     'default "$MANAGER_PATH/../ioc-backup/".')
     parser_execute.add_argument('--backup-mode', type=str, default='src',
                                 help='backup mode for IOC projects. "all": back up all files including running files'
                                      '(files generated by autosave, etc.). "src": just back up files of IOC '
@@ -768,7 +771,7 @@ if __name__ == '__main__':
                                      'directory. set "--force-overwrite" to enable overwrite when IOC in backup file '
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--backup-file', type=str, default='',
-                                help='tgz backup file of IOC projects. format "../ioc-backup/file".')
+                                help='tgz backup file of IOC projects.')
     parser_execute.add_argument('--run-check', action="store_true",
                                 help='execute run-check for all IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')

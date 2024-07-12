@@ -2,10 +2,27 @@ import configparser
 import os
 import shutil
 
+
+def get_manager_path():
+    repository_path = os.environ.get("MANAGER_PATH", default='')
+    if repository_path:
+        if os.path.isdir(repository_path):
+            return repository_path
+        else:
+            print(f'get_manager_path() failed, $MANAGER_PATH is not a valid directory.')
+            exit(1)
+    else:
+        print(f'get_repository_path() failed, $MANAGER_PATH is not defined.')
+        exit(1)
+        # return os.getcwd()
+
+
 #
 # directory name or file name definition for IocManager
 TOOLS_DIR = 'imtools'
-SNAPSHOT_PATH = os.path.join(os.getcwd(), TOOLS_DIR, 'ioc-snapshot')  # path for newest snapshot file of ioc.ini
+
+SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR,
+                             'ioc-snapshot')  # path for newest snapshot file of ioc.ini
 CONFIG_FILE_NAME = 'ioc.ini'
 REPOSITORY_DIR = 'ioc-repository'
 MOUNT_DIR = 'ioc-for-docker'  # default directory for docker mounting
@@ -141,7 +158,7 @@ def relative_and_absolute_path_to_abs(input_path, default_path=None):
     if not input_path:
         input_path = default_path
     if not os.path.isabs(input_path):
-        output_path = os.path.join(os.getcwd(), input_path)
+        output_path = os.path.join(get_manager_path(), input_path)
     else:
         output_path = input_path
     output_path = os.path.normpath(output_path)
@@ -194,7 +211,7 @@ def format_normalize(raw_str: str):
 #########################################################
 # codes for monitoring untracked changes of ioc.ini.
 def add_snapshot_file(name, verbose):
-    file_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
+    file_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
     log_path = os.path.join(SNAPSHOT_PATH, name)
     if os.path.isfile(file_path):
         conf = configparser.ConfigParser()
@@ -226,7 +243,7 @@ def delete_snapshot_file(name, verbose):
 
 
 def check_snapshot_file(name, verbose):
-    file_path = os.path.join(os.getcwd(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
+    file_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
     log_path = os.path.join(SNAPSHOT_PATH, name)
     if not os.path.isfile(log_path):
         if verbose:
