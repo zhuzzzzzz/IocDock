@@ -6,8 +6,8 @@ script_dir=$(dirname $script_abs)
 # set insecure-registries.
 echo '{
     "registry-mirrors": ["https://docker.nju.edu.cn",
-		                     "https://docker.mirrors.ustc.edu.cn",
-			                   "https://docker.m.daocloud.io"
+                         "https://docker.mirrors.ustc.edu.cn",
+                         "https://docker.m.daocloud.io",
                          "https://dockerproxy.com",
                          "https://hub-mirror.c.163.com",
                          "https://mirror.baidubce.com",

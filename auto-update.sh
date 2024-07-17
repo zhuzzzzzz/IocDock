@@ -22,7 +22,7 @@ else
 fi
 source $file_path
 
-
+echo "Updating finished."
 # 
 
 
