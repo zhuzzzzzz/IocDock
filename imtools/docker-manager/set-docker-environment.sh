@@ -12,8 +12,7 @@ echo '{
                          "https://hub-mirror.c.163.com",
                          "https://mirror.baidubce.com",
                          "https://ccr.ccs.tencentyun.com"],
-    "insecure-registries": ["https://image.dals",
-    			    "https://127.0.0.1"]
+    "insecure-registries": ["https://image.dals"]
 }' > /etc/docker/daemon.json
 if [ $? -eq 0 ]; then
     echo Restarting docker daemom.
@@ -29,7 +28,8 @@ set -e
 
 # set host DNS entry.
 echo Set \"/etc/hosts\".
-REGISTRY_IP="192.168.20.247" # Should set this variable the actual ip that the server uses.
+#REGISTRY_IP="192.168.20.247" # Should set this variable the actual ip that the server uses.
+REGISTRY_IP="127.0.0.1"
 REGISTRY_NAME="image.dals"
 
 new_line="$REGISTRY_IP\t$REGISTRY_NAME"
@@ -62,7 +62,7 @@ fi
 
 # codes for manager only.
 # check certificates and registry dir(for docker-manager).
-echo Set certificates and prepare for docker compose up.
+echo Set certificates and prepare for docker compose up starting.
 CERT_DIR="certs"
 CERT_PREFIX="dals_domain"
 REGISTRY_PATH="../../../registry"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! $(hostname) == 'docker-manager' ]; then
+if [ ! $(hostname) == 'docker-manager'  -a ! $1 == '-f'  ]; then
 	echo Failed. docker-manager should only run in host docker-manager!
 	exit
 fi
