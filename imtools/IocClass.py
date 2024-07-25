@@ -45,7 +45,7 @@ class IOC:
             self.set_config('host', '')
             self.set_config('image', '')
             self.set_config('bin', '')
-            self.set_config('module', '')
+            self.set_config('module', 'autosave, caputlog')
             self.set_config('description', '')
             self.set_config('status', 'created')
             self.set_config('snapshot', '')
@@ -53,15 +53,16 @@ class IOC:
             self.set_config('load', '', section='DB')
         else:
             if self.verbose:
-                print(f'IOC.__init__: Initialize IOC from file "{self.config_file_path}".')
+                print(f'IOC.__init__: Initialize IOC from configuration file "{self.config_file_path}".')
 
         self.name = self.get_config('name')
         if self.name != os.path.basename(self.dir_path):
             old_name = self.name
             self.name = os.path.basename(self.dir_path)
             self.set_config('name', self.name)
-            print(f'IOC.__init__: Get wrong name "{old_name}" from "{self.config_file_path}", there may be '
-                  f'something wrong. IOC name has been automatically set same as directory name: "{self.name}".')
+            print(f'IOC.__init__: Get wrong name "{old_name}" from configuration file "{self.config_file_path}", '
+                  f'name of IOC project directory may be manually changed to "{self.name}". '
+                  f'IOC name will automatically set in configuration file to follow that change.')
 
         self.settings_path = os.path.join(self.dir_path, 'settings')
         try_makedirs(self.settings_path, self.verbose)
@@ -76,7 +77,7 @@ class IOC:
         try_makedirs(self.src_path, self.verbose)
         self.template_path = os.path.join(get_manager_path(), TOOLS_DIR, 'template')
         if not os.path.exists(self.template_path):
-            print("IOC.__init__: Can't find template directory. You may run the scripts at a wrong path.")
+            print("IOC.__init__: Can't find \"template\" directory.")
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
@@ -177,6 +178,7 @@ class IOC:
         if all_remove:
             # delete log file
             delete_snapshot_file(self.name, self.verbose)
+            # remove entire project
             dir_remove(self.dir_path, self.verbose)
         else:
             for item in (os.path.join(self.dir_path, 'startup'), self.settings_path, self.log_path):
@@ -188,7 +190,6 @@ class IOC:
         if port_type in PORT_SUPPORT:
             if self.conf.has_section(sc):
                 self.conf.remove_section(sc)
-                self.write_config()
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
                 self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
@@ -214,7 +215,6 @@ class IOC:
         if port_type in PORT_SUPPORT:
             if self.conf.has_section(sc):
                 self.conf.remove_section(sc)
-                self.write_config()
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
                 self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
@@ -246,10 +246,9 @@ class IOC:
 
     def add_settings_template(self):
         sc = 'SETTING'
-        epics_env_str = f'REPORT_FILE={os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")}\n'
         self.set_config('report_info', 'true', sc)
         self.set_config('caputlog_json', 'false', sc)
-        self.set_config('epics_env', epics_env_str, sc)
+        self.set_config('epics_env', '', sc)
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
@@ -321,7 +320,7 @@ class IOC:
             print(f'IOC("{self.name}").get_src_file: Add files "{other_list}".')
         else:
             if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: No file found in "{src_p}" with given suffix {other_suffix}.')
+                print(f'IOC("{self.name}").get_src_file: No file for given suffix {other_suffix} found in "{src_p}".')
 
     # Generate .substitutions file for st.cmd to load.
     # This function should be called after getting source files and setting the load_* options.
@@ -346,7 +345,7 @@ class IOC:
                     vs += f'{v}, '
                 else:
                     print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad load string '
-                          f'"{load_line}" defined in ioc.ini. You may need to check and set the attributes correctly.')
+                          f'"{load_line}" defined in {CONFIG_FILE_NAME}. You may need to check and set the attributes correctly.')
                     return False
             else:
                 ks = ks.strip(', ')
@@ -638,21 +637,22 @@ class IOC:
 
         # write report code at the end of st.cmd file if defined "report_info: true".
         if self.check_config('report_info', 'true', 'SETTING'):
+            report_path = os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")
             temp = [
                 '#report info\n',
-                'system "touch ${REPORT_FILE}"\n',
+                f'system "touch {report_path}"\n',
 
-                'system "echo \#date > ${REPORT_FILE}"\n',
-                'date >> ${REPORT_FILE}\n',
-                'system "echo >> ${REPORT_FILE}"\n',
+                f'system "echo \#date > {report_path}"\n',
+                f'date >> {report_path}\n',
+                f'system "echo >> {report_path}"\n',
 
-                'system "echo \#ip >> ${REPORT_FILE}"\n',
-                'system "hostname -I >> ${REPORT_FILE}"\n',
-                'system "echo >> ${REPORT_FILE}"\n',
+                f'system "echo \#ip >> {report_path}"\n',
+                f'system "hostname -I >> {report_path}"\n',
+                f'system "echo >> {report_path}"\n',
 
-                'system "echo \#pv list >> ${REPORT_FILE}"\n',
-                'dbl >> ${REPORT_FILE}\n',
-                'system "echo >> ${REPORT_FILE}"\n',
+                f'system "echo \#pv list >> {report_path}"\n',
+                f'dbl >> {report_path}\n',
+                f'system "echo >> {report_path}"\n',
 
                 '\n'
             ]

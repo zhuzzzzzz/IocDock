@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set exec list remove rename --help"
+	sub_command_opts="create set exec list swarm service remove rename --help"
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
 	_options_prompt="host= image= bin= description= load_=  epics_env_= report_info=true report_info=false caputlog_json=true caputlog_json=false "
@@ -32,6 +32,13 @@ _mycommand_completion() {
 	remove_prompt="--remove-all --force --verbose --help"
 	#
 	rename_prompt="--verbose --help"
+	#
+	swarm_prompt="--gen-global-compose-file --show-digest --show-services --show-nodes --show-tokens --verbose --help"
+	#
+	service_prompt="--deploy --remove --show-config --show-info --show-logs --verbose --help"
+	
+	#
+	image_prefix="image.dals/"
 
 
 	# sub-commands completion.( 2nd position )
@@ -73,6 +80,13 @@ _mycommand_completion() {
 			prompt="" # "rename" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
+			"swarm")
+			prompt="$swarm_prompt"
+			;;
+			"service")
+			prompt="" # "service" should specify an IOC project firstly.
+			prompt="$ioc_list $prompt"
+			;;
 			*)
 			return 1
 		esac
@@ -90,13 +104,15 @@ _mycommand_completion() {
 		ioc_list_temp=$ioc_list
 		exec_ioc_prompt_temp=$exec_ioc_prompt
 		_condition_type_prompt_temp=$_condition_type_prompt
+		service_prompt_temp=$service_prompt
 		for (( i=0; i<$((${#COMP_WORDS[@]}-1)); i++)); do
 			case ${COMP_WORDS[$i]} in
 				-*)
 				option_set_first=${COMP_WORDS[$i]} # get that first option.
-				ioc_list_temp="" # ioc projects will not be prompted. used for "create" "set" "exec" "remove". 
+				ioc_list_temp="" # ioc projects will not be prompted. used for "create" "set" "exec" "remove", etc. 
 				exec_ioc_prompt_temp="" # commands for specified IOC projects will not be prompted, otherwise those should be prompt. used for "exec". 
 				_condition_type_prompt_temp="" # conditions will not be prompted. used for "list".
+				service_prompt_temp="--verbose --help"
 				break
 				;;
 			esac
@@ -186,7 +202,7 @@ _mycommand_completion() {
 		# options completion for "exec".
 		if [ ${COMP_WORDS[1]} == "exec" ]; then 
 			case "$3" in 
-				"-a"|"--add-src-file")
+				"--add-src-file")
 				prompt="--src-path"
 				;;
 				"--src-path")
@@ -197,7 +213,7 @@ _mycommand_completion() {
 				done
 				return 0
 				;;
-				"-s"|"--gen-startup-file")
+				"--gen-startup-file")
 				prompt="--force-silent --force-default"
 				;;
 				"--force-silent")
@@ -226,7 +242,7 @@ _mycommand_completion() {
 					return 0
 				fi
 				;;
-				"-c"|"--gen-compose-file")
+				"--gen-compose-file")
 				prompt="--base-image --hosts"
 				;;
 				"--hosts")
@@ -235,7 +251,7 @@ _mycommand_completion() {
 				;;
 				"--base-image")
 				compopt -o nospace
-				COMPREPLY=( $(compgen -W "image.dals/ " -- $2) )
+				COMPREPLY=( $(compgen -W $image_prefix -- $2) )
 				return 0
 				;;
 				"-b"|"--gen-backup-file")
@@ -357,6 +373,56 @@ _mycommand_completion() {
 				COMPREPLY=( $(compgen -W "${rename_prompt}" -- $2) )
 				return 0
 			fi
+		fi	
+		# options completion for "swarm".
+		if [ ${COMP_WORDS[1]} == "swarm" ]; then 
+			case "$3" in
+				"--gen-global-compose-file")
+				prompt="--base-image"
+				;;
+				"--base-image")
+				compopt -o nospace
+				COMPREPLY=( $(compgen -W $image_prefix -- $2) )
+				return 0
+				;;				
+				"--show-digest")
+				;;
+				"--show-services")
+				prompt="--detail"
+				;;
+				"--detail")
+				;;
+				"--show-nodes")
+				;;
+				"--show-tokens")
+				;;
+				*)
+				;;
+			esac
+			prompt="$prompt --verbose --help"
+			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
+			return 0
+		fi	
+		# options completion for "service".
+		if [ ${COMP_WORDS[1]} == "service" ]; then 
+			case "$3" in
+				"--deploy")
+				;;
+				"--remove")
+				;;				
+				"--show-config")
+				;;
+				"--show-info")
+				;;
+				"--show-logs")
+				;;
+				*)
+				;;
+			esac
+			prompt=$service_prompt_temp
+			prompt="$prompt $ioc_list_temp"
+			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
+			
 		fi		
 
 	fi

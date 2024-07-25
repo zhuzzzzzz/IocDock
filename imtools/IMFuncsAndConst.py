@@ -18,7 +18,7 @@ def get_manager_path():
 
 
 #
-# directory name or file name definition for IocManager
+# directory name or file name definition for IocManager.
 TOOLS_DIR = 'imtools'
 
 SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR,
@@ -34,7 +34,15 @@ PROTO_SUFFIX = ('.proto',)
 OTHER_SUFFIX = ('.im',)
 
 #
-# path definition in running container
+# IOC settings.
+DEFAULT_IOC = 'ST-IOC'
+MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
+# asyn, stream device needs to be set separately for different hosts, so they are not supported by default.
+DEFAULT_MODULES = 'autosave, caputlog, status-ioc'
+PORT_SUPPORT = ('tcp/ip', 'serial')
+
+#
+# path definition in running container.
 CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
 CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
 CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
@@ -42,12 +50,11 @@ CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
 LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 
 #
-# IOC settings
-DEFAULT_IOC = 'ST-IOC'
-MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
-# asyn, stream device needs to be set separately for different hosts, so they are not supported by default.
-DEFAULT_MODULES = 'autosave, caputlog, status-ioc'
-PORT_SUPPORT = ('tcp/ip', 'serial')
+# swarm orchestration settings.
+SWARM_DIR = 'swarm'
+IOC_SERVICE_FILE = 'compose-swarm.yaml'
+INIT_SERVICE_FILE = 'compose-swarm-init.yaml'
+PREFIX_STACK_NAME = 'a1'
 
 
 def try_makedirs(d, verbose=False):

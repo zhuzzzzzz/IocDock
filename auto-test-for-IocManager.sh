@@ -217,7 +217,7 @@ echo_segment "$string"
 eval $string
 
 #
-string="./IocManager.py exec test0 test $VERBOSE -a "
+string="./IocManager.py exec test0 test $VERBOSE --add-src-file "
 echo_line "$string"
 eval $string
 
@@ -227,17 +227,17 @@ echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py exec test0 test $VERBOSE -s"
+string="./IocManager.py exec test0 test $VERBOSE --gen-startup-file"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py exec test0 test $VERBOSE -a --src-path ./imtools/template/test"
+string="./IocManager.py exec test0 test $VERBOSE --add-src-file --src-path ./imtools/template/test"
 echo_line "$string"
 eval $string
 
 #
-string="./IocManager.py exec test0 test $VERBOSE -s; tree ./ioc-repository/test"
+string="./IocManager.py exec test0 test $VERBOSE --gen-startup-file; tree ./ioc-repository/test"
 echo_line "$string"
 eval $string
 
@@ -253,7 +253,7 @@ eval $string
 echo
 
 #
-string="./IocManager.py exec -c --hosts localhost $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
+string="./IocManager.py exec --gen-compose-file --hosts localhost $VERBOSE; tree ../ioc-for-docker; cat ../ioc-for-docker/localhost/compose.yaml"
 echo_line "$string"
 eval $string
 
