@@ -336,6 +336,8 @@ def execute_swarm(args):
     if args.gen_global_compose_file:
         SwarmManager.gen_global_compose_file(base_image=args.base_image,
                                              mount_dir=f'{os.path.join(get_manager_path(), "..")}')
+    elif args.deploy_global_services:
+        SwarmManager().deploy_global_services()
     elif args.show_digest:
         SwarmManager().show_info()
     elif args.show_services:
@@ -355,7 +357,7 @@ def execute_service(args):
         print(f'execute_service: No IOC project specified.')
     else:
         for name in args.name:
-            temp_service = SwarmService(name)
+            temp_service = SwarmService(name, service_type='ioc')
             if args.deploy:
                 temp_service.deploy()
             elif args.remove:
@@ -662,7 +664,7 @@ def gen_swarm_files(mount_dir, iocs, verbose):
                         f'cd RUN/{ioc_data[0]}/startup/iocBoot; ./st.cmd;'
                     ],
                     'deploy': {
-                        'replicas': '1',
+                        'replicas': 1,
                         'restart_policy':
                             {
                                 'window': '10s',
@@ -980,6 +982,8 @@ if __name__ == '__main__':
                                    '\nset "--base-image" to choose a base image used for running iocLogserver.')
     parser_swarm.add_argument('--base-image', type=str, default='base:dev',
                               help='base image used for running iocLogserver. default "base:dev".')
+    parser_swarm.add_argument('--deploy-global-services', action="store_true",
+                              help='deploy all global services into running.')
     parser_swarm.add_argument('--show-digest', action="store_true",
                               help='show digest information of current swarm deploying.')
     parser_swarm.add_argument('--show-services', action="store_true",

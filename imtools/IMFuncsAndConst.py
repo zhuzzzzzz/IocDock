@@ -53,7 +53,7 @@ LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 # swarm orchestration settings.
 SWARM_DIR = 'swarm'
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
-INIT_SERVICE_FILE = 'compose-swarm-init.yaml'
+GLOBAL_SERVICE_FILE = 'compose-swarm-init.yaml'
 PREFIX_STACK_NAME = 'a1'
 
 

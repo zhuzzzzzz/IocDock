@@ -33,7 +33,7 @@ _mycommand_completion() {
 	#
 	rename_prompt="--verbose --help"
 	#
-	swarm_prompt="--gen-global-compose-file --show-digest --show-services --show-nodes --show-tokens --verbose --help"
+	swarm_prompt="--gen-global-compose-file --deploy-global-services --show-digest --show-services --show-nodes --show-tokens --verbose --help"
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --verbose --help"
 	
@@ -395,6 +395,8 @@ _mycommand_completion() {
 				"--show-nodes")
 				;;
 				"--show-tokens")
+				;;
+				"--deploy-global-services")
 				;;
 				*)
 				;;
