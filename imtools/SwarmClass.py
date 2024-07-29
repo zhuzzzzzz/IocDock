@@ -45,6 +45,34 @@ class SwarmManager:
                 print(f'SwarmManager: Start to Deploy "{item.service_name}".')
                 item.deploy()
 
+    def deploy_all_iocs(self):
+        for item in self.services.values():
+            if item.service_type == 'ioc':
+                if item.is_available:
+                    if item.is_deployed:
+                        print(f'SwarmManager: Skipped deploying "{item.service_name}", as it\'s been deployed.')
+                        continue
+                    else:
+                        print(f'SwarmManager: Start to Deploy "{item.service_name}".')
+                        item.deploy()
+                else:
+                    print(f'SwarmManager: Failed to deploy "{item.service_name}", as it\'s not available.')
+
+    def remove_all_services(self):
+        while True:
+            ans = input(f'SwarmManager: Remove all deployed IOC projects?!![y|n]:')
+            if ans.lower() == 'y' or ans.lower() == 'yes':
+                print(f'SwarmManager: All deployed IOC projects will be removed.')
+                break
+            elif ans.lower() == 'n' or ans.lower() == 'no':
+                return
+            else:
+                print(f'SwarmManager: Invalid input, please try again.')
+        for item in self.services.values():
+            if item.is_available:
+                if item.is_deployed:
+                    item.remove()
+
     @staticmethod
     def gen_global_compose_file(base_image, mount_dir):
         yaml_data = {

@@ -338,6 +338,10 @@ def execute_swarm(args):
                                              mount_dir=f'{os.path.join(get_manager_path(), "..")}')
     elif args.deploy_global_services:
         SwarmManager().deploy_global_services()
+    elif args.deploy_all_iocs:
+        SwarmManager().deploy_all_iocs()
+    elif args.remove_all_services:
+        SwarmManager().remove_all_services()
     elif args.show_digest:
         SwarmManager().show_info()
     elif args.show_services:
@@ -984,6 +988,10 @@ if __name__ == '__main__':
                               help='base image used for running iocLogserver. default "base:dev".')
     parser_swarm.add_argument('--deploy-global-services', action="store_true",
                               help='deploy all global services into running.')
+    parser_swarm.add_argument('--deploy-all-iocs', action="store_true",
+                              help='deploy all IOC projects that are available but not deployed into running.')
+    parser_swarm.add_argument('--remove-all-services', action="store_true",
+                              help='remove all deployed services including global services.')
     parser_swarm.add_argument('--show-digest', action="store_true",
                               help='show digest information of current swarm deploying.')
     parser_swarm.add_argument('--show-services', action="store_true",

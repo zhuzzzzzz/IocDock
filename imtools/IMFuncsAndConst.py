@@ -54,7 +54,7 @@ LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 SWARM_DIR = 'swarm'
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
 GLOBAL_SERVICE_FILE = 'compose-swarm-init.yaml'
-PREFIX_STACK_NAME = 'a1'
+PREFIX_STACK_NAME = 'dals'
 
 
 def try_makedirs(d, verbose=False):
