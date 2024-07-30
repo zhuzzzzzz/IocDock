@@ -1,28 +1,33 @@
-# 部署swarm
+# 基于docker swarm的IOC项目部署及管理
 
-有关swarm模式的具体部署和管理方法，可参考docker官方给出的文档。本文档仅从部署IOC服务的角度给出必要的操作步骤及说明。
+有关swarm模式下运行的docker服务的具体部署和管理方法，需要阅读docker官方给出的文档。本文档仅从部署IOC服务的角度给出必要部分的操作步骤及说明。
 
-### 管理swarm节点
+## 管理swarm节点
 
-##### 初始化第一个swarm管理节点
+swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm集群冗余备份的安全性和可靠性特点。
+因此推荐准备三台服务器分别工作在互不相干的三套机房环境中(包括电源和网络等硬件资源)，以最大程度实现服务冗余备份安全性。
 
-docker swarm init [ --advertise-addr <MANAGER-IP> ]    
+选定一台服务器初始化swarm，并将其他服务器作为管理者添加至swarm集群中，之后将其他服务器作为工作节点添加至swarm集群，以完成swarm集群的初始化。之后即可向其中部署IOC服务。
+
+### 初始化第一个swarm管理节点
+
+```docker swarm init [ --advertise-addr <MANAGER-IP> ]   ```   
 当主机有多网卡时，可能需要特别指定ip地址，以确定docker swarm在哪个网络提供服务
 
-##### 加入管理节点或工作节点
+### 加入管理节点或工作节点
 
-docker swarm join --join-token
+```docker swarm join --join-token```
 
-##### 当前节点退出swarm
+### 当前节点退出swarm
 
-docker swarm leave
+```docker swarm leave```
 
 节点退出后在节点列表依然存在，只是状态由Ready变为Down，可在管理节点将其手动移出节点列表    
-docker node rm
+```docker node rm```
 
-### 部署及管理IOC服务
+## 部署及管理IOC服务
 
-##### 部署全局服务
+### 部署全局服务
 
 首先创建全局服务部署文件。全局服务会自动在每个节点都运行一份，当前运行的全局服务有iocLogServer，
 因此在创建全局服务部署文件时需要指定一个EPICS base镜像.
@@ -35,7 +40,7 @@ docker node rm
 
 若要移除部署的公共服务，参考docker在swarm部署模式下的官方文档.
 
-##### 导出IOC项目至工作目录
+### 导出IOC项目至工作目录
 
 IOC创建配置流程与compose部署基本相同，不同之处在于，当IOC需要使用swarm模式部署时，IOC配置文件的host字段需要配置为"swarm"，
 且当IOC配置完成后，最后运行的生成compose部署文件命令"--gen-compose-file"此时变更为生成swarm部署文件命令"
@@ -43,7 +48,7 @@ IOC创建配置流程与compose部署基本相同，不同之处在于，当IOC�
 
 ```IocManager.py exec --gen-swarm-file --ioc-list IOC [IOC2 IOC3 ...]  ```
 
-##### swarm管理命令
+### swarm管理命令
 
 - 查看当前所有IOC项目在swarm模式下的摘要信息.   
   ```IocManager.py swarm --show-digest```
@@ -64,7 +69,7 @@ IOC创建配置流程与compose部署基本相同，不同之处在于，当IOC�
 - 移除当前swarm模式下部署的所有服务.   
   ```IocManager.py swarm --remove-all-services```
 
-##### IOC service管理命令
+### IOC service管理命令
 
 正确操作管理脚本后，会对IOC项目生成启动docker服务所必须的配置文件，当该IOC服务被分配到其他主机运行时，要确保其他主机都能访问到IOC项目目录(
 即其他主机需要mount上IOC项目目录)，从而获取服务配置文件及IOC项目的配置文件

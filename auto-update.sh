@@ -5,11 +5,22 @@
 
 
 
-# for shell command completion.
-cd imtools
-. install-command-completion.sh
-cd ..
 
+
+script_abs=$(readlink -f "$0")
+script_dir=$(dirname $script_abs)
+
+
+# for shell command completion.
+cd imtools/command-completion
+
+# !!!
+script_abs_temp=$script_abs
+script_dir_temp=$script_dir
+. install-command-completion.sh
+script_abs=$script_abs_temp
+script_dir=$script_dir_temp
+cd $script_dir
 
 # add command search path and set environment variable.
 file_path=/etc/profile.d/IocManagerInstaller.sh

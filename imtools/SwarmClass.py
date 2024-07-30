@@ -43,6 +43,7 @@ class SwarmManager:
                 continue
             else:
                 print(f'SwarmManager: Start to Deploy "{item.service_name}".')
+                print(f'=================================================================')
                 item.deploy()
 
     def deploy_all_iocs(self):
@@ -54,6 +55,7 @@ class SwarmManager:
                         continue
                     else:
                         print(f'SwarmManager: Start to Deploy "{item.service_name}".')
+                        print(f'=================================================================')
                         item.deploy()
                 else:
                     print(f'SwarmManager: Failed to deploy "{item.service_name}", as it\'s not available.')

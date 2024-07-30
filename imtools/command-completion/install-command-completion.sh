@@ -3,8 +3,8 @@
 script_abs=$(readlink -f "$0")
 script_dir=$(dirname $script_abs)
 
-repository_path=$script_dir/../ioc-repository/
-mount_path=$script_dir/../../ioc-for-docker/
+repository_path=$script_dir/../../ioc-repository/
+mount_path=$script_dir/../../../ioc-for-docker/
 
 temp_name="IocManagerCompletion"
 
