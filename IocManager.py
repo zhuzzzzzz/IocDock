@@ -353,6 +353,10 @@ def execute_swarm(args):
         SwarmManager.show_deployed_machines()
     elif args.show_tokens:
         SwarmManager.show_join_tokens()
+    elif args.backup_swarm:
+        SwarmManager.backup_swarm()
+    elif args.restore_swarm:
+        SwarmManager.restore_swarm(args.backup_file)
 
 
 def execute_service(args):
@@ -723,7 +727,7 @@ def repository_backup(backup_mode, backup_dir, verbose):
         # collect ioc.ini files and source files into tar.gz file.
         if not os.path.exists(backup_path):
             try_makedirs(backup_path, verbose)
-        now_time = datetime.datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
+        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         tar_dir = os.path.join(backup_path, now_time)
         if ioc_list:
             for ioc_item in ioc_list:
@@ -743,7 +747,7 @@ def repository_backup(backup_mode, backup_dir, verbose):
                     dir_copy(os.path.join(ioc_run_path, 'settings'), os.path.join(ioc_tar_dir, 'settings'),
                              verbose=verbose)
             else:
-                with tarfile.open(os.path.join(backup_path, f'{now_time}.tar.gz'), "w:gz") as tar:
+                with tarfile.open(os.path.join(backup_path, f'{now_time}.ioc.tar.gz'), "w:gz") as tar:
                     tar.add(tar_dir, arcname=os.path.basename(tar_dir))
                 dir_remove(tar_dir, verbose=verbose)
                 print(f'repository_backup: Finished. Backup file created at {backup_path} in "{backup_mode}" mode.')
@@ -1001,6 +1005,13 @@ if __name__ == '__main__':
                               help='show all service deployed in swarm for "--show-services".')
     parser_swarm.add_argument('--show-nodes', action="store_true", help='show all nodes joined in swarm.')
     parser_swarm.add_argument('--show-tokens', action="store_true", help='show how to join into swarm for other nodes.')
+    parser_swarm.add_argument('-b', '--backup-swarm', action="store_true",
+                              help='generate backup file of current swarm.'
+                                   '\ndocker daemon of current manager will be paused for backup operation.')
+    parser_swarm.add_argument('-r', '--restore-swarm', action="store_true",
+                              help='restore swarm backup file into current machine.'
+                                   '\nset "--backup-file" to choose the backup file to restore from.')
+    parser_swarm.add_argument('--backup-file', type=str, default='', help='tgz backup file for swarm.')
     parser_swarm.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_swarm.set_defaults(func='parse_swarm')
 

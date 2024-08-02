@@ -6,16 +6,14 @@
 IOC运行在容器之中，一个容器装载一个IOC运行，一台虚拟机主机可以运行多个容器。
 本文档是关于如何在这个虚拟机集群中部署虚拟机操作系统，完成IOC项目部署的前置环境，以配合自行开发的IOC项目管理工具使用。
 
-下方首先介绍关于各个部分的概念解释。当需要针对哪个部分单独配置时，参见下方每个部分单独给出的流程步骤进行配置。
-
-### 名词解释
+下面首先介绍关于各个部分的概念解释。当需要针对哪个部分单独配置时，参见下方每个部分单独给出的流程步骤进行配置。
 
 ### docker-manager
 
 docker-manager，是指在虚拟机管理系统中运行容器管理平台的centos7虚拟机，简称管理主机。管理主机不参与容器的IOC运行，管理主机上运行有一个Portainer
 Server，
 其与所有工作主机的Portainer agent进行通信以实现管理功能。此外，在此主机之中还运行一个registry镜像仓库，
-其中存储了架构中其他主机将使用的容器镜像。   
+其中存储了架构中其他主机将使用的容器镜像。
 
 访问 https://(docker-manager ip):9443 以进入容器管理平台界面   
 访问 https://(docker-manager ip)/v2/_catalog 以查看当前镜像仓库中有哪些镜像
@@ -34,9 +32,11 @@ __当前所有虚拟机都运行在同一局域网，互相之间可通过二层
 
 ### IOC部署管理工具
 
-[git项目地址](http://120.25.165.98/zhujunhua/repository-ioc)   
 自行开发的Python脚本工具，包含容器镜像的生成脚本，系统环境的配置脚本等。实现的功能有：IOC项目的创建、管理，IOC运行文件自动生成，IOC项目的备份恢复等功能。
 具体请参考工具内的使用文档。
+
+[github地址](https://github.com/zhuzzzzzz/repository-IOC)   
+[gitlab地址](http://120.25.165.98/zhujunhua/repository-ioc)
 
 ## docker-manager
 
@@ -155,6 +155,6 @@ __当前所有虚拟机都运行在同一局域网，互相之间可通过二层
 
 #### 启动IOC服务
 
-- 配置好IOC项目的配置文件, 按文档生成IOC运行文件的mount目录, 具体方式见IOC部署管理工具文档   
+- 配置好IOC项目的配置文件, 按文档生成IOC运行文件的mount目录, 具体方式见IOC部署管理工具文档
 - 对每台工作机分别操作，切换至/home/default/Docker/IOC/目录下，启动IOC项目的compose项目   
   ```docker compose up -d```

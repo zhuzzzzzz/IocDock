@@ -165,7 +165,7 @@ def relative_and_absolute_path_to_abs(input_path, default_path=None):
     if not input_path:
         input_path = default_path
     if not os.path.isabs(input_path):
-        output_path = os.path.join(get_manager_path(), input_path)
+        output_path = os.path.join(os.getcwd(), input_path)
     else:
         output_path = input_path
     output_path = os.path.normpath(output_path)

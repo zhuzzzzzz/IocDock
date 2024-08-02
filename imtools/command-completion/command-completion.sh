@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set exec list swarm service remove rename --help"
+	sub_command_opts="create set exec list swarm service remove rename"
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
 	_options_prompt="host= image= bin= description= load_=  epics_env_= report_info=true report_info=false caputlog_json=true caputlog_json=false "
@@ -33,7 +33,7 @@ _mycommand_completion() {
 	#
 	rename_prompt="--verbose --help"
 	#
-	swarm_prompt="--gen-global-compose-file --deploy-global-services --deploy-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --verbose --help"
+	swarm_prompt="--gen-global-compose-file --deploy-global-services --deploy-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --verbose --help"
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --verbose --help"
 	
@@ -401,6 +401,23 @@ _mycommand_completion() {
 				"--deploy-all-iocs")
 				;;
 				"--remove-all-services")
+				;;
+				"-b"|"--backup-swarm")
+				;;
+				"-r"|"--restore-swarm")
+				prompt="--backup-file"
+				;;
+				"--backup-file")
+				compopt -o nospace
+				file_list=$(compgen -f -- $2) # Variable Type!!!
+				for file in $file_list; do
+					if [ -d $(readlink -f "$file") ]; then
+						COMPREPLY+=( "${file}/" )
+					else
+						COMPREPLY+=( "${file}" )
+					fi
+				done
+				return 0
 				;;
 				*)
 				;;

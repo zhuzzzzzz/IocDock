@@ -1,3 +1,4 @@
+import datetime
 import os
 import yaml
 import subprocess
@@ -5,7 +6,7 @@ from tabulate import tabulate
 
 from imtools.IMFuncsAndConst import (CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, MOUNT_DIR, GLOBAL_SERVICE_FILE, SWARM_DIR,
                                      CONFIG_FILE_NAME, IOC_SERVICE_FILE, PREFIX_STACK_NAME, REPOSITORY_DIR,
-                                     relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, )
+                                     relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, TOOLS_DIR, )
 
 
 class SwarmManager:
@@ -170,6 +171,85 @@ class SwarmManager:
         os.system('docker swarm join-token manager')
         os.system('docker swarm join-token worker')
 
+    @staticmethod
+    def backup_swarm():
+        print(f'Starting swarm backup...')
+
+        command_string = f'sudo systemctl stop docker'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        command_string = f'sudo tar -czvf {now_time}.swarm.tar.gz /var/lib/docker/swarm'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        repository_path = os.environ.get("MANAGER_PATH", default='')
+        if repository_path:
+            if not os.path.isdir(repository_path):
+                print(f'backup_swarm: $MANAGER_PATH is not a valid directory, '
+                      f'backup file created at current work path.')
+                return
+        else:
+            print(f'backup_swarm: $MANAGER_PATH is not defined, backup file created at current work path.')
+            return
+        try_makedirs(f'{os.path.join(repository_path, TOOLS_DIR, "swarm-snapshot")}')
+
+        command_string = (f'sudo mv ./{now_time}.swarm.tar.gz '
+                          f'{os.path.join(repository_path, TOOLS_DIR, "swarm-snapshot")}')
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        command_string = f'sudo systemctl start docker'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        print(f'Finished swarm backup.')
+
+    @staticmethod
+    def restore_swarm(backup_file):
+        print(f'Restoring swarm...')
+
+        extract_path = relative_and_absolute_path_to_abs(backup_file)
+        if not str(extract_path).endswith('.swarm.tar.gz'):
+            print(f'restore_swarm: Failed. File "{extract_path}" is not a valid swarm backup file.')
+            return
+        if not os.path.isfile(extract_path):
+            print(f'restore_swarm: Failed. File "{extract_path}" is not exists.')
+            return
+
+        print(f'unpack tar.gz file into swarm directory.')
+        command_string = f'tar -zxvf {extract_path}'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        if not os.path.isdir(f'./var/lib/docker/swarm'):
+            print(f'restore_swarm: Failed. Backup file used for restoring is not a valid swarm backup.')
+            return
+
+        command_string = f'sudo systemctl stop docker'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        command_string = f'sudo rm -rf /var/lib/docker/swarm'
+        print(f'Executing command: "{command_string}"...')
+        ans = input(f'Confirm to execute the above operation[y|n]?')
+        if ans.lower() == 'y' or ans.lower() == 'yes':
+            os.system(f'{command_string}')
+        else:
+            print(f'Operation exit.')
+            return
+
+        command_string = f'sudo mv -f ./var/lib/docker/swarm /var/lib/docker/swarm'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        command_string = f'sudo systemctl start docker'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
+        print(f'Restoring finished.')
+
 
 class SwarmService:
     def __init__(self, name, service_type):
@@ -281,3 +361,4 @@ if __name__ == '__main__':
     # s.show_info()
     # print(s.current_state)
     SwarmManager().show_info()
+    SwarmManager.backup_swarm()
