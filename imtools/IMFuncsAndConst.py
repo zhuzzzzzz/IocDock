@@ -26,7 +26,8 @@ SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR,
 CONFIG_FILE_NAME = 'ioc.ini'
 REPOSITORY_DIR = 'ioc-repository'
 MOUNT_DIR = 'ioc-for-docker'  # default directory for docker mounting
-BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other run-time log files
+IOC_BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other run-time log files
+SWARM_BACKUP_DIR = 'swarm-backup'  # version backup directory for swarm
 
 # source file format used by IOC.get_src_file()
 DB_SUFFIX = ('.db',)

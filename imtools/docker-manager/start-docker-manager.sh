@@ -6,6 +6,8 @@ if [ ! $(hostname) == 'docker-manager'  -a ! $1 == '-f'  ]; then
 fi
 
 echo Stop Compose project first if exists. 
-docker compose down
+docker compose -f compose-server.yaml down
+docker compose -f compose-registry.yaml down
 echo Start Compose project. 
-docker compose up -d
+docker compose -f compose-server.yaml up -d
+docker compose -f compose-registry.yaml up -d

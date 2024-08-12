@@ -33,7 +33,7 @@ _mycommand_completion() {
 	#
 	rename_prompt="--verbose --help"
 	#
-	swarm_prompt="--gen-global-compose-file --deploy-global-services --deploy-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --verbose --help"
+	swarm_prompt="--gen-global-compose-file --deploy-global-services --deploy-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services --verbose --help"
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --verbose --help"
 	
@@ -418,6 +418,8 @@ _mycommand_completion() {
 					fi
 				done
 				return 0
+				;;
+				"--update-deployed-services")
 				;;
 				*)
 				;;

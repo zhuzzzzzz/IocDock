@@ -12,7 +12,7 @@ from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, conditio
                                      relative_and_absolute_path_to_abs, check_snapshot_file, add_snapshot_file,
                                      get_manager_path,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
-                                     BACKUP_DIR, SWARM_DIR, IOC_SERVICE_FILE, )
+                                     IOC_BACKUP_DIR, SWARM_DIR, IOC_SERVICE_FILE, )
 from imtools.IocClass import IOC
 from imtools.SwarmClass import SwarmManager, SwarmService
 
@@ -357,6 +357,8 @@ def execute_swarm(args):
         SwarmManager.backup_swarm()
     elif args.restore_swarm:
         SwarmManager.restore_swarm(args.backup_file)
+    elif args.update_deployed_services:
+        SwarmManager().update_deployed_services()
 
 
 def execute_service(args):
@@ -714,7 +716,7 @@ def gen_swarm_files(mount_dir, iocs, verbose):
 
 # Generate backup file of IOC project settings.
 # backup_mode: "src" only copy .ini file and source files; "all" backup all files.
-# backup_dir: top dir for BACKUP_DIR.
+# backup_dir: top dir for IOC_BACKUP_DIR.
 def repository_backup(backup_mode, backup_dir, verbose):
     ioc_list = get_all_ioc()
     # check whether the setting of IOC projects in snapshot directory are newest and not modified.
@@ -723,7 +725,7 @@ def repository_backup(backup_mode, backup_dir, verbose):
         print(f'repository_backup: Failed. Run checks failed.')
         return
     else:
-        backup_path = relative_and_absolute_path_to_abs(backup_dir, BACKUP_DIR)  # default in current path ./ioc-backup/
+        backup_path = relative_and_absolute_path_to_abs(backup_dir, IOC_BACKUP_DIR)  # default path ./ioc-backup/
         # collect ioc.ini files and source files into tar.gz file.
         if not os.path.exists(backup_path):
             try_makedirs(backup_path, verbose)
@@ -947,9 +949,9 @@ if __name__ == '__main__':
                                      '\nset "--backup-path" to choose a backup directory. '
                                      '\nset "--backup-mode" to choose a backup mode.')
     parser_execute.add_argument('--backup-path', type=str,
-                                default=f'{os.path.join(get_manager_path(), "..", BACKUP_DIR)}',
+                                default=f'{os.path.join(get_manager_path(), "..", IOC_BACKUP_DIR)}',
                                 help=f'dir path used for storing backup files of IOC projects. '
-                                     f'\ndefault "$MANAGER_PATH/../{BACKUP_DIR}/".')
+                                     f'\ndefault "$MANAGER_PATH/../{IOC_BACKUP_DIR}/".')
     parser_execute.add_argument('--backup-mode', type=str, default='src',
                                 help='backup mode for IOC projects. '
                                      '\n"all": back up all files including running files'
@@ -1012,6 +1014,8 @@ if __name__ == '__main__':
                               help='restore swarm backup file into current machine.'
                                    '\nset "--backup-file" to choose the backup file to restore from.')
     parser_swarm.add_argument('--backup-file', type=str, default='', help='tgz backup file for swarm.')
+    parser_swarm.add_argument('--update-deployed-services', action="store_true",
+                              help='update all services deployed in swarm to force load balance.')
     parser_swarm.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_swarm.set_defaults(func='parse_swarm')
 

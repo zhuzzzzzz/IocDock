@@ -1,0 +1,19 @@
+name: docker-manager
+services:
+  srv-portainer:
+    container_name: "portainer"
+    image: "portainer/portainer-ce:latest"
+    ports: 
+      - "8000:8000"
+      - "9443:9443"
+    restart: always
+    volumes:
+      - type: bind 
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: volume 
+        source: portainer_data
+        target: /data
+volumes:
+  portainer_data:
+    external: true

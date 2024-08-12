@@ -6,7 +6,8 @@ from tabulate import tabulate
 
 from imtools.IMFuncsAndConst import (CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, MOUNT_DIR, GLOBAL_SERVICE_FILE, SWARM_DIR,
                                      CONFIG_FILE_NAME, IOC_SERVICE_FILE, PREFIX_STACK_NAME, REPOSITORY_DIR,
-                                     relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, TOOLS_DIR, )
+                                     relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, TOOLS_DIR,
+                                     SWARM_BACKUP_DIR, )
 
 
 class SwarmManager:
@@ -75,6 +76,17 @@ class SwarmManager:
             if item.is_available:
                 if item.is_deployed:
                     item.remove()
+
+    def update_deployed_services(self):
+        print(f'Update all deployed services, this will cause all ioc services to be restarted.')
+        ans = input(f'Confirm to execute the above operation[y|n]?')
+        if ans.lower() == 'y' or ans.lower() == 'yes':
+            for item in self.services.values():
+                if item.service_type == 'ioc':
+                    item.update()
+        else:
+            print(f'Operation exit.')
+            return
 
     @staticmethod
     def gen_global_compose_file(base_image, mount_dir):
@@ -156,7 +168,7 @@ class SwarmManager:
 
     @staticmethod
     def show_deployed_services():
-        os.system(f'docker stack ps -f "desired-state=running" {PREFIX_STACK_NAME}')
+        os.system(f'docker stack ps -f "desired-state=running" -f "desired-state=ready" {PREFIX_STACK_NAME}')
 
     @staticmethod
     def show_deployed_info():
@@ -193,10 +205,10 @@ class SwarmManager:
         else:
             print(f'backup_swarm: $MANAGER_PATH is not defined, backup file created at current work path.')
             return
-        try_makedirs(f'{os.path.join(repository_path, TOOLS_DIR, "swarm-snapshot")}')
+        backup_path = os.path.normpath(os.path.join(repository_path, "..", SWARM_BACKUP_DIR))
+        try_makedirs(backup_path)
 
-        command_string = (f'sudo mv ./{now_time}.swarm.tar.gz '
-                          f'{os.path.join(repository_path, TOOLS_DIR, "swarm-snapshot")}')
+        command_string = f'sudo mv ./{now_time}.swarm.tar.gz {backup_path}'
         print(f'Executing command: "{command_string}"...')
         os.system(f'{command_string}')
 
@@ -219,11 +231,11 @@ class SwarmManager:
             return
 
         print(f'unpack tar.gz file into swarm directory.')
-        command_string = f'tar -zxvf {extract_path}'
+        command_string = f'tar -zxvf {extract_path} -C /tmp/'
         print(f'Executing command: "{command_string}"...')
         os.system(f'{command_string}')
 
-        if not os.path.isdir(f'./var/lib/docker/swarm'):
+        if not os.path.isdir(f'/tmp/var/lib/docker/swarm'):
             print(f'restore_swarm: Failed. Backup file used for restoring is not a valid swarm backup.')
             return
 
@@ -240,7 +252,7 @@ class SwarmManager:
             print(f'Operation exit.')
             return
 
-        command_string = f'sudo mv -f ./var/lib/docker/swarm /var/lib/docker/swarm'
+        command_string = f'sudo mv -f /tmp/var/lib/docker/swarm /var/lib/docker/swarm'
         print(f'Executing command: "{command_string}"...')
         os.system(f'{command_string}')
 
@@ -295,7 +307,8 @@ class SwarmService:
     def current_state(self):
         if self.is_deployed:
             result = subprocess.run(
-                ['docker', 'service', 'ps', '-f', f'desired-state=Running', '--format', '{{.CurrentState}}',
+                ['docker', 'service', 'ps', '-f', f'desired-state=Running', '-f', f'desired-state=Ready', '--format',
+                 '{{.CurrentState}}',
                  self.service_name],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             return result.stdout.splitlines()[0]
@@ -346,6 +359,10 @@ class SwarmService:
             return ans
         else:
             print(f'No logs for "{self.name}" as it has not been deployed yet.')
+
+    def update(self):
+        if self.is_deployed:
+            os.system(f'docker service update --force {self.service_name}')
 
 
 if __name__ == '__main__':
