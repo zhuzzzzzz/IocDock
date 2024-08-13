@@ -5,6 +5,8 @@
 
 ## 部署及管理
 
+*主机设置可参考compose部署文档，被部署的主机应至少安装有docker，可以相互访问，且mount了NFS上Docker目录*
+
 ### 部署及管理swarm节点
 
 swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm集群冗余备份的安全性和可靠性特点。   
@@ -30,6 +32,34 @@ swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm
   ```docker swarm leave```    
   节点退出后在节点列表依然存在，只是状态由Ready变为Down，可在管理节点将其手动移出节点列表    
   ```docker node rm```
+
+### 部署镜像仓库
+
+部署镜像仓库需要设置主机的DNS条目，用以拉取镜像。运行set-docker-environment.sh脚本以进行相关设置。    
+选定一台管理节点主机，将该脚本内的REGISRY_IP设置为该主机的IP，分别在所有管理节点运行```./set-docker-environment.sh manager```
+及其他节点```./set-docker-environment.sh worker```以完成相关docker环境设置。
+
+- 完成设置后，在选定的这台管理节点主机，切换至repository-ioc/docker-manager/目录下，运行compose项目以启动镜像仓库服务   
+  ```docker compose -f compose-registry.yaml up -d```
+
+### 使用Portainer管理服务
+
+swarm模式下推荐使用脚本工具提供的命令或 docker cli 进行管理操作。
+使用Portainer可进行服务的更新操作，但 Portainer WEB 界面较为复杂，容易误操作而操作员未察觉。
+
+1. 选定一台管理节点主机执行如下指令(推荐使用和上述部署镜像仓库时所使用的相同主机)，创建docker volume供portainer使用    
+   ```docker volume create portainer_data```
+
+
+2. 切换至repository-ioc/docker-manager/目录下，启动portainer的compose项目   
+   ```docker compose -f compose-server.yaml up -d```
+
+
+3. 访问该主机的9443端口进入 Portainer web 界面进行设置及管理
+
+注:
+使用当前方法部署镜像仓库或Portainer服务，只是在一台主机上部署了这些服务，当这台主机因为故障下线而又不能及时上线时，
+可在其他可用管理节点主机重新部署。镜像仓库重新部署后因mount共享NFS目录可以恢复，而portainer服务则为全新部署状态，无法恢复。
 
 ### 部署全局服务
 

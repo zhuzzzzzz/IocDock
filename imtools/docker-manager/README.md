@@ -1,3 +1,7 @@
+
+
+
+
 - Scripts ```set-docker-environment.sh``` should be run as root!
 - $REGISTRY_IP and $REGISTRY_NAME in set-docker-environment.sh should be set according to settings of manager server.
 - Run ```./set-docker-environment.sh``` only once for new system of workers.

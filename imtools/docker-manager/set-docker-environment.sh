@@ -29,7 +29,7 @@ set -e
 # set host DNS entry.
 echo Set \"/etc/hosts\".
 #REGISTRY_IP="192.168.20.247" # Should set this variable the actual ip that the server uses.
-REGISTRY_IP="127.0.0.1"
+REGISTRY_IP="172.16.2.223"
 REGISTRY_NAME="image.dals"
 
 new_line="$REGISTRY_IP\t$REGISTRY_NAME"
