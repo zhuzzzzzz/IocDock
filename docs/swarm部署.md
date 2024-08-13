@@ -5,14 +5,16 @@
 
 ## 部署及管理
 
-*主机设置可参考compose部署文档，被部署的主机应至少安装有docker，可以相互访问，且mount了NFS上Docker目录*
+*主机设置可参考compose部署文档，被部署的主机应至少安装有docker，可以相互访问，且都已在相同位置挂载了NFS服务器上的 Docker
+目录，确保每台主机都能访问到共享目录上的配置文件以及文件夹*
 
 ### 部署及管理swarm节点
 
 swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm集群冗余备份的安全性和可靠性特点。   
 因此推荐准备三台服务器分别工作在互不相干的三套机房环境中(包括电源和网络等硬件资源)，以最大程度实现服务冗余备份安全性。
 
-选定一台服务器初始化swarm，并将其他服务器作为管理者添加至swarm集群中，之后将其他服务器作为工作节点添加至swarm集群，以完成swarm集群的初始化。之后即可向其中部署IOC服务。
+选定一台服务器初始化swarm，并将其他服务器作为管理者添加至swarm集群中，之后将其他服务器作为工作节点添加至swarm集群，以完成swarm集群的初始化。
+之后即可向其中部署IOC服务。
 
 - 初始化第一个swarm管理节点
 
@@ -33,19 +35,20 @@ swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm
   节点退出后在节点列表依然存在，只是状态由Ready变为Down，可在管理节点将其手动移出节点列表    
   ```docker node rm```
 
-### 部署镜像仓库
+### 部署镜像仓库及拉取镜像
 
-部署镜像仓库需要设置主机的DNS条目，用以拉取镜像。运行set-docker-environment.sh脚本以进行相关设置。    
-选定一台管理节点主机，将该脚本内的REGISRY_IP设置为该主机的IP，分别在所有管理节点运行```./set-docker-environment.sh manager```
+拉取镜像需要设置主机的DNS条目，用以通过域名前缀拉取镜像。选定一台管理节点主机部署镜像仓库，
+将```repository-ioc/docker-manager/set-docker-environment.sh```脚本内的REGISRY_IP设置为该主机的IP，
+分别在所有管理节点运行```./set-docker-environment.sh manager```
 及其他节点```./set-docker-environment.sh worker```以完成相关docker环境设置。
 
 - 完成设置后，在选定的这台管理节点主机，切换至repository-ioc/docker-manager/目录下，运行compose项目以启动镜像仓库服务   
   ```docker compose -f compose-registry.yaml up -d```
 
-### 使用Portainer管理服务
+### 使用Portainer管理已部署的服务
 
 swarm模式下推荐使用脚本工具提供的命令或 docker cli 进行管理操作。
-使用Portainer可进行服务的更新操作，但 Portainer WEB 界面较为复杂，容易误操作而操作员未察觉。
+使用Portainer可进行服务的更新操作，但 Portainer WEB 界面较为复杂，且容易产生误操作而操作员未能察觉。
 
 1. 选定一台管理节点主机执行如下指令(推荐使用和上述部署镜像仓库时所使用的相同主机)，创建docker volume供portainer使用    
    ```docker volume create portainer_data```
@@ -59,7 +62,7 @@ swarm模式下推荐使用脚本工具提供的命令或 docker cli 进行管理
 
 注:
 使用当前方法部署镜像仓库或Portainer服务，只是在一台主机上部署了这些服务，当这台主机因为故障下线而又不能及时上线时，
-可在其他可用管理节点主机重新部署。镜像仓库重新部署后因mount共享NFS目录可以恢复，而portainer服务则为全新部署状态，无法恢复。
+可在其他可用管理节点主机重新部署。镜像仓库重新部署后因挂载的卷为共享NFS目录可以恢复，而portainer服务则为全新部署状态，无法恢复，也不须恢复。
 
 ### 部署全局服务
 
