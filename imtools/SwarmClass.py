@@ -260,6 +260,10 @@ class SwarmManager:
         print(f'Executing command: "{command_string}"...')
         os.system(f'{command_string}')
 
+        command_string = f'docker swarm init --force-new-cluster'
+        print(f'Executing command: "{command_string}"...')
+        os.system(f'{command_string}')
+
         print(f'Restoring finished.')
 
 
@@ -355,7 +359,8 @@ class SwarmService:
             result = subprocess.run(['docker', 'service', 'logs', self.service_name, '--raw'],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, text=True)
-            ans = f'Logs for "{self.name}":\t\n#################\n{result.stdout}#################\n{result.stderr}'
+            ans = (f'Logs for "{self.name}": '
+                   f'\n######Start######\n\n{result.stdout}\n\n{result.stderr}\n#######End#######\n')
             return ans
         else:
             print(f'No logs for "{self.name}" as it has not been deployed yet.')
@@ -363,6 +368,8 @@ class SwarmService:
     def update(self):
         if self.is_deployed:
             os.system(f'docker service update --force {self.service_name}')
+        else:
+            print(f'Failed to update "{self.name}" as it has not been deployed yet.')
 
 
 if __name__ == '__main__':

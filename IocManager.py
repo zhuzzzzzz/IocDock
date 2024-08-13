@@ -378,6 +378,8 @@ def execute_service(args):
                 temp_service.show_ps()
             elif args.show_logs:
                 print(temp_service.get_logs())
+            elif args.update:
+                temp_service.update()
 
 
 # mount_dir: a top path for MOUNT_DIR.
@@ -1028,6 +1030,7 @@ if __name__ == '__main__':
     parser_service.add_argument('--show-config', action="store_true", help='show configuration of running service.')
     parser_service.add_argument('--show-info', action="store_true", help='show information of running service.')
     parser_service.add_argument('--show-logs', action="store_true", help='show logs of running service.')
+    parser_service.add_argument('--update', action="store_true", help='restart running service.')
     parser_service.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_service.set_defaults(func='parse_service')
 

@@ -5,8 +5,8 @@
 # run "./make-test-project.sh del" to delete IOC project test cases.
 
 # set variables below to change generating configureation.
-base_image="base:beta-0.2.2"
-ioc_image="ioc-exec:beta-0.2.2"
+base_image="image.dals/base:beta-0.2.2"
+ioc_image="image.dals/ioc-exec:beta-0.2.2"
 create_host=("worker-standard" "worker_test" "worker_test1" "worker_test2")
 create_num=3
 

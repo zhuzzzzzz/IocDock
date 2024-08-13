@@ -138,6 +138,10 @@ IOC项目的创建配置流程与compose部署基本相同，不同之处在于�
   ```IocManager.py service IOC [IOC2 IOC3 ...] --show-config```
 
 
+- 重启当前部署的IOC项目.   
+  ```IocManager.py service IOC [IOC2 IOC3 ...] --update```
+
+
 - 移除当前部署的IOC项目.   
   ```IocManager.py service IOC [IOC2 IOC3 ...] --remove```
 
