@@ -118,6 +118,7 @@ class SwarmManager:
                 f'. ~/.bash_aliases; '
                 f'export EPICS_IOC_LOG_FILE_NAME='
                 f'{os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, "$$(hostname).ioc.log")}; '
+                f'echo export EPICS_IOC_LOG_FILE_NAME=$${{EPICS_IOC_LOG_FILE_NAME}}; '
                 f'echo run iocLogServer; iocLogServer'
             ],
             # 'environment': {

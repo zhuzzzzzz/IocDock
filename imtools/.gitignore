@@ -2,5 +2,5 @@
 # intermediate file.
 command-completion/IocManagerCompletion
 
-
-
+# operation log file.
+.OperationLogs

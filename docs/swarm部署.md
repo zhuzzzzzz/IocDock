@@ -1,35 +1,41 @@
 # 基于docker swarm的IOC项目部署及管理
 
-有关swarm模式下运行的docker服务的具体部署和管理方法，需要阅读docker官方给出的文档。本文档仅从部署IOC服务的角度给出必要部分的操作步骤及说明。    
+本文档仅从部署IOC服务的角度给出必要部分的操作步骤及说明。
+
+有关swarm模式下运行的docker服务详细的部署和管理方法，需要阅读docker官方给出的文档。   
 [docker官方文档](https://docs.docker.com/manuals/)
 
 ## 部署及管理
 
-*主机设置可参考compose部署文档，被部署的主机应至少安装有docker，可以相互访问，且都已在相同位置挂载了NFS服务器上的 Docker
-目录，确保每台主机都能访问到共享目录上的配置文件以及文件夹*
+主机设置参考compose部署文档。
+
+- *部署主机应安装有docker engine，可以相互访问，且都已在相同位置挂载了NFS服务器上的 Docker
+  目录，确保每台主机都能访问到共享目录上的配置文件以及文件夹*
+- *集群内应部署有镜像仓库服务器，以供集群内的镜像拉取*
 
 ### 部署及管理swarm节点
 
-swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm集群冗余备份的安全性和可靠性特点。   
-因此推荐准备三台服务器分别工作在互不相干的三套机房环境中(包括电源和网络等硬件资源)，以最大程度实现服务冗余备份安全性。
-
-选定一台服务器初始化swarm，并将其他服务器作为管理者添加至swarm集群中，之后将其他服务器作为工作节点添加至swarm集群，以完成swarm集群的初始化。
+选定一台服务器初始化swarm集群，并将其他服务器作为管理者添加至swarm集群中，之后将其他服务器作为工作节点添加至swarm集群，以完成swarm集群的初始化。
 之后即可向其中部署IOC服务。
+
+swarm集群内推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm集群的高可用性。
+
+推荐准备三台服务器分别工作在互不相干的三套机房环境中(包括电源和网络等硬件资源)，以最大程度实现服务冗余备份的安全性。
 
 - 初始化第一个swarm管理节点
 
-  执行该操作将初始化swarm集群，当前主机自动成为管理者。当主机有多网卡时，可能需要特别指定ip地址，以确定docker
-  swarm在哪个网络提供服务    
-  ```docker swarm init [--advertise-addr <MANAGER-IP>]```
+  当主机有多网卡时，可能需要特别指定ip地址，以确定docker swarm在哪个网络提供服务    
+  ```docker swarm init [--advertise-addr <MANAGER-IP>]```     
+  执行该操作将初始化swarm集群，当前主机自动成为管理节点
 
 
 - 加入管理节点或工作节点
 
-  使用对应manager或对应worker的token，分别在其他主机的终端执行如下命令，以加入到当前swarm集群    
+  使用对应manager或对应worker的token，分别在其他主机的终端执行如下命令以加入到swarm集群中    
   ```docker swarm join --join-token```
 
 
-- 管理当前节点退出swarm集群
+- 当前节点退出swarm集群
 
   ```docker swarm leave```    
   节点退出后在节点列表依然存在，只是状态由Ready变为Down，可在管理节点将其手动移出节点列表    
@@ -38,12 +44,13 @@ swarm推荐至少3个以上的奇数个管理节点，才能最大化发挥swarm
 ### 部署镜像仓库及拉取镜像
 
 拉取镜像需要设置主机的DNS条目，用以通过域名前缀拉取镜像。选定一台管理节点主机部署镜像仓库，
-将```repository-ioc/docker-manager/set-docker-environment.sh```脚本内的REGISRY_IP设置为该主机的IP，
-分别在所有管理节点运行```./set-docker-environment.sh manager```
-及其他节点```./set-docker-environment.sh worker```以完成相关docker环境设置。
+将```repository-ioc/docker-manager/set-docker-environment.sh```脚本内的REGISRY_IP变量设置为该主机的IP，
+随后执行命令```./set-docker-environment.sh manager```完成仓库节点的环境设置。
 
 - 完成设置后，在选定的这台管理节点主机，切换至repository-ioc/docker-manager/目录下，运行compose项目以启动镜像仓库服务   
   ```docker compose -f compose-registry.yaml up -d```
+
+分别在其他节点```./set-docker-environment.sh worker```以完成相关docker环境设置，以设置拉取镜像的地址。
 
 ### 使用Portainer管理已部署的服务
 
@@ -62,32 +69,34 @@ swarm模式下推荐使用脚本工具提供的命令或 docker cli 进行管理
 
 注:
 使用当前方法部署镜像仓库或Portainer服务，只是在一台主机上部署了这些服务，当这台主机因为故障下线而又不能及时上线时，
-可在其他可用管理节点主机重新部署。镜像仓库重新部署后因挂载的卷为共享NFS目录可以恢复，而portainer服务则为全新部署状态，无法恢复，也不须恢复。
+可在其他可用管理节点主机重新部署镜像仓库和Portainer服务。
+镜像仓库重新部署后因挂载的卷为共享NFS目录可以恢复，而portainer服务则为全新部署状态，无法恢复。
 
 ### 部署全局服务
 
-全局服务会由swarm编排器控制，自动在每个节点都运行一份。
+全局服务会由swarm编排器控制，自动在每个节点都运行一份。当前运行的全局服务有IOC服务器的日志服务iocLogServer。
 
-- 首先创建部署全局服务的配置文件。当前运行的全局服务有IOC服务器的日志服务iocLogServer，因此在创建部署文件时需要指定一个EPICS
-  base镜像.
+- 首先创建部署全局服务的配置文件。在创建日志服务iocLogServer部署文件时，需要指定EPICS base镜像.
 
   ```IocManager.py swarm --gen-global-compose-file --base-image xxx ```
 
 
-- 创建配置文件后，执行指令自动部署这些全局服务.
+- 创建配置文件后，执行指令以自动部署这些全局服务.
 
   ```IocManager.py swarm --deploy-global-services ```
 
 ### 导出IOC项目至工作目录
 
-IOC项目的创建配置流程与compose部署基本相同，不同之处在于，当IOC项目需要使用swarm模式部署时，IOC配置文件的host字段需要配置为```swarm```，
+IOC项目的创建配置流程与compose部署基本相同，不同之处在于，当IOC项目需要使用swarm模式部署时，IOC配置文件的host字段需要配置为
+```swarm```，
 且当IOC配置完成后，最后运行生成compose部署文件的命令```--gen-com1pose-file```
 需要改为生成swarm部署文件的命令```--gen-swarm-file```
 
 ```IocManager.py exec --gen-swarm-file --ioc-list IOC [IOC2 IOC3 ...]  ```
 
-执行```--gen-swarm-file```操作后，IOC服务的状态将变为可用的，使用查看swarm模式摘要信息的命令时，可以看到此状态，
-只有当IOC项目处于可用的状态时才能将其部署
+执行```--gen-swarm-file```操作后，IOC服务的状态将变为可用的，使用查看swarm模式摘要信息的命令时，可以看到此状态。   
+
+只有当IOC项目处于可用的状态时才能将其部署。
 
 ### swarm集群的管理命令
 
@@ -170,7 +179,7 @@ RAFT算法需要管理节点的大多数，也被称为法定人数(quorum)，�
 
 若所有的管理节点都无法正常恢复(丢失掉了swarm数据)，可以参考后文的灾难恢复部分
 
-### 灾难恢复
+### swarm集群的灾难恢复
 
 管理节点将swarm状态和管理日志存储在```/var/lib/docker/swarm```目录下，这个目录下也存有用来加密RAFT日志的密钥。
 没有这些密钥将无法恢复swarm集群。
@@ -180,7 +189,7 @@ RAFT算法需要管理节点的大多数，也被称为法定人数(quorum)，�
 
 关于当前的恢复操作，管理工具提供了管理命令，可参考后文进行swarm集群的备份与恢复。
 
-### 关于swarm集群的备份恢复命令
+### swarm集群的备份及灾难恢复命令
 
 管理工具提供了关于swarm进行灾难备份的以及恢复的命令。
 
@@ -195,5 +204,5 @@ RAFT算法需要管理节点的大多数，也被称为法定人数(quorum)，�
 原有的集群节点是否能重新连接取决于节点中相关的swarm状态信息是否仍存在，当原有节点无法连接时，应手动删除无法连接的节点并添加新的节点。
 完成节点设置后可以使用命令将当前运行的服务重新编排部署至各个节点，以完成对资源的均衡利用。
 
-- 更新swarm部署状态，将服务重新分发至各个节点运行.    
+- 更新swarm部署状态，可将服务重新分发至各个节点运行.    
   ```IocManager.py swarm --update-deployed-services```

@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from tabulate import tabulate
 from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
                                      relative_and_absolute_path_to_abs, check_snapshot_file, add_snapshot_file,
-                                     get_manager_path,
+                                     get_manager_path, operation_log,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
                                      IOC_BACKUP_DIR, SWARM_DIR, IOC_SERVICE_FILE, )
 from imtools.IocClass import IOC
@@ -1056,6 +1056,8 @@ if __name__ == '__main__':
     if not any(vars(args).values()):
         parser.print_help()
         exit()
+
+    operation_log()
 
     # print(f'{args}')
     if args.verbose:

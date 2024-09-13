@@ -59,8 +59,13 @@ __当前所有虚拟机都运行在同一局域网，互相之间可通过二层
 - 将default用户添加至sudo列表
 - 将default用户添加至docker组
 - 主机名称设置(docker-manager)
-- 时区设置, 并设置从网络自动更新时间   
+- 时区设置 
   ```timedatectl set-timezone Asia/Shanghai```
+- 设置NTP, 编辑```/etc/ntp.conf```以对齐本地ntp服务器   
+  ```yum install ntp```   
+  ```sudo systemctl start ntpd```   
+  ```sudo systemctl enable ntpd```    
+  ```server 192.168.20.181```添加本行至```/etc/ntp.conf```并删除默认的ntp对时服务器设置  
 - NFS设置   
   ```yum install nfs-utils```   
   编辑链接/etc/rc.local设置开机启动mount, 注意需要赋予被链接文件的执行权限, 否则无法实现开机mount   
@@ -115,10 +120,11 @@ __当前所有虚拟机都运行在同一局域网，互相之间可通过二层
 - 主机名称设置(docker-standard)
 - 时区设置   
   ```timedatectl set-timezone Asia/Shanghai```
-- 设置NTP   
+- 设置NTP, 编辑```/etc/ntp.conf```以对齐本地ntp服务器   
   ```yum install ntp```   
   ```sudo systemctl start ntpd```   
-  ```sudo systemctl enable ntpd```
+  ```sudo systemctl enable ntpd```    
+  ```server 192.168.20.181```添加本行至```/etc/ntp.conf```并删除默认的ntp对时服务器设置  
 - NFS设置    
   ```yum install nfs-utils```   
   编辑链接/etc/rc.local设置开机启动mount, 注意需要赋予被链接文件的执行权限, 否则无法实现开机mount   

@@ -1,6 +1,9 @@
 import configparser
+import datetime
 import os
 import shutil
+import socket
+import sys
 
 
 def get_manager_path():
@@ -20,6 +23,7 @@ def get_manager_path():
 #
 # directory name or file name definition for IocManager.
 TOOLS_DIR = 'imtools'
+OPERATION_LOG_FILE = '.OperationLogs'
 
 SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR,
                              'ioc-snapshot')  # path for newest snapshot file of ioc.ini
@@ -263,6 +267,18 @@ def check_snapshot_file(name, verbose):
             lines1 = f1.readlines()
             lines2 = f2.readlines()
             return lines1 == lines2
+
+
+def operation_log():
+    log_time = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
+    log_command = ' '.join(sys.argv)
+    log_user = os.getenv("USER")
+    log_host = socket.gethostname()
+    log_id = log_user + '@' + log_host
+    log_str = '\t'.join([log_time, log_id, log_command])
+    file_path = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_FILE)
+    with open(file_path, 'a') as f:
+        f.write(log_str + '\n')
 
 
 if __name__ == '__main__':
