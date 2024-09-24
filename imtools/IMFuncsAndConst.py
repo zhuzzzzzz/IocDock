@@ -226,11 +226,14 @@ def add_snapshot_file(name, verbose):
     file_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
     log_path = os.path.join(SNAPSHOT_PATH, name)
     if os.path.isfile(file_path):
+        if verbose:
+            print(f'add_snapshot_file: Starting to add snapshot file for "{name}".')
         conf = configparser.ConfigParser()
         if not conf.read(file_path):
             print(f'add_snapshot_file: Failed. Path "{file_path}" exists but not a valid configuration file.')
             return
         else:
+            temp_status = conf.get('IOC', 'snapshot')
             conf.set('IOC', 'snapshot', 'logged')
             with open(file_path, 'w') as f:
                 conf.write(f)
@@ -238,6 +241,9 @@ def add_snapshot_file(name, verbose):
             if verbose:
                 print(f'add_snapshot_file: snapshot file of "{name}" successfully created.')
         else:
+            conf.set('IOC', 'snapshot', temp_status)
+            with open(file_path, 'w') as f:
+                conf.write(f)
             if verbose:
                 print(f'add_snapshot_file: failed, snapshot file of "{name}" created failed.')
     else:

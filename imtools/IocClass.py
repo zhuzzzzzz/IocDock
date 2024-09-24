@@ -27,7 +27,6 @@ class IOC:
         # self.startup_path_in_docker
 
         self.verbose = verbose
-        self.first_init = False
 
         if not dir_path or not os.path.isdir(dir_path):
             self.dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, 'default')
@@ -38,7 +37,6 @@ class IOC:
 
         self.conf = None
         if not self.read_config():
-            self.first_init = True
             if self.verbose:
                 print(f'IOC.__init__": Initialize a new file "{self.config_file_path}" with default settings.')
             self.set_config('name', os.path.basename(self.dir_path))
@@ -51,6 +49,7 @@ class IOC:
             self.set_config('snapshot', '')
             self.set_config('file', '', section='DB')
             self.set_config('load', '', section='DB')
+            self.add_settings_template()
         else:
             if self.verbose:
                 print(f'IOC.__init__: Initialize IOC from configuration file "{self.config_file_path}".')
@@ -62,7 +61,7 @@ class IOC:
             self.set_config('name', self.name)
             print(f'IOC.__init__: Get wrong name "{old_name}" from configuration file "{self.config_file_path}", '
                   f'name of IOC project directory may be manually changed to "{self.name}". '
-                  f'IOC name will automatically set in configuration file to follow that change.')
+                  f'IOC name has been automatically set in configuration file to follow that change.')
 
         self.settings_path = os.path.join(self.dir_path, 'settings')
         try_makedirs(self.settings_path, self.verbose)
@@ -83,8 +82,6 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
-        if self.first_init:
-            self.add_settings_template()
         # set attributes in configure file a normalized format.
         self.normalize_config()
 
@@ -148,7 +145,7 @@ class IOC:
         return False
 
     def show_config(self):
-        print(f' settings of "{self.name}" '.center(73, '='))
+        print(f' settings of IOC "{self.name}" '.center(73, '='))
         if self.conf:
             for section in self.conf.sections():
                 print(f'[{section}]')
@@ -187,6 +184,9 @@ class IOC:
 
     def add_asyn_template(self, port_type):
         sc = 'ASYN'
+        if self.conf.has_section(sc) and self.check_config('port_type', port_type, sc):
+            print(f'IOC("{self.name}").add_asyn_template: Failed. Section "{sc}" already exists.')
+            return False
         if port_type in PORT_SUPPORT:
             if self.conf.has_section(sc):
                 self.conf.remove_section(sc)
@@ -207,11 +207,16 @@ class IOC:
             self.set_config('load',
                             'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n',
                             section=sc)
+            return True
         else:
             print(f'IOC("{self.name}").add_asyn_template: Failed. Invalid port type "{port_type}".')
+            return False
 
     def add_stream_template(self, port_type):
         sc = 'STREAM'
+        if self.conf.has_section(sc) and self.check_config('port_type', port_type, sc):
+            print(f'IOC("{self.name}").add_stream_template: Failed. Section "{sc}" already exists.')
+            return False
         if port_type in PORT_SUPPORT:
             if self.conf.has_section(sc):
                 self.conf.remove_section(sc)
@@ -232,20 +237,27 @@ class IOC:
                 asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "crtscts", "Y")\n'
                 self.set_config('asyn_option', asyn_option_str, section=sc)
             self.set_config('protocol_file', 'xxx.proto', section=sc)
+            return True
         else:
             print(f'IOC("{self.name}").add_stream_template: Failed. Invalid port type "{port_type}".')
+            return False
 
     def add_raw_cmd_template(self):
         sc = 'RAW'
         if self.conf.has_section(sc):
-            return
+            print(f'IOC("{self.name}").add_raw_cmd_template: Failed. Section "{sc}" already exists.')
+            return False
         self.set_config('cmd_before_dbload', '', sc)
         self.set_config('cmd_at_dbload', '', sc)
         self.set_config('cmd_after_iocinit', '', sc)
         self.set_config('file_copy', '', sc)
+        return True
 
     def add_settings_template(self):
         sc = 'SETTING'
+        if self.conf.has_section(sc):
+            print(f'IOC("{self.name}").add_settings_template: Failed. Section "{sc}" already exists.')
+            return False
         self.set_config('report_info', 'true', sc)
         self.set_config('caputlog_json', 'false', sc)
         self.set_config('epics_env', '', sc)

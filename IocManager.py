@@ -20,8 +20,6 @@ from imtools.SwarmClass import SwarmManager, SwarmService
 # accepts iterable for input
 def create_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
-        # May add a name string filter here?
-        #
         dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
         if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
             print(f'create_ioc: Failed. IOC "{name}" already exists.')
@@ -63,7 +61,7 @@ def create_ioc(name, args, config=None, verbose=False):
         print(f'create_ioc: Failed. Invalid input args: "{name}".')
 
 
-# not accept iterable for input
+# do not accept iterable for input
 def set_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
         dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
@@ -72,20 +70,20 @@ def set_ioc(name, args, config=None, verbose=False):
             ioc_temp = IOC(dir_path, verbose)
             modify_flag = False
             if args.add_asyn:
-                ioc_temp.add_asyn_template(args.port_type)
-                modify_flag = True
-                if verbose:
-                    print(f'set_ioc: add asyn template for IOC "{name}".')
+                if ioc_temp.add_asyn_template(args.port_type):
+                    modify_flag = True
+                    if verbose:
+                        print(f'set_ioc: add asyn template for IOC "{name}".')
             if args.add_stream:
-                ioc_temp.add_stream_template(args.port_type)
-                modify_flag = True
-                if verbose:
-                    print(f'set_ioc: add stream template for IOC "{name}".')
+                if ioc_temp.add_stream_template(args.port_type):
+                    modify_flag = True
+                    if verbose:
+                        print(f'set_ioc: add stream template for IOC "{name}".')
             if args.add_raw:
-                ioc_temp.add_raw_cmd_template()
-                modify_flag = True
-                if verbose:
-                    print(f'set_ioc: add raw command template for IOC "{name}".')
+                if ioc_temp.add_raw_cmd_template():
+                    modify_flag = True
+                    if verbose:
+                        print(f'set_ioc: add raw command template for IOC "{name}".')
             if any(config.options(section) for section in config.sections()):
                 for section in config.sections():
                     for option in config.options(section):
@@ -100,8 +98,7 @@ def set_ioc(name, args, config=None, verbose=False):
                 modify_flag = True
             ioc_temp.check_consistency()
             if modify_flag:
-                if verbose:
-                    print(f'set_ioc: Success. IOC "{name}" modified by given settings.')
+                print(f'set_ioc: Success. IOC "{name}" modified by given settings.')
                 if args.print_ioc:
                     ioc_temp.show_config()
             else:
@@ -271,6 +268,7 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
             index_to_preserve.append(i)
     # print results.
     raw_print = [["Name", "Host", "Status", "Snapshot"], ]
+    ioc_print = []
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
@@ -279,11 +277,13 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
                               ioc_list[i].get_config("snapshot")])
             # print(f'{ioc_list[i].name}\t\t\t{ioc_list[i].get_config("host")}\t\t\t{ioc_list[i].get_config("status")}')
         else:
-            print(ioc_list[i].name)
+            ioc_print.append(ioc_list[i].name)
     else:
         if raw_info:
             print(tabulate(raw_print, headers="firstrow", tablefmt='plain'))
             print('')
+        else:
+            print(' '.join(ioc_print))
 
     for i in index_to_preserve:
         ioc_list[i].check_consistency()
@@ -382,9 +382,9 @@ def execute_service(args):
                 temp_service.update()
 
 
+# Copy IOC startup files to mount dir for running in container.
 # mount_dir: a top path for MOUNT_DIR.
-# force_overwrite: "True" overwrite all files of existing IOC project in mount dir.
-# force_overwrite: "False" only overwrite files that are not generated during running.
+# force_overwrite: "True" will overwrite all files, "False" only files that are not generated during running.
 def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False):
     dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
     ioc_temp = IOC(dir_path, verbose)
@@ -398,13 +398,8 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
         ioc_temp.set_config('snapshot', 'changed')
         return
 
-    container_name = ioc_temp.get_config('container')
+    container_name = ioc_temp.name
     host_name = ioc_temp.get_config('host')
-    if not container_name:
-        container_name = ioc_temp.name
-        if verbose:
-            print(f'export_for_mount: Option "container" not defined in IOC "{ioc_temp.name}", '
-                  f'automatically use IOC name as container name.')
     if not host_name:
         host_name = 'localhost'
         if verbose:
@@ -447,7 +442,7 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
             print(f'export_for_mount: Success. IOC "{name}" overwrite in {top_path}.')
     elif os.path.isdir(top_path) and not force_overwrite:
         file_to_copy = (CONFIG_FILE_NAME,)
-        dir_to_copy = ('settings', 'startup',)
+        dir_to_copy = ('startup',)
         for item_file in file_to_copy:
             file_copy(os.path.join(ioc_temp.dir_path, item_file), os.path.join(top_path, item_file), verbose=verbose)
             # set readonly permission.
@@ -464,7 +459,7 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
     add_snapshot_file(name, verbose)
 
 
-# Generate Docker Compose file for IOC projects in given path.
+# Generate Docker Compose file for IOC projects and IOC logserver in given host path.
 # base_image: image with epics base for iocLogServer.
 # mount_dir: top dir for MOUNT_DIR.
 # hosts: host for IOC projects to run in.
@@ -484,9 +479,9 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
             pass
         else:
             continue
-        host_path = os.path.join(top_path, host_dir)
         if host_dir == SWARM_DIR:
             continue
+        host_path = os.path.join(top_path, host_dir)
         if not os.path.isdir(host_path):
             continue
 
@@ -509,7 +504,7 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
                 continue
 
         if not ioc_list:
-            print(f'gen_compose_files: Warning. No IOC project found in host directory "{host_dir}".')
+            print(f'gen_compose_files: Warning. No valid IOC project found in host directory "{host_dir}".')
         else:
             # yaml file title, name of Compose Project must match pattern '^[a-z0-9][a-z0-9_-]*$'
             yaml_data = {'name': f'ioc-{host_dir}'.lower(), 'services': {}}
@@ -580,8 +575,9 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
                     },
                 }
                 yaml_data['services'].update({f'srv-log-{host_dir}': temp_yaml})
-                # make directory for iocLogServer
-                try_makedirs(os.path.join(top_path, host_dir, LOG_FILE_DIR))
+
+            # make directory for iocLogServer
+            try_makedirs(os.path.join(top_path, host_dir, LOG_FILE_DIR))
 
             # write yaml file
             file_path = os.path.join(top_path, host_dir, 'compose.yaml')
@@ -603,7 +599,7 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
 
 # Generate Docker Compose file of IOC projects in given path for swarm deploying.
 # mount_dir: top dir for MOUNT_DIR.
-# iocs: IOC projects specified.
+# iocs: IOC projects specified to generate compose file.
 def gen_swarm_files(mount_dir, iocs, verbose):
     mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
     top_path = os.path.join(mount_path, MOUNT_DIR, SWARM_DIR)
@@ -717,7 +713,7 @@ def gen_swarm_files(mount_dir, iocs, verbose):
 
 
 # Generate backup file of IOC project settings.
-# backup_mode: "src" only copy .ini file and source files; "all" backup all files.
+# backup_mode: "src" will only copy .ini file and source files; "all" backup all files.
 # backup_dir: top dir for IOC_BACKUP_DIR.
 def repository_backup(backup_mode, backup_dir, verbose):
     ioc_list = get_all_ioc()
@@ -761,8 +757,7 @@ def repository_backup(backup_mode, backup_dir, verbose):
 
 # Restore IOC projects from tgz backup file.
 # backup_path: path of the tgz backup file.
-# force_overwrite: "True" overwrite existing IOC project if conflicts with the backup file.
-# force_overwrite: "False" ask for answer whether to overwrite existing IOC project.
+# force_overwrite: "True" force overwrite when existing IOC project if conflicts with the backup file.
 def restore_backup(backup_path, force_overwrite, verbose):
     extract_path = relative_and_absolute_path_to_abs(backup_path)
     if not os.path.isfile(extract_path):
@@ -1068,7 +1063,7 @@ if __name__ == '__main__':
         #
         if args.ini_file:
             if conf_temp.read(args.ini_file):
-                print(f'Read  file "{args.ini_file}".')
+                print(f'Read file "{args.ini_file}".')
             else:
                 print(f'Read failed, invalid {CONFIG_FILE_NAME} file "{args.ini_file}", skipped.')
         #
