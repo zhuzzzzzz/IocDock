@@ -135,7 +135,7 @@ def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
                 print(f'remove_ioc: Success. IOC "{name}" removed completely.')
             else:
                 print(f'remove_ioc: Success. IOC "{name}" removed, '
-                      f'directory "src/" and file "{CONFIG_FILE_NAME}" are preserved.')
+                      f'but directory "src/" and file "{CONFIG_FILE_NAME}" are preserved.')
     else:
         print(f'remove_ioc: Failed. IOC "{name}" not found.')
 
@@ -765,7 +765,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
         return
 
     # make temporary directory.
-    temp_dir = relative_and_absolute_path_to_abs(f'tar_temp_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}')
+    temp_dir = relative_and_absolute_path_to_abs(f'/tmp/tar_temp_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}')
     try_makedirs(temp_dir, verbose=verbose)
     # extract tgz files into temporary directory.
     try:
@@ -781,38 +781,44 @@ def restore_backup(backup_path, force_overwrite, verbose):
         temp_in_dir = os.path.join(temp_dir, os.listdir(temp_dir)[0])
         print(f'restore_backup: Restoring from backup file "{os.path.basename(temp_in_dir)}".')
 
-    # copy IOC projects. if IOC conflicts, just skip or overwrite.
-    ioc_existed = [ioc_item.name for ioc_item in get_all_ioc()]
-    for ioc_item in os.listdir(temp_in_dir):
-        ioc_dir = os.path.join(temp_in_dir, ioc_item)
-        current_path = os.path.join(get_manager_path(), REPOSITORY_DIR, ioc_item)
-        if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, CONFIG_FILE_NAME)):
-            if ioc_item not in ioc_existed:
-                print(f'restore_backup: Restoring IOC project "{ioc_item}".')
-                dir_copy(ioc_dir, current_path, verbose=verbose)
-            elif ioc_item in ioc_existed and not force_overwrite:
-                while True:
-                    ans = input(f'restore_backup: "{ioc_item}" already exists, overwrite '
-                                f'it(this will remove the original IOC project files)?[y|n]:')
-                    if ans.lower() == 'yes' or ans.lower() == 'y':
-                        overwrite_flag = True
-                        print(f'restore_backup: choose to overwrite "{ioc_item}".')
-                        break
-                    elif ans.lower() == 'no' or ans.lower() == 'n':
-                        overwrite_flag = False
-                        print(f'restore_backup: choose to skip "{ioc_item}".')
-                        break
-                    else:
-                        print(f'restore_backup: wrong input, please enter your answer again.')
-                if overwrite_flag:
+    try:
+        # copy IOC projects. if IOC conflicts, just skip or overwrite.
+        ioc_existed = [ioc_item.name for ioc_item in get_all_ioc()]
+        for ioc_item in os.listdir(temp_in_dir):
+            ioc_dir = os.path.join(temp_in_dir, ioc_item)
+            current_path = os.path.join(get_manager_path(), REPOSITORY_DIR, ioc_item)
+            if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, CONFIG_FILE_NAME)):
+                if ioc_item not in ioc_existed:
+                    print(f'restore_backup: Restoring IOC project "{ioc_item}".')
+                    dir_copy(ioc_dir, current_path, verbose=verbose)
+                elif ioc_item in ioc_existed and not force_overwrite:
+                    while True:
+                        ans = input(f'restore_backup: "{ioc_item}" already exists, overwrite '
+                                    f'it(this will remove the original IOC project files)?[y|n]:')
+                        if ans.lower() == 'yes' or ans.lower() == 'y':
+                            overwrite_flag = True
+                            print(f'restore_backup: choose to overwrite "{ioc_item}".')
+                            break
+                        elif ans.lower() == 'no' or ans.lower() == 'n':
+                            overwrite_flag = False
+                            print(f'restore_backup: choose to skip "{ioc_item}".')
+                            break
+                        else:
+                            print(f'restore_backup: wrong input, please enter your answer again.')
+                    if overwrite_flag:
+                        dir_copy(ioc_dir, current_path, verbose=verbose)
+                else:
+                    print(f'restore_backup: Restoring IOC project "{ioc_item}", local project will be overwrite.')
                     dir_copy(ioc_dir, current_path, verbose=verbose)
             else:
-                print(f'restore_backup: Restoring IOC project "{ioc_item}", local project will be overwrite.')
-                dir_copy(ioc_dir, current_path, verbose=verbose)
-        else:
-            if verbose:
-                print(f'restore_backup: Skip invalid directory "{ioc_item}".')
-            continue
+                if verbose:
+                    print(f'restore_backup: Skip invalid directory "{ioc_item}".')
+                continue
+    except KeyboardInterrupt:
+        # remove temporary directory finally.
+        print(f'\nrestore_backup: KeyboardInterrupt detected.')
+        dir_remove(temp_dir, verbose=verbose)
+        return
 
     # remove temporary directory finally.
     print(f'restore_backup: Restoring Finished.')
@@ -1063,9 +1069,9 @@ if __name__ == '__main__':
         #
         if args.ini_file:
             if conf_temp.read(args.ini_file):
-                print(f'Read file "{args.ini_file}".')
+                print(f'Read configuration from file "{args.ini_file}".')
             else:
-                print(f'Read failed, invalid {CONFIG_FILE_NAME} file "{args.ini_file}", skipped.')
+                print(f'Read configuration failed, invalid {CONFIG_FILE_NAME} file "{args.ini_file}", skipped.')
         #
         module_installed = ''
         if args.autosave:
@@ -1081,8 +1087,6 @@ if __name__ == '__main__':
             if not conf_temp.has_section('IOC'):
                 conf_temp.add_section('IOC')
             conf_temp.set('IOC', 'module', module_installed)
-            if args.verbose:
-                print(f'Set "module : {module_installed}" by specified options.')
         #
         if args.options:
             args.section = args.section.upper()
@@ -1092,11 +1096,16 @@ if __name__ == '__main__':
                 k, v = condition_parse(item, split_once=1)
                 if k:
                     conf_temp.set(args.section, k, v)
-                    if args.verbose:
-                        print(f'Set "{k}: {v}" for section "{args.section}".')
                 else:
                     if args.verbose:
                         print(f'Invalid option "{item}" specified for section "{args.section}", skipped.')
+        #
+        if args.verbose:
+            print(f'Configurations Parsed:')
+            for section in conf_temp.sections():
+                print(f"[{section}]")
+                for key, value in conf_temp.items(section):
+                    print(f"{key} = {value}")
         #
         if args.func == 'parse_create':
             # ./iocManager.py create

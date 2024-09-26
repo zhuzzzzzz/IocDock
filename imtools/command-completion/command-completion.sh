@@ -255,7 +255,8 @@ _mycommand_completion() {
 				return 0
 				;;
 				"-b"|"--gen-backup-file")
-				prompt="--backup-path --backup-mode"
+				COMPREPLY=( $(compgen -W "--backup-path --backup-mode" -- $2) )
+				return 0
 				;;
 				"--backup-path")
 				compopt -o nospace
@@ -271,6 +272,7 @@ _mycommand_completion() {
 				;;
 				"-r"|"--restore-backup-file")
 				COMPREPLY=( $(compgen -W "--backup-file " -- $2) )
+				return 0
 				;;
 				"--backup-file")
 				compopt -o nospace

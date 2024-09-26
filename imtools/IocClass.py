@@ -279,14 +279,14 @@ class IOC:
         # When add file from other directory, to get the files already in self.src_path first.
         if src_p != self.src_path:
             for item in os.listdir(self.src_path):
-                if item.endswith(db_suffix) and item not in db_list:
+                if item.endswith(db_suffix):
                     db_list += f'{item}, '
-                elif item.endswith(proto_suffix) and item not in proto_list:
+                elif item.endswith(proto_suffix):
                     proto_list += f'{item}, '
-                elif item.endswith(other_suffix) and item not in other_list:
+                elif item.endswith(other_suffix):
                     other_list += f'{item}, '
 
-        # Copy files from given path, duplicate files will result in a warning message.
+        # Copy files from given path and set db file option, duplicate files will result in a warning message.
         for item in os.listdir(src_p):
             if item.endswith(db_suffix):
                 if item not in db_list:
