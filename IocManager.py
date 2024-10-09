@@ -361,6 +361,10 @@ def execute_swarm(args):
         SwarmManager().deploy_global_services()
     elif args.deploy_all_iocs:
         SwarmManager().deploy_all_iocs()
+    elif args.remove_global_services:
+        SwarmManager().remove_global_services()
+    elif args.remove_all_iocs:
+        SwarmManager().remove_all_iocs()
     elif args.remove_all_services:
         SwarmManager().remove_all_services()
     elif args.show_digest:
@@ -869,7 +873,7 @@ if __name__ == '__main__':
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     subparsers = parser.add_subparsers(
-        help='For subparser command help, run "./iocManager.py [create|set|exec|list|swarm|service|remove] -h".')
+        help='For subparser command help, run "IocManager [create|set|exec|list|swarm|service|remove] -h".')
 
     #
     parser_create = subparsers.add_parser('create', help='Create IOC projects by given settings.',
@@ -1042,6 +1046,10 @@ if __name__ == '__main__':
                               help='deploy all global services into running.')
     parser_swarm.add_argument('--deploy-all-iocs', action="store_true",
                               help='deploy all IOC projects that are available but not deployed into running.')
+    parser_swarm.add_argument('--remove-global-services', action="store_true",
+                              help='remove all deployed global services.')
+    parser_swarm.add_argument('--remove-all-iocs', action="store_true",
+                              help='remove all deployed ioc projects services.')
     parser_swarm.add_argument('--remove-all-services', action="store_true",
                               help='remove all deployed services including global services.')
     parser_swarm.add_argument('--show-digest', action="store_true",

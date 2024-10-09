@@ -6,8 +6,8 @@ from tabulate import tabulate
 
 from imtools.IMFuncsAndConst import (CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, MOUNT_DIR, GLOBAL_SERVICE_FILE, SWARM_DIR,
                                      CONFIG_FILE_NAME, IOC_SERVICE_FILE, PREFIX_STACK_NAME, REPOSITORY_DIR,
-                                     relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, TOOLS_DIR,
-                                     SWARM_BACKUP_DIR, )
+                                     SWARM_BACKUP_DIR,
+                                     relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, )
 
 
 class SwarmManager:
@@ -18,15 +18,14 @@ class SwarmManager:
         self.global_services = ('log',)
 
     def show_info(self):
-        raw_print = [["IOC", "Service", "Type", "Status", ], ]
+        raw_print = [["IOC", "ServiceName", "Type", "Status", ], ]
         global_print = []
         ioc_print = []
         for item in self.services.values():
-            if item.is_available:
-                if item.service_type == 'ioc':
-                    ioc_print.append([item.name, item.service_name, item.service_type, item.current_state])
-                else:
-                    global_print.append([item.name, item.service_name, item.service_type, item.current_state])
+            if item.service_type == 'ioc':
+                ioc_print.append([item.name, item.service_name, item.service_type, item.current_state])
+            else:
+                global_print.append([item.name, item.service_name, item.service_type, item.current_state])
         ioc_print.sort(key=lambda x: x[0])
         global_print.sort(key=lambda x: x[0])
         raw_print.extend(global_print)
@@ -62,11 +61,43 @@ class SwarmManager:
                 else:
                     print(f'SwarmManager: Failed to deploy "{item.service_name}", as it\'s not available.')
 
-    def remove_all_services(self):
+    def remove_global_services(self):
+        while True:
+            ans = input(f'SwarmManager: Remove all deployed global services?!![y|n]:')
+            if ans.lower() == 'y' or ans.lower() == 'yes':
+                print(f'SwarmManager: All deployed global services will be removed.')
+                break
+            elif ans.lower() == 'n' or ans.lower() == 'no':
+                return
+            else:
+                print(f'SwarmManager: Invalid input, please try again.')
+        for item in self.services.values():
+            if item.service_type == 'global':
+                if item.is_available:
+                    if item.is_deployed:
+                        item.remove()
+
+    def remove_all_iocs(self):
         while True:
             ans = input(f'SwarmManager: Remove all deployed IOC projects?!![y|n]:')
             if ans.lower() == 'y' or ans.lower() == 'yes':
                 print(f'SwarmManager: All deployed IOC projects will be removed.')
+                break
+            elif ans.lower() == 'n' or ans.lower() == 'no':
+                return
+            else:
+                print(f'SwarmManager: Invalid input, please try again.')
+        for item in self.services.values():
+            if item.service_type == 'ioc':
+                if item.is_available:
+                    if item.is_deployed:
+                        item.remove()
+
+    def remove_all_services(self):
+        while True:
+            ans = input(f'SwarmManager: Remove all deployed services in Swarm?!![y|n]:')
+            if ans.lower() == 'y' or ans.lower() == 'yes':
+                print(f'SwarmManager: All deployed services will be removed.')
                 break
             elif ans.lower() == 'n' or ans.lower() == 'no':
                 return
