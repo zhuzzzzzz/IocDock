@@ -9,8 +9,7 @@ import tarfile
 from collections.abc import Iterable
 from tabulate import tabulate
 from imtools.IMFuncsAndConst import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
-                                     relative_and_absolute_path_to_abs, check_snapshot_file, add_snapshot_file,
-                                     get_manager_path, operation_log,
+                                     relative_and_absolute_path_to_abs, get_manager_path, operation_log,
                                      MOUNT_DIR, REPOSITORY_DIR, CONFIG_FILE_NAME, CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR,
                                      IOC_BACKUP_DIR, SWARM_DIR, IOC_SERVICE_FILE, )
 from imtools.IocClass import IOC
@@ -20,6 +19,13 @@ from imtools.SwarmClass import SwarmManager, SwarmService
 # accepts iterable for input
 def create_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
+        #
+        invalid_characters = (' ', ',', ';', '|', '\\', '~', '`')
+        for cha in invalid_characters:
+            if cha in name:
+                print(f'create_ioc: Failed. IOC name "{name}" has invalid character "{cha}".')
+                return
+        #
         dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
         if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
             print(f'create_ioc: Failed. IOC "{name}" already exists.')
@@ -27,20 +33,22 @@ def create_ioc(name, args, config=None, verbose=False):
             # Create an IOC and do initialization by given configparser.ConfigParser() object.
             try_makedirs(dir_path, verbose)
             ioc_temp = IOC(dir_path, verbose=verbose)
-            if args.add_asyn:
+            if hasattr(args, 'add_asyn') and args.add_asyn:
                 ioc_temp.add_asyn_template(args.port_type)
                 if verbose:
                     print(f'create_ioc: add asyn template for IOC "{name}".')
-            if args.add_stream:
+            if hasattr(args, 'add_stream') and args.add_stream:
                 ioc_temp.add_stream_template(args.port_type)
                 if verbose:
                     print(f'create_ioc: add stream template for IOC "{name}".')
-            if args.add_raw:
+            if hasattr(args, 'add_raw') and args.add_raw:
                 ioc_temp.add_raw_cmd_template()
                 if verbose:
                     print(f'create_ioc: add raw command template for IOC "{name}".')
             if config:
                 for section in config.sections():
+                    if section == 'SRC':  # src files are automatically detected.
+                        continue
                     for option in config.options(section):
                         if section == 'IOC' and option == 'name':  # Name should not be directly copied.
                             continue
@@ -48,11 +56,12 @@ def create_ioc(name, args, config=None, verbose=False):
                             continue
                         if section == 'IOC' and option == 'snapshot':  # snapshot should not be directly copied.
                             continue
+                        if section == 'DB' and option == 'file':  # deprecated option, for IOC updating.
+                            continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
             print(f'create_ioc: Success. IOC "{name}" created.')
-            ioc_temp.check_consistency()
-            if args.print_ioc:
+            if hasattr(args, 'print_ioc') and args.print_ioc:
                 ioc_temp.show_config()
     elif isinstance(name, Iterable):
         for n in name:
@@ -86,6 +95,8 @@ def set_ioc(name, args, config=None, verbose=False):
                         print(f'set_ioc: add raw command template for IOC "{name}".')
             if any(config.options(section) for section in config.sections()):
                 for section in config.sections():
+                    if section == 'SRC':  # src files are automatically detected.
+                        continue
                     for option in config.options(section):
                         if section == 'IOC' and option == 'name':
                             continue
@@ -96,7 +107,7 @@ def set_ioc(name, args, config=None, verbose=False):
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
                 modify_flag = True
-            ioc_temp.check_consistency()
+            ioc_temp.run_check()
             if modify_flag:
                 print(f'set_ioc: Success. IOC "{name}" modified by given settings.')
                 if args.print_ioc:
@@ -183,14 +194,14 @@ def get_all_ioc(dir_path=None, from_list=None):
         subdir_path = os.path.join(dir_path, ioc_name)
         if os.path.isdir(subdir_path) and CONFIG_FILE_NAME in os.listdir(subdir_path):
             ioc_temp = IOC(subdir_path)
-            ioc_temp.check_consistency(print_info=False)
+            ioc_temp.run_check(print_info=False)
             ioc_list.append(ioc_temp)
     return ioc_list
 
 
 # Show IOC projects that meeting the specified conditions and section, AND logic is implied to each condition.
 def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_info=False, show_info=False,
-                     verbose=False):
+                     prompt_info=False, verbose=False):
     section = section.upper()  # to support case-insensitive filter for section.
 
     ioc_list = get_all_ioc(from_list=from_list)
@@ -267,26 +278,34 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
         else:
             index_to_preserve.append(i)
     # print results.
-    raw_print = [["Name", "Host", "Status", "Snapshot"], ]
+    raw_print = [["Name", "Host", "Status", "Snapshot", "ExportConsistency"], ]
     ioc_print = []
+    prompt_print = [["Name", "Host", "Prompt"]]
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
         if raw_info:
             raw_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("status"),
-                              ioc_list[i].get_config("snapshot")])
+                              ioc_list[i].get_config("snapshot"),
+                              ioc_list[i].check_consistency(print_info=False)[1]])
             # print(f'{ioc_list[i].name}\t\t\t{ioc_list[i].get_config("host")}\t\t\t{ioc_list[i].get_config("status")}')
+        elif prompt_info:
+            prompt_print.append(
+                [ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].run_check(print_info=False)])
         else:
             ioc_print.append(ioc_list[i].name)
     else:
         if raw_info:
             print(tabulate(raw_print, headers="firstrow", tablefmt='plain'))
             print('')
+        elif prompt_info:
+            print(tabulate(prompt_print, headers="firstrow", tablefmt='plain'))
+            print('')
         else:
             print(' '.join(ioc_print))
 
     for i in index_to_preserve:
-        ioc_list[i].check_consistency()
+        ioc_list[i].run_check()
 
 
 def execute_ioc(args):
@@ -301,7 +320,7 @@ def execute_ioc(args):
         restore_backup(backup_path=args.backup_file, force_overwrite=args.force_overwrite, verbose=args.verbose)
     elif args.run_check:
         for ioc_temp in get_all_ioc():
-            ioc_temp.check_consistency(run_check=True)
+            ioc_temp.run_check(print_prompt=True)
     else:
         # operation for specified IOC projects.
         if not args.name:
@@ -322,6 +341,8 @@ def execute_ioc(args):
                     elif args.export_for_mount:
                         export_for_mount(name, mount_dir=args.mount_path, force_overwrite=args.force_overwrite,
                                          verbose=args.verbose)
+                    elif args.restore_snapshot_file:
+                        ioc_temp.restore_snapshot_file(force_restore=args.force_silent)
                     else:
                         print(f'execute_ioc: No "exec" operation specified.')
                         break  # break to avoid repeat print of "no exec" operation.
@@ -389,13 +410,12 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
     dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
     ioc_temp = IOC(dir_path, verbose)
 
-    if not (ioc_temp.check_config('status', 'generated') or ioc_temp.check_config('status', 'exported')):
-        print(f'export_for_mount: Failed. Export checks failed for IOC {name}, startup files should be generated.')
+    if ioc_temp.check_config('status', 'generated') and not ioc_temp.check_config('snapshot', 'logged'):
+        print(f'export_for_mount: Failed for "{name}", startup files should be generated before exporting.')
         return
-    if not check_snapshot_file(name, verbose):
-        print(f'export_for_mount: Failed. Export checks failed for IOC {name}, '
-              f'Settings has been changed, startup files should be re-generated.')
-        ioc_temp.set_config('snapshot', 'changed')
+    if ioc_temp.check_config('status', 'exported') and not ioc_temp.check_config('snapshot', 'logged'):
+        print(f'export_for_mount: Failed for "{name}", IOC settings had been changed, '
+              f'you need to generate startup files first.')
         return
 
     container_name = ioc_temp.name
@@ -405,6 +425,11 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
         if verbose:
             print(f'export_for_mount: Option "host" not defined in IOC "{ioc_temp.name}", '
                   f'automatically use "localhost" as host name.')
+
+    ioc_temp.set_config('status', 'exported')
+    ioc_temp.set_config('is_exported', 'true')
+    # add ioc.ini snapshot file
+    ioc_temp.add_snapshot_file()
 
     mount_path = relative_and_absolute_path_to_abs(mount_dir, '..')
     if not os.path.isdir(mount_path):
@@ -454,9 +479,6 @@ def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False)
                 return
         else:
             print(f'export_for_mount: Success. IOC "{name}" updated in {top_path}.')
-    ioc_temp.set_config('status', 'exported')
-    # add ioc.ini snapshot file
-    add_snapshot_file(name, verbose)
 
 
 # Generate Docker Compose file for IOC projects and IOC logserver in given host path.
@@ -717,42 +739,36 @@ def gen_swarm_files(mount_dir, iocs, verbose):
 # backup_dir: top dir for IOC_BACKUP_DIR.
 def repository_backup(backup_mode, backup_dir, verbose):
     ioc_list = get_all_ioc()
-    # check whether the setting of IOC projects in snapshot directory are newest and not modified.
-    flag = all([ioc_item.check_consistency(run_check=True) for ioc_item in ioc_list])
-    if not flag:
-        print(f'repository_backup: Failed. Run checks failed.')
-        return
-    else:
-        backup_path = relative_and_absolute_path_to_abs(backup_dir, IOC_BACKUP_DIR)  # default path ./ioc-backup/
-        # collect ioc.ini files and source files into tar.gz file.
-        if not os.path.exists(backup_path):
-            try_makedirs(backup_path, verbose)
-        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        tar_dir = os.path.join(backup_path, now_time)
-        if ioc_list:
-            for ioc_item in ioc_list:
-                # make temporary directory.
-                ioc_tar_dir = os.path.join(tar_dir, ioc_item.name)
-                try_makedirs(ioc_tar_dir, verbose)
-                # copy entire repository file into tar directory.
-                file_copy(ioc_item.config_file_path, os.path.join(ioc_tar_dir, CONFIG_FILE_NAME), mode='rw',
-                          verbose=verbose)
-                dir_copy(ioc_item.src_path, os.path.join(ioc_tar_dir, 'src'), verbose=verbose)
-                if backup_mode == 'all':
-                    dir_copy(ioc_item.startup_path, os.path.join(ioc_tar_dir, 'startup'), verbose=verbose)
-                    ######
-                    ioc_run_path = os.path.join(get_manager_path(), '..', MOUNT_DIR, ioc_item.get_config('host'),
-                                                ioc_item.name)
-                    dir_copy(os.path.join(ioc_run_path, 'log'), os.path.join(ioc_tar_dir, 'log'), verbose=verbose)
-                    dir_copy(os.path.join(ioc_run_path, 'settings'), os.path.join(ioc_tar_dir, 'settings'),
-                             verbose=verbose)
-            else:
-                with tarfile.open(os.path.join(backup_path, f'{now_time}.ioc.tar.gz'), "w:gz") as tar:
-                    tar.add(tar_dir, arcname=os.path.basename(tar_dir))
-                dir_remove(tar_dir, verbose=verbose)
-                print(f'repository_backup: Finished. Backup file created at {backup_path} in "{backup_mode}" mode.')
+    backup_path = relative_and_absolute_path_to_abs(backup_dir, IOC_BACKUP_DIR)  # default path ./ioc-backup/
+    # collect ioc.ini files and source files into tar.gz file.
+    if not os.path.exists(backup_path):
+        try_makedirs(backup_path, verbose)
+    now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    tar_dir = os.path.join(backup_path, now_time)
+    if ioc_list:
+        for ioc_item in ioc_list:
+            # make temporary directory.
+            ioc_tar_dir = os.path.join(tar_dir, ioc_item.name)
+            try_makedirs(ioc_tar_dir, verbose)
+            # copy entire repository file into tar directory.
+            file_copy(ioc_item.config_file_path, os.path.join(ioc_tar_dir, CONFIG_FILE_NAME), mode='rw',
+                      verbose=verbose)
+            dir_copy(ioc_item.src_path, os.path.join(ioc_tar_dir, 'src'), verbose=verbose)
+            if backup_mode == 'all':
+                dir_copy(ioc_item.startup_path, os.path.join(ioc_tar_dir, 'startup'), verbose=verbose)
+                ######
+                ioc_run_path = os.path.join(get_manager_path(), '..', MOUNT_DIR, ioc_item.get_config('host'),
+                                            ioc_item.name)
+                dir_copy(os.path.join(ioc_run_path, 'log'), os.path.join(ioc_tar_dir, 'log'), verbose=verbose)
+                dir_copy(os.path.join(ioc_run_path, 'settings'), os.path.join(ioc_tar_dir, 'settings'),
+                         verbose=verbose)
         else:
-            print(f'repository_backup: No IOC project to backup.')
+            with tarfile.open(os.path.join(backup_path, f'{now_time}.ioc.tar.gz'), "w:gz") as tar:
+                tar.add(tar_dir, arcname=os.path.basename(tar_dir))
+            dir_remove(tar_dir, verbose=verbose)
+            print(f'repository_backup: Finished. Backup file created at {backup_path} in "{backup_mode}" mode.')
+    else:
+        print(f'repository_backup: No IOC project to backup.')
 
 
 # Restore IOC projects from tgz backup file.
@@ -787,10 +803,12 @@ def restore_backup(backup_path, force_overwrite, verbose):
         for ioc_item in os.listdir(temp_in_dir):
             ioc_dir = os.path.join(temp_in_dir, ioc_item)
             current_path = os.path.join(get_manager_path(), REPOSITORY_DIR, ioc_item)
+            restore_flag = False
             if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, CONFIG_FILE_NAME)):
                 if ioc_item not in ioc_existed:
                     print(f'restore_backup: Restoring IOC project "{ioc_item}".')
                     dir_copy(ioc_dir, current_path, verbose=verbose)
+                    restore_flag = True
                 elif ioc_item in ioc_existed and not force_overwrite:
                     while True:
                         ans = input(f'restore_backup: "{ioc_item}" already exists, overwrite '
@@ -807,13 +825,20 @@ def restore_backup(backup_path, force_overwrite, verbose):
                             print(f'restore_backup: wrong input, please enter your answer again.')
                     if overwrite_flag:
                         dir_copy(ioc_dir, current_path, verbose=verbose)
+                        restore_flag = True
                 else:
                     print(f'restore_backup: Restoring IOC project "{ioc_item}", local project will be overwrite.')
                     dir_copy(ioc_dir, current_path, verbose=verbose)
+                    restore_flag = True
             else:
                 if verbose:
                     print(f'restore_backup: Skip invalid directory "{ioc_item}".')
-                continue
+            if restore_flag:
+                temp_ioc = IOC(current_path, verbose=verbose)
+                # delete snapshot file for restored IOC.
+                temp_ioc.delete_snapshot_file()
+                # set status for restored IOC.
+                temp_ioc.set_config('status', 'restored')
     except KeyboardInterrupt:
         # remove temporary directory finally.
         print(f'\nrestore_backup: KeyboardInterrupt detected.')
@@ -823,6 +848,19 @@ def restore_backup(backup_path, force_overwrite, verbose):
     # remove temporary directory finally.
     print(f'restore_backup: Restoring Finished.')
     dir_remove(temp_dir, verbose=verbose)
+
+
+# Update IOC project to the form of newer version.
+def update_ioc(args):
+    print(f'Starting to update IOC projects.')
+    ioc_list = get_all_ioc()
+    for ioc_item in ioc_list:
+        create_ioc(f'{ioc_item.name}_temp', args, ioc_item.conf, args.verbose)
+    for ioc_item in ioc_list:
+        name = ioc_item.name
+        ioc_item.remove(all_remove=True)
+        rename_ioc(f'{name}_temp', name, verbose=args.verbose)
+    print(f'Finished updating IOC projects.')
 
 
 if __name__ == '__main__':
@@ -918,7 +956,7 @@ if __name__ == '__main__':
                                      '\nset "--force-silent" to force silent running. '
                                      '\nset "--force-default" to use default settings.')
     parser_execute.add_argument('--force-silent', action="store_true",
-                                help='force silent while generating startup files.')
+                                help='force silent while generating startup files or restoring snapshot files.')
     parser_execute.add_argument('--force-default', action="store_true",
                                 help='use default when generating startup files.')
     parser_execute.add_argument('-e', '--export-for-mount', action="store_true",
@@ -967,6 +1005,9 @@ if __name__ == '__main__':
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--backup-file', type=str, default='',
                                 help='tgz backup file of IOC projects.')
+    parser_execute.add_argument('--restore-snapshot-file', action="store_true",
+                                help='restore IOC projects from snapshot settings file. '
+                                     '\nset "--force-silent" to run quiet and not ask for confirmation.')
     parser_execute.add_argument('--run-check', action="store_true",
                                 help='execute run-check for all IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
@@ -983,7 +1024,9 @@ if __name__ == '__main__':
     parser_list.add_argument('-l', '--ioc-list', type=str, nargs='*',
                              help='from a IOC list to filter IOC projects by given conditions.')
     parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC settings.')
-    parser_list.add_argument('-r', '--raw-info', action="store_true", help='show IOC settings in raw format.')
+    parser_list.add_argument('-r', '--raw-info', action="store_true", help='show IOC status in raw format.')
+    parser_list.add_argument('-p', '--prompt-info', action="store_true",
+                             help='show prompt information for IOC project.')
     parser_list.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_list.set_defaults(func='parse_list')
 
@@ -1053,6 +1096,12 @@ if __name__ == '__main__':
     parser_rename.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_rename.set_defaults(func='parse_rename')
 
+    #
+    parser_update = subparsers.add_parser('update', help='Update IOC project to the form of newer version.',
+                                          formatter_class=argparse.RawTextHelpFormatter)
+    parser_update.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_update.set_defaults(func='parse_update')
+
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
@@ -1102,9 +1151,9 @@ if __name__ == '__main__':
         #
         if args.verbose:
             print(f'Configurations Parsed:')
-            for section in conf_temp.sections():
-                print(f"[{section}]")
-                for key, value in conf_temp.items(section):
+            for sec in conf_temp.sections():
+                print(f"[{sec}]")
+                for key, value in conf_temp.items(sec):
                     print(f"{key} = {value}")
         #
         if args.func == 'parse_create':
@@ -1117,7 +1166,7 @@ if __name__ == '__main__':
     if args.func == 'parse_list':
         # ./iocManager.py list
         get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list, raw_info=args.raw_info,
-                         show_info=args.show_info, verbose=args.verbose)
+                         show_info=args.show_info, prompt_info=args.prompt_info, verbose=args.verbose)
     if args.func == 'parse_remove':
         # ./iocManager.py remove
         for item in args.name:
@@ -1128,6 +1177,9 @@ if __name__ == '__main__':
     if args.func == 'parse_rename':
         # ./iocManager.py rename
         rename_ioc(args.name[0], args.name[1], args.verbose)
+    if args.func == 'parse_update':
+        # ./iocManager.py update
+        update_ioc(args)
     if args.func == 'parse_swarm':
         # ./iocManager.py swarm
         execute_swarm(args)

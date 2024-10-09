@@ -1,4 +1,3 @@
-import configparser
 import datetime
 import os
 import shutil
@@ -221,59 +220,6 @@ def format_normalize(raw_str: str):
 
 
 #########################################################
-# codes for monitoring untracked changes of ioc.ini.
-def add_snapshot_file(name, verbose):
-    file_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
-    log_path = os.path.join(SNAPSHOT_PATH, name)
-    if os.path.isfile(file_path):
-        if verbose:
-            print(f'add_snapshot_file: Starting to add snapshot file for "{name}".')
-        conf = configparser.ConfigParser()
-        if not conf.read(file_path):
-            print(f'add_snapshot_file: Failed. Path "{file_path}" exists but not a valid configuration file.')
-            return
-        else:
-            temp_status = conf.get('IOC', 'snapshot')
-            conf.set('IOC', 'snapshot', 'logged')
-            with open(file_path, 'w') as f:
-                conf.write(f)
-        if file_copy(file_path, log_path, 'r', verbose):
-            if verbose:
-                print(f'add_snapshot_file: snapshot file of "{name}" successfully created.')
-        else:
-            conf.set('IOC', 'snapshot', temp_status)
-            with open(file_path, 'w') as f:
-                conf.write(f)
-            if verbose:
-                print(f'add_snapshot_file: failed, snapshot file of "{name}" created failed.')
-    else:
-        if verbose:
-            print(f'add_snapshot_file: failed, source file "{file_path}" is not exist.')
-
-
-def delete_snapshot_file(name, verbose):
-    log_path = os.path.join(SNAPSHOT_PATH, name)
-    if os.path.isfile(log_path):
-        file_remove(log_path, verbose)
-    else:
-        if verbose:
-            print(f'delete_snapshot_file: failed, file "{log_path}" to delete is not exist.')
-
-
-def check_snapshot_file(name, verbose):
-    file_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name, CONFIG_FILE_NAME)
-    log_path = os.path.join(SNAPSHOT_PATH, name)
-    if not os.path.isfile(log_path):
-        if verbose:
-            print(f'check_snapshot_file: no snapshot file found for {name}, create a new one.')
-        add_snapshot_file(name, verbose)
-        return True
-    else:
-        with open(file_path, 'r') as f1, open(log_path, 'r') as f2:
-            lines1 = f1.readlines()
-            lines2 = f2.readlines()
-            return lines1 == lines2
-
 
 def operation_log():
     log_time = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")

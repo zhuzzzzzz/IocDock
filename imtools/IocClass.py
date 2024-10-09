@@ -3,11 +3,10 @@ import configparser
 import sys
 
 from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
-    format_normalize, relative_and_absolute_path_to_abs, \
-    add_snapshot_file, delete_snapshot_file, check_snapshot_file, get_manager_path
+    format_normalize, relative_and_absolute_path_to_abs, get_manager_path, MOUNT_DIR
 from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
     DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR, \
-    TOOLS_DIR
+    TOOLS_DIR, SNAPSHOT_PATH
 
 
 class IOC:
@@ -47,7 +46,10 @@ class IOC:
             self.set_config('description', '')
             self.set_config('status', 'created')
             self.set_config('snapshot', '')
-            self.set_config('file', '', section='DB')
+            self.set_config('is_exported', 'false')
+            self.set_config('db_file', '', section='SRC')
+            self.set_config('protocol_file', '', section='SRC')
+            self.set_config('others_file', '', section='SRC')
             self.set_config('load', '', section='DB')
             self.add_settings_template()
         else:
@@ -77,11 +79,24 @@ class IOC:
         self.template_path = os.path.join(get_manager_path(), TOOLS_DIR, 'template')
         if not os.path.exists(self.template_path):
             print("IOC.__init__: Can't find \"template\" directory.")
+        self.snapshot_file = os.path.join(SNAPSHOT_PATH, self.name)
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
+        mount_dir_in_sys = os.getenv('MOUNT_PATH', os.path.join(get_manager_path(), '..', MOUNT_DIR))
+        self.dir_path_for_mount = os.path.normpath(
+            os.path.join(mount_dir_in_sys, self.get_config('host'), self.get_config('name')))
+        self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, CONFIG_FILE_NAME)
+        if not os.path.isfile(self.config_file_path_for_mount) and self.verbose:
+            print(f"IOC.__init__: Can't find settings file \"{self.config_file_path_for_mount}\" in mount dir.")
+
+        #
+        #
+        self.get_src_file()
+        #
+        self.check_snapshot_status()
         # set attributes in configure file a normalized format.
         self.normalize_config()
 
@@ -174,7 +189,7 @@ class IOC:
     def remove(self, all_remove=False):
         if all_remove:
             # delete log file
-            delete_snapshot_file(self.name, self.verbose)
+            self.delete_snapshot_file()
             # remove entire project
             dir_remove(self.dir_path, self.verbose)
         else:
@@ -223,8 +238,6 @@ class IOC:
             self.set_config('port_type', port_type, section=sc)
             if port_type == 'tcp/ip':
                 self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
-                self.conf.remove_option(sc, 'asyn_option')
-                self.write_config()
             elif port_type == 'serial':
                 self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n',
                                 section=sc)
@@ -318,24 +331,29 @@ class IOC:
         proto_list = proto_list.rstrip(', ')
         other_list = other_list.rstrip(', ')
         if db_list:
-            self.set_config('file', db_list, 'DB')
-            print(f'IOC("{self.name}").get_src_file: Add db files. Set attribute "file: {db_list}".')
+            self.set_config('db_file', db_list, 'SRC')
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: Add db files. Set attribute "file: {db_list}".')
         else:
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: No db files found in "{src_p}".')
         if proto_list:
-            print(f'IOC("{self.name}").get_src_file: Add protocol files "{proto_list}".')
+            self.set_config('protocol_file', proto_list, 'SRC')
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: Add protocol files "{proto_list}".')
         else:
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: No protocol files found in "{src_p}".')
         if other_list:
-            print(f'IOC("{self.name}").get_src_file: Add files "{other_list}".')
+            self.set_config('other_file', other_list, 'SRC')
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: Add files "{other_list}".')
         else:
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: No file for given suffix {other_suffix} found in "{src_p}".')
 
     # Generate .substitutions file for st.cmd to load.
-    # This function should be called after getting source files and setting the load_* options.
+    # This function should be called after getting source files and setting the load options.
     def generate_substitution_file(self):
         lines_to_add = []
         for load_line in multi_line_parse(self.get_config('load', 'DB')):
@@ -699,10 +717,74 @@ class IOC:
         # set status: generated and save self.conf to ioc.ini file
         self.set_config('status', 'generated')
         # add ioc.ini snapshot file
-        add_snapshot_file(self.name, self.verbose)
+        self.add_snapshot_file()
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
-    # Configurations checks before generating startup files.
+    def check_snapshot_status(self):
+        if not self.check_snapshot_file():
+            if os.path.isfile(self.snapshot_file):
+                self.set_config('snapshot', 'changed')
+            else:
+                self.set_config('snapshot', '')
+
+    def add_snapshot_file(self):
+        if os.path.isfile(self.config_file_path):
+            if self.verbose:
+                print(f'IOC("{self.name}").add_snapshot_file: Starting to add snapshot file.')
+            temp_config = self.get_config('snapshot')
+            self.set_config('snapshot', 'logged')
+            if file_copy(self.config_file_path, self.snapshot_file, 'r', self.verbose):
+                if self.verbose:
+                    print(f'IOC("{self.name}").add_snapshot_file: Snapshot file successfully created.')
+            else:
+                self.set_config('snapshot', temp_config)
+                if self.verbose:
+                    print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file created failed.')
+        else:
+            if self.verbose:
+                print(f'IOC("{self.name}").add_snapshot_file: failed, source file "{self.config_file_path}" not exist.')
+
+    def delete_snapshot_file(self):
+        if os.path.isfile(self.snapshot_file):
+            file_remove(self.snapshot_file, self.verbose)
+        else:
+            if self.verbose:
+                print(f'IOC("{self.name}").delete_snapshot_file: Failed, file "{self.snapshot_file}" not exist.')
+
+    def check_snapshot_file(self):
+        if not os.path.isfile(self.snapshot_file):
+            return False
+        else:
+            with open(self.config_file_path, 'r') as f1, open(self.snapshot_file, 'r') as f2:
+                lines1 = f1.readlines()
+                lines2 = f2.readlines()
+                return lines1 == lines2
+
+    def restore_snapshot_file(self, force_restore=False):
+        if not os.path.isfile(self.snapshot_file):
+            print(f'IOC("{self.name}").restore_snapshot_file: Failed, snapshot file not found. ')
+            return
+        conf_snap = configparser.ConfigParser()
+        if not conf_snap.read(self.snapshot_file):
+            print(f'IOC("{self.name}").restore_snapshot_file: Failed, invalid snapshot file. ')
+            return
+        if not force_restore:
+            ans = input(f'IOC("{self.name}").restore_snapshot_file: Confirm to restore snapshot settings file?[y|n]:')
+            if ans.lower() == 'yes' or ans.lower() == 'y':
+                force_restore = True
+                print(f'IOC("{self.name}").restore_snapshot_file: Restoring.')
+            elif ans.lower() == 'no' or ans.lower() == 'n':
+                print(f'IOC("{self.name}").restore_snapshot_file: Choose to give up restoring.')
+            else:
+                print(f'IOC("{self.name}").restore_snapshot_file: Wong input, restoring exit.')
+        if force_restore:
+            self.conf = conf_snap
+            self.write_config()
+            self.check_snapshot_status()
+            print(f'IOC("{self.name}").restore_snapshot_file: Restoring finished.')
+
+
+    # Checks before generating the IOC project startup file.
     def generate_check(self):
         check_flag = True
 
@@ -762,11 +844,64 @@ class IOC:
                 print(f'IOC("{self.name}").generate_check: Failed. Empty option "asyn_option" detected in '
                       f' section "{sc}", please check and reset the settings correctly.')
                 check_flag = False
+
         return check_flag
 
-    # Check consistency with ioc.ini and st.cmd and running containers.
-    def check_consistency(self, run_check=False, print_info=True):
-        consistency_flag = True
+    # Checks differences between snapshot file and running settings file.
+    def check_consistency(self, print_info=False):
+        if not self.check_config('is_exported', 'true'):
+            return False, "Project not exported. "
+        if not os.path.isfile(self.snapshot_file):
+            return False, "Snapshot file not found. "
+        conf_snap = configparser.ConfigParser()
+        if not conf_snap.read(self.snapshot_file):
+            return False, "Invalid snapshot file. "
+        # Check whether settings file in mount dir is consistent with the one in repository.
+        if os.path.isfile(self.config_file_path_for_mount):
+            conf_run = configparser.ConfigParser()
+            if not conf_run.read(self.config_file_path_for_mount):
+                return False, "Invalid running settings file. "
+            else:
+                # sections comparing
+                if set(conf_run.sections()).issubset(set(conf_snap.sections())):
+                    if not set(conf_snap.sections()).issubset(set(conf_run.sections())):
+                        return False, "New settings available. "
+                else:
+                    return False, "Deprecated settings detected. "
+                # options comparing
+                fine_flag = True
+                for section in conf_run.sections():
+                    if section == 'SRC':
+                        continue
+                    if set(conf_run[section].keys()).issubset(set(conf_snap[section].keys())):
+                        for key in conf_run[section]:
+                            if conf_run[section][key] != conf_snap[section][key]:
+                                fine_flag = False
+                                if print_info:
+                                    print(f'Inconsistent settings detected for "{self.name}". '
+                                          f'"{key}[{section}]": "{conf_run[section][key]}" in running settings while '
+                                          f'"{key}[{section}]": "{conf_snap[section][key]}" in snapshot settings.')
+                        else:
+                            if not set(conf_snap[section].keys()).issubset(set(conf_run[section].keys())):
+                                fine_flag = False
+                                if print_info:
+                                    print(f'New options to apply for "{self.name}" in section [{section}]: '
+                                          f'{set(conf_run[section].keys()).difference(set(conf_snap[section].keys()))}. ')
+                    else:
+                        fine_flag = False
+                        if print_info:
+                            print(f'Inconsistent options detected for "{self.name}" in section [{section}]: '
+                                  f'{set(conf_run[section].keys()).difference(set(conf_snap[section].keys()))}')
+                else:
+                    if fine_flag:
+                        return True, "Fine."
+                    else:
+                        return False, "Inconsistent settings detected. "
+        else:
+            return False, "Running settings file not found. "
+
+    # Checks for IOC projects.
+    def run_check(self, print_info=True, print_prompt=False):
 
         # output redirect.
         with open(os.devnull, 'w') as devnull:
@@ -777,60 +912,48 @@ class IOC:
             if print_info:
                 sys.stdout = original_stdout
                 sys.stderr = original_stderr
-
             #####
-            if run_check:
-                # Checks before copying the IOC project for container mounting(running the IOC project).
-                # Only generated projects can do run-check.
-                if not self.check_config('status', 'exported'):
-                    print(f'IOC("{self.name}").check_consistency: Failed for run-check. '
-                          f'IOC project is not in "exported" status.')
-                    return False
-                # Check whether ioc.ini file be modified after generating startup files or after exporting to mount dir.
-                if not check_snapshot_file(self.name, self.verbose):
-                    print(f'IOC("{self.name}").check_consistency: Failed for run-check. Settings has been changed and '
-                          f'IOC project may need to be re-generated and exported.')
-                    self.set_config('snapshot', 'changed')
-                    return False
-                # Check whether .substitutions file is created.
-                if not os.path.isfile(os.path.join(self.db_path, f'{self.name}.substitutions')):
-                    print(f'IOC("{self.name}").check_consistency: Failed for run-check. '
-                          f'"{self.name}.substitutions" not found.')
-                    consistency_flag = False
-                # Check protocol file if StreamDevice defined.
-                if self.conf.has_section('STREAM'):
-                    ps = self.get_config('protocol_file', 'STREAM').split(',')
-                    for item in ps:
-                        if item not in os.listdir(self.settings_path):
-                            print(
-                                f'IOC("{self.name}").check_consistency: Failed for run-check. Protocol file "{item}" for '
-                                f'StreamDevice not found in "{self.name}/settings/".')
-                            consistency_flag = False
+            # checks that give prompt for further operation.
+            res_prompt = ''
+            if not self.check_config('is_exported', 'true'):
+                if self.check_config('status', 'created'):
+                    res_prompt = (f'Project just created, '
+                                  f'make settings then generate startup files and export them into running dir.')
+                elif self.check_config('status', 'generated'):
+                    if self.check_config('snapshot', 'logged'):
+                        res_prompt = f'Project just generated, now you can export them into running dir.'
+                    elif self.check_config('snapshot', 'changed'):
+                        res_prompt = (f'Settings has been changed but not generated. Generate startup files again to '
+                                      f'apply new settings or just restore old settings from snapshot file.')
+                elif self.check_config('status', 'restored'):
+                    res_prompt = (f'Project just restored, make settings then generate startup files and '
+                                  f'export them into running dir.')
+                if print_prompt:
+                    print(f'IOC("{self.name}").run_check: {res_prompt}')
             else:
-                # Normal checks for an IOC project. Normal check always return True, only give prompt for check results.
-                # Check whether name in ioc.ini is equal to directory name.
-                if self.get_config('name') != os.path.basename(self.dir_path):
-                    sys.stderr.write(
-                        f'IOC("{self.name}").check_consistency: Warning by normal-check. Name defined in ioc.ini '
-                        f'"{self.get_config("name")}" is not same as the directory name. Program exit and automatically '
-                        f'set IOC name according to directory name.\n')
-                    return
-                # Check for file change and project status.
-                if self.check_config('status', 'generated') and not check_snapshot_file(self.name, self.verbose):
-                    sys.stderr.write(
-                        f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                        f' generating startup files, you need to re-generate startup files.\n')
-                    self.set_config('snapshot', 'changed')
-                if self.check_config('status', 'exported') and not check_snapshot_file(self.name, self.verbose):
-                    sys.stderr.write(
-                        f'IOC("{self.name}").check_consistency: Warning by normal-check. Settings has been changed after'
-                        f' exporting to mount dir, you need to re-generate and re-export startup files.\n')
-                    self.set_config('snapshot', 'changed')
-                if self.check_config('status', 'generated') and self.check_config('snapshot', 'logged'):
-                    sys.stderr.write(f'IOC("{self.name}").check_consistency: Warning by normal-check. '
-                                     f'IOC project has been generated but not exported to mount dir yet.\n')
-
+                if self.check_config('snapshot', ''):
+                    res_prompt = (f'Snapshot file not found, project may be just restored, '
+                                  f'please generate startup file to make snapshot files.')
+                    print(f'IOC("{self.name}").run_check: Warning. {res_prompt}')
+                elif self.check_config('snapshot', 'changed'):
+                    res_prompt = (f'Settings has been changed, generate startup files again to make snapshot file for '
+                                  f'new settings or just restore old settings from snapshot file.')
+                    print(f'IOC("{self.name}").run_check: Warning. {res_prompt}')
+                elif self.check_config('snapshot', 'logged'):
+                    if print_prompt:
+                        res, prompt_info = self.check_consistency(print_info=True)
+                    else:
+                        res, prompt_info = self.check_consistency()
+                    if not res:
+                        res_prompt = (f'Settings are not consistent between running settings file and snapshot file, '
+                                      f'you should export startup files again.')
+                        print(f'IOC("{self.name}").run_check: Warning. {res_prompt}')
+                    else:
+                        res_prompt = prompt_info
+                        if print_prompt:
+                            print(f'IOC("{self.name}").run_check: {prompt_info}')
             #####
             sys.stdout = original_stdout
             sys.stderr = original_stderr
-        return consistency_flag
+
+            return res_prompt

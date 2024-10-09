@@ -23,10 +23,10 @@ _mycommand_completion() {
 	_port_type_prompt="tcp/ip serial"
 	#
 	exec_prompt="--verbose --help" # general prompt for all exec commands.
-	exec_ioc_prompt="--gen-startup-file --export-for-mount --add-src-file" # exec commands for specified IOC projects.
+	exec_ioc_prompt="--gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file" # exec commands for specified IOC projects.
 	_backup_mode_prompt="src all"
 	#
-	list_prompt="--section --ioc-list --show-info --raw-info --verbose --help"
+	list_prompt="--section --ioc-list --show-info --prompt-info --raw-info --verbose --help"
 	_condition_type_prompt="name= host= status=created status=generated status=exported snapshot=logged snapshot=changed"
 	#
 	remove_prompt="--remove-all --force --verbose --help"
@@ -217,6 +217,13 @@ _mycommand_completion() {
 				prompt="--force-silent --force-default"
 				;;
 				"--force-silent")
+				if [ "$option_set_first" == "--gen-startup-file" ]; then
+					prompt="--force-default"
+				elif [ "$option_set_first" == "--restore-snapshot-file" ]; then
+					prompt=""
+				else
+					return 0
+				fi
 				prompt="--force-default"
 				;;
 				"--force-default")
@@ -286,6 +293,9 @@ _mycommand_completion() {
 				done
 				return 0
 				;;
+				"--restore-snapshot-file")
+				prompt="--force-silent"
+				;;
 				"--run-check")
 				;;
 				"-v"|"--verbose")
@@ -329,13 +339,15 @@ _mycommand_completion() {
 				;;
 				"-r"|"--raw-info")
 				;;
+				"-p"|"--prompt-info")
+				;;
 				"-v"|"--verbose")
 				;;
 				"-h"|"--help")
 				;;
 				*)
 				if [ "$option_set_last" == "--ioc-list" -o "$option_set_last" == "-l" ]; then 
-					prompt="--section --show-info --raw-info --verbose $ioc_list"
+					prompt="--section --show-info --raw-info --prompt-info --verbose $ioc_list"
 					COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 					return 0
 				fi
@@ -460,5 +472,6 @@ _mycommand_completion() {
 
 complete -F _mycommand_completion "./IocManager.py"
 complete -F _mycommand_completion "IocManager.py"
+complete -F _mycommand_completion "IocManager"
 
 # export $REPOSITORY_PATH here.
