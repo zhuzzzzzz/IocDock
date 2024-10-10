@@ -107,7 +107,6 @@ def set_ioc(name, args, config=None, verbose=False):
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
                 modify_flag = True
-            ioc_temp.run_check()
             if modify_flag:
                 print(f'set_ioc: Success. IOC "{name}" modified by given settings.')
                 if args.print_ioc:
@@ -335,6 +334,11 @@ def execute_ioc(args):
                     ioc_temp = IOC(dir_path, args.verbose)
                     if args.add_src_file:
                         ioc_temp.get_src_file(src_dir=args.src_path)
+                    elif args.generate_and_export:
+                        ioc_temp.generate_startup_files(force_executing=args.force_silent,
+                                                        force_default=args.force_default)
+                        export_for_mount(name, mount_dir=args.mount_path, force_overwrite=args.force_overwrite,
+                                         verbose=args.verbose)
                     elif args.gen_startup_file:
                         ioc_temp.generate_startup_files(force_executing=args.force_silent,
                                                         force_default=args.force_default)
@@ -960,7 +964,7 @@ if __name__ == '__main__':
                                      '\nset "--force-silent" to force silent running. '
                                      '\nset "--force-default" to use default settings.')
     parser_execute.add_argument('--force-silent', action="store_true",
-                                help='force silent while generating startup files or restoring snapshot files.')
+                                help='force silent running while generating startup files or restoring snapshot files.')
     parser_execute.add_argument('--force-default', action="store_true",
                                 help='use default when generating startup files.')
     parser_execute.add_argument('-e', '--export-for-mount', action="store_true",
@@ -973,6 +977,13 @@ if __name__ == '__main__':
                                      f'\ndefault the upper directory of the manager tool, "$MANAGER_PATH/../".')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
                                 help='force overwrite if the IOC project already exists.')
+    parser_execute.add_argument('--generate-and-export', action="store_true",
+                                help='generate startup files and then automatically export them into mount dir. '
+                                     '\nset "--force-silent" to force silent running when generating startup files. '
+                                     '\nset "--force-default" to use default settings when generating startup files. '
+                                     '\nset "--mount-path" to choose a top path for mount dir to export. '
+                                     '\nset "--force-overwrite" to enable overwrite exporting when IOC in mount dir '
+                                     'conflicts with the one in repository. ')
     parser_execute.add_argument('--gen-compose-file', action="store_true",
                                 help='generate Docker Compose file hosts and IOC projects in mount directory. '
                                      '\nset "--mount-path" to select a top path to find mount dir. '

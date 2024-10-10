@@ -9,24 +9,23 @@ IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC
 在需要进行版本更新时, 按如下操作:
 
 1. 执行 ```git remote update```, ```git pull origin master``` 更新并拉取最新的git项目代码并切换至指定版本.
-2. 阅读根目录内自动升级脚本 ```auto-update.sh``` 中说明文档部分(Instructions部分).
-3. 按说明文档, 执行 ```sudo ./auto-update.sh``` 命令完成工具更新.
+2. 阅读根目录内自动升级脚本 ```auto-update.sh``` 中说明文档部分(Instructions部分), 按说明文档执行操作.
+3. 执行 ```sudo ./auto-update.sh``` 命令完成工具更新.
 
-#### 一般工作流程
+#### 工作流程参考
 
-当需要创建IOC项目并希望其正确运行在容器中时, 按如下操作:
+当需要创建IOC项目并希望其正确运行在容器中时, 按如下顺序进行操作:
 
-1. 新建IOC项目, 将所有所需的源文件添加至新建IOC项目的"src/"目录
-2. 编辑IOC项目的配置文件, 确定IOC项目将运行在哪个主机, 将使用的镜像及镜像内的可执行IOC; 设置DB部分中的load字段,
-   确定IOC项目的db文件加载项; 确定IOC项目的其他配置
-3. 如要使用ASYN, STREAM或其他EPICS硬件设备通信插件时, 首先确保已选择镜像中的可执行IOC支持相关功能. 然后使用工具命令添加相关插件的配置模板,
+1. 新建IOC项目, 将所需的所有源文件添加至新建项目的"src/"目录.
+2. 编辑IOC项目的配置文件设置参数. 如确定IOC项目将运行在哪个主机, 将使用的镜像及镜像内的可执行IOC; 设置DB部分load字段,
+   确定IOC项目的db文件加载项; 确定IOC项目的其他配置等等.
+3. 如要使用ASYN, STREAM或其他EPICS硬件设备通信插件时, 首先确保已选择镜像中的可执行IOC支持相关功能, 然后添加相关插件的配置模板,
    之后再进行配置.   
-   (ASYN, STREAM可直接添加已有的 "ASYN", "STREAM" 模板, 其他插件则需要添加并编辑 "RAW" 模板)
-4. 配置完成IOC项目后, 执行管理工具命令生成IOC项目启动文件
-5. 生成项目启动文件后, 需要执行导出命令, 将IOC项目的启动文件导出至mount目录
-6. IOC项目部署运行前, 须再执行一遍运行检查命令, 以确认IOC项目已经得到正确配置.
-7. 妥当后, 若使用compose方式部署, 前往容器工作的虚拟机指定目录, 启动 docker compose 项目
-8. 若使用swarm模式部署, 则参考相关文档, 执行脚本工具命令将IOC项目对应的docker服务部署
+   *(ASYN, STREAM可直接添加已有的 "ASYN", "STREAM" 模板, 其他插件则需要添加并编辑 "RAW" 模板)*
+4. 配置完成IOC项目后, 执行管理工具提供的命令生成IOC项目启动文件.
+5. 生成项目启动文件后, 需要执行导出命令, 将IOC项目的启动文件导出至mount目录.
+6. 妥当后, 若使用compose方式部署, 前往容器工作的虚拟机指定目录, 启动 docker compose 项目.
+7. 若使用swarm模式部署, 则参考swarm部署文档, 执行管理工具提供的命令将IOC项目对应的docker服务部署.
 
 ### 使用帮助
 
@@ -36,33 +35,33 @@ IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC
 参考如下列出的管理工具命令的大致使用方式, 详细使用方式见管理工具的命令行帮助.
 
 1. 使用```create```命令, 创建IOC项目并进行简单配置. 如下为可执行的创建命令, 可同时使用多个选项:     
-   ```./IocManager.py create IOC [IOC2 IOC3 ...]``` 直接创建单个或多个IOC项目      
-   ```./IocManager.py create IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 创建时设置某些字段  
-   ```./IocManager.py create IOC [IOC2 IOC3 ...] -f xxx``` 导入已有配置文件创建   
-   ```./IocManager.py create IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave```
+   ```IocManager create IOC [IOC2 IOC3 ...]``` 直接创建单个或多个IOC项目      
+   ```IocManager create IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 创建时设置某些字段  
+   ```IocManager create IOC [IOC2 IOC3 ...] -f xxx``` 导入已有配置文件创建   
+   ```IocManager create IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave```
    指定使用的模块创建   
-   ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
+   ```IocManager create IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
    创建ASYN或STREAM模板并设置端口类型   
-   ```./IocManager.py create IOC [IOC2 IOC3 ...] --add-raw``` 创建时设置添加原始命令模板
+   ```IocManager create IOC [IOC2 IOC3 ...] --add-raw``` 创建时设置添加原始命令模板
 
 
 2. 将IOC项目所需的源文件从指定目录添加至IOC项目的"src/"目录. 必要时可多次运行此命令.
    当前支持自动识别添加的文件名称后缀为 ```.db``` ```.proto``` ```.im```.    
-   ```./IocManager.py exec IOC [IOC2 IOC3 ...] --add-src-file --src-path xxx```
+   ```IocManager exec IOC [IOC2 IOC3 ...] --add-src-file --src-path xxx```
    > 也可直接手动将所有文件复制至"src/"目录. 指定```--add-src-file```且不指定```--src-path```,
    脚本默认将自动识别添加项目自身"src/"目录内的源文件.    
    (注: 此方式执行命令将刷新配置文件, 自动清除不存在于"src/"目录中的相关配置文件设置项)    
-   ```./IocManager.py exec IOC [IOC2 IOC3 ...] --add-src-file```
+   ```IocManager exec IOC [IOC2 IOC3 ...] --add-src-file```
 
 
 3. 创建IOC项目后如需要进一步配置IOC项目, 使用```set```命令. 如设置.db文件的加载项及宏替换, 指定协议文件,
    其他需要额外指定的启动命令, 等等. 如下选项可叠加设置:          
-   ```./IocManager.py set IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 单独设置某些字段  
-   ```./IocManager.py set IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件覆盖设置    
-   ```./IocManager.py set IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 设置使用的模块   
-   ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
+   ```IocManager set IOC [IOC2 IOC3 ...] -s xxx -o xxx=xxx``` 单独设置某些字段  
+   ```IocManager set IOC [IOC2 IOC3 ...] -f xxx``` 导入配置文件覆盖设置    
+   ```IocManager set IOC [IOC2 IOC3 ...] --caputlog/--status-ioc/--status-os/--autosave``` 设置使用的模块   
+   ```IocManager set IOC [IOC2 IOC3 ...] --add-asyn/--add-stream [--port-type "tcp/ip"/"serial"]```
    设置ASYN或STREAM模板并设置端口类型   
-   ```./IocManager.py set IOC [IOC2 IOC3 ...] --add-raw``` 设置添加原始命令模板
+   ```IocManager set IOC [IOC2 IOC3 ...] --add-raw``` 设置添加原始命令模板
 
 > 也可直接打开IOC项目的ioc.ini文件手动编辑配置文件, 编辑时请注意文件格式.
 
@@ -72,7 +71,7 @@ IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC
 *执行此操作后, 工具将自动备份当前IOC项目的配置文件并更新IOC的项目状态属性用以进行项目周期管理.*
 
 - 对指定的IOC项目生成运行文件及启动文件   
-  ```./IocManager.py exec IOC [IOC2 IOC3 ...] --gen-startup-file```
+  ```IocManager exec IOC [IOC2 IOC3 ...] --gen-startup-file```
 
 #### 导出IOC项目的运行文件
 
@@ -88,26 +87,28 @@ IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC
   IOC运行中一些插件模块记录产生的日志文件或配置文件将被保留.    
   也可以设置覆盖导入, 指定```--force-overwrite```,
   此时导出目录中的插件模块配置文件等将被初始化至项目刚生成运行文件时的状态.   
-  ```./IocManager.py exec IOC [IOC2 IOC3 ...] -e [--mount-path xxx] [--force-overwrite]```
+  ```IocManager exec IOC [IOC2 IOC3 ...] -e [--mount-path xxx] [--force-overwrite]```
 
-#### IOC项目的运行前检查
 
-检查必要设置是否已正确设置以及IOC部署运行所需相关文件是否已正确生成，无误后方可进行后续的部署操作.
+- 工具提供了生成并导出IOC项目运行文件的快捷方法, 执行此操作将一次性调用生成和导出两个指令.    
+  ```IocManager exec  IOC [IOC2 IOC3 ...] --generate-and-export [--mount-path xxx] [--force-overwrite]```
 
-- 对指定的IOC项目生成运行文件及启动文件   
-  ```./IocManager.py exec --run-check```
+#### IOC项目的运行检查
+
+- 对所有OC项目进行生命周期状态检查等相关检查, 工具将给出存在的问题并提供可能的操作办法.       
+  ```IocManager exec --run-check```
 
 #### 为导出的IOC项目生成配置文件以通过docker compose方式部署
 
 - 为导出目录中存在的虚拟机文件夹生成docker compose文件. 需要指定iocLogserver所使用的base镜像. 指定```--hosts```
   来指定主机名称, 当需要为所有主机都执行生成操作时, 可将参数设置为```"allprojects"```.   
-  ```./IocManager.py exec --gen-compose-file --hosts allprojects [--mount-path xxx] --base-image xxx```
+  ```IocManager exec --gen-compose-file --hosts allprojects [--mount-path xxx] --base-image xxx```
 
 #### 为导出的IOC项目生成配置文件以通过docker swarm方式部署
 
 - 为导出目录中swarm工作目录下的IOC项目生成swarm模式部署的docker compose文件. 指定```--ioc-list```
   来指定需要为哪些IOC项目执行操作, 当需要为所有IOC项目都执行生成操作时, 可将参数设置为```"alliocs"```.   
-  ```./IocManager.py exec --gen-swarm-file --ioc-list alliocs [--mount-path xxx]```
+  ```IocManager exec --gen-swarm-file --ioc-list alliocs [--mount-path xxx]```
 
 #### 运行部署的IOC项目
 
@@ -121,55 +122,59 @@ IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC
 ```"src"```: 仅备份IOC项目源文件及配置文件    
 ```"all"```: 备份包括运行目录内插件模块运行时产生的文件在内的所有IOC文件
 
-1. 备份时默认将自动进行IOC项目的运行前检查, 确保IOC项目是最新的且是正常可运行的, 运行前检查通过后方能继续备份.    
+1. 备份时默认将自动进行IOC项目的运行前检查, 确保IOC项目是最新的且是正常可运行的, 运行前检查通过后方能继续备份.
 
 
 2. 执行备份操作, 指定将备份文件的存储位置及备份模式, 工具将自动在目标位置生成带有时间戳的备份文件.    
-   ```./IocManager.py exec -b --backup-path xxx [--backup-mode "src"/"all"]```
+   ```IocManager exec -b --backup-path xxx [--backup-mode "src"/"all"]```
 
 
 3. 执行命令进行备份文件的恢复, 指定需要恢复的备份文件, 指定当IOC项目已存在时是否自动覆盖已存在的项目文件,
    将使备份文件内的IOC项目文件恢复至本地仓库目录   
-   ```./IocManager.py exec -r --backup-file xxx [--force-overwrite]```
+   ```IocManager exec -r --backup-file xxx [--force-overwrite]```
 
 #### 管理IOC项目
 
 - 列出所有IOC项目. 若要列出时显示IOC项目的全部配置信息, 使用```-i```选项.   
-  ```./IocManager.py list [-i]```
+  ```IocManager list [-i]```
 
 
 - 按行列出IOC项目并显示状态信息, 使用```-r```选项.   
-  ```./IocManager.py list -r```
+  ```IocManager list -r```
+
+
+- 按行列出IOC项目并操作提示信息, 使用```-p```选项.   
+  ```IocManager list -p```
 
 
 - 根据条件筛选, 列出所有符合条件的IOC项目. 可以同时指定多个条件, 进行与逻辑筛选.     
-  ```./IocManager.py list condition [condition2 condition3 ...] [-i] [-r]```
+  ```IocManager list condition [condition2 condition3 ...] [-i] [-r]```
 
 
 - 通过项目名称进行模糊匹配, 列出IOC项目. 如下将筛选列出所有名称中包含"abc"的IOC项目.    
-  ```./IocManager.py list name=abc [-i] [-r]```
+  ```IocManager list name=abc [-i] [-r]```
 
 
 - 筛选所有具有指定字段设置的IOC项目. 如下将筛选并列出所有具有 "GHI" section 且其中"abc"字段属性值为"def"的IOC项目.   
-  ```./IocManager.py list abc=def -s ghi```
+  ```IocManager list abc=def -s ghi```
 
 
 - 从给定的IOC列表中筛选IOC项目. 如下将筛选并列出x1, x2, x3三个IOC项目中具有 "GHI" section 且其中"abc"字段属性值为"def"
   的IOC项目.   
-  ```./IocManager.py list abc=def -s ghi -l x1 x2 x3```
+  ```IocManager list abc=def -s ghi -l x1 x2 x3```
 
 
 - 嵌套筛选查找. 如下将从所有具有 "GHI" section 且其中"abc"字段的属性值为"def"的IOC项目中,
   筛选查找名称中包含"xyz"的IOC项目.   
-  ```./IocManager.py list abc=def -s ghi | xargs ./IocManager.py list name=xyz -l```
+  ```IocManager list abc=def -s ghi | xargsIocManager list name=xyz -l```
 
 
 - 删除IOC项目. 注意删除时可指定的选项.   
-  ```./IocManager.py remove IOC [IOC2 IOC3 ...] [-r] [-f] ```
+  ```IocManager remove IOC [IOC2 IOC3 ...] [-r] [-f] ```
 
 
 - 重命名IOC项目.   
-  ```./IocManager.py rename old-name new-name [-v] ```
+  ```IocManager rename old-name new-name [-v] ```
 
 #### 项目生命周期管理
 
@@ -185,7 +190,7 @@ IOC项目在执行创建、生成、导出操作后, 管理工具都会在"statu
 可选配置将在下方用```*```号标注, 未标注则均为必须设置项, 需要进行配置才能使IOC项目正常运行.
 
 部分配置项支持多行设置, 即每行可看作一个单独的设置项设置多个同类项.    
-可在使用```./IocManager create```或```./IocManager set``` 命令指定属性时使用分号```;```间隔来代表多行设置,
+可在使用```IocManager create```或```IocManager set``` 命令指定属性时使用分号```;```间隔来代表多行设置,
 也可在直接编辑配置文件时通过换行及缩进的方式来进行多行配置.
 
 #### 通用配置设置
@@ -202,9 +207,14 @@ bin:       ----------------------------- IOC将使用镜像中的哪个可执行
 *description:       -------------------- IOC的描述信息
 *status:       ------------------------- IOC项目的配置状态. "created"(IOC项目未生成运行文件) 或 "generated"(IOC项目已生成运行文件) 或 "exported"(IOC项目已导出)
 *snapshot:       ----------------------- IOC配置文件的快照备份状态. ""(配置文件未备份) 或 "logged"(配置文件已备份且与备份文件一致) 或 "changed"(配置文件与备份文件不一致)
+*is_exported:       -------------------- IOC项目的导出状态.
+
+[SRC]       ---------------------------- 用以显示IOC项目中当前存在的源文件信息, 此字段自动更新，无需设置
+*db_file:       ------------------------ 当前存在的db文件列表. 使用"--add-src-file"命令后将自动更新此列表
+*protocol_file:       ------------------ 当前存在的协议文件列表.  
+*others_file:       -------------------- 当前存在的其他以.im为后缀文件的列表.  
 
 [DB]       ----------------------------- 用以存储IOC加载db文件的配置信息
-*file:       --------------------------- db文件列表, 使用"--add-src-file"命令后将自动更新此列表, 一般不须手动编辑.
 load:       ---------------------------- 设置带宏替换的db文件加载项. 格式: *.db, A=abc, B=def    
             ---------------------------- 设置不使用宏替换的db文件加载项. 格式: *.db
 
@@ -334,10 +344,12 @@ protocol_file: xxx.proto
 更新日志及功能说明
 ------------------------------------------------------------------------
 
-beta v0.5.1   
-======= 2024/09/13 =======
+beta v0.5.2   
+======= 2024/10/10 =======
 
-1. 增加脚本调用操作记录
+1. IOC项目生命周期管理优化
+2. 其他优化
+3. 管理工具调用优化
 
 
 

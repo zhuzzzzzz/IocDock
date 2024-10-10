@@ -68,10 +68,8 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# add set options here..
 				
 				
-				# generate startup files
-				./IocManager.py exec "$create_prefix$i" --gen-startup-file 
-				# copy files to default mount path 
-				./IocManager.py exec "$create_prefix$i" -e --force-overwrite 
+				# generate startup files and export to default mount path.
+				./IocManager.py exec "$create_prefix$i" --generate-and-export --force-overwrite 
 			done
 		done
 		echo 

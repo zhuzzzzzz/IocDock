@@ -1,12 +1,13 @@
 #!/bin/bash
 
-#######   Do As Following Instructions!!!   #######
-
+#######   Do As Following Instructions   #######
+#
 ### If you want to update IOC settings from old version to new version, do as the followings. ###
 ## backup old IOC projects.
 #	IocManager.py exec -b
 ## update IOC projects.
 #	IocManager.py update
+#
 
 
 #
