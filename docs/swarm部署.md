@@ -94,7 +94,7 @@ IOC项目的创建配置流程与compose部署基本相同，不同之处在于�
 
 ```IocManager.py exec --gen-swarm-file --ioc-list IOC [IOC2 IOC3 ...]  ```
 
-执行```--gen-swarm-file```操作后，IOC服务的状态将变为可用的，使用查看swarm模式摘要信息的命令时，可以看到此状态。   
+执行```--gen-swarm-file```操作后，IOC服务的状态将变为可用的，使用查看swarm模式摘要信息的命令时，可以看到此状态。
 
 只有当IOC项目处于可用的状态时才能将其部署。
 
@@ -121,6 +121,14 @@ IOC项目的创建配置流程与compose部署基本相同，不同之处在于�
 
 - 部署所有当前可用但尚未部署的IOC项目.   
   ```IocManager.py swarm --deploy-all-iocs```
+
+
+- 移除当前swarm模式下部署的全局服务.   
+  ```IocManager.py swarm --remove-global-services```
+
+
+- 移除当前swarm模式下部署的所有IOC服务.   
+  ```IocManager.py swarm --remove-all-iocs```
 
 
 - 移除当前swarm模式下部署的所有服务.   
