@@ -18,16 +18,16 @@ _mycommand_completion() {
 	sub_command_opts="create set exec list swarm service remove rename"
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
-	_options_prompt="host= image= bin= description= load_=  epics_env_= report_info=true report_info=false caputlog_json=true caputlog_json=false "
+	_options_prompt="host= image= bin= description= load=  epics_env= report_info=true report_info=false caputlog_json=true caputlog_json=false "
 	_section_prompt="DB SETTING ASYN STREAM RAW"
 	_port_type_prompt="tcp/ip serial"
 	#
 	exec_prompt="--verbose --help" # general prompt for all exec commands.
-	exec_ioc_prompt="--gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file" # exec commands for specified IOC projects.
+	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file" # exec commands for specified IOC projects.
 	_backup_mode_prompt="src all"
 	#
 	list_prompt="--section --ioc-list --show-info --prompt-info --raw-info --verbose --help"
-	_condition_type_prompt="name= host= status=created status=generated status=exported snapshot=logged snapshot=changed"
+	_condition_type_prompt="name= host= status=created status=generated status=exported snapshot=logged snapshot=changed is_exported=true is_exported=false"
 	#
 	remove_prompt="--remove-all --force --verbose --help"
 	#
@@ -58,7 +58,7 @@ _mycommand_completion() {
 	if [ $COMP_CWORD -eq 2 ]; then
 		case "$3" in 
 			"create")
-			prompt="" # "create" should specify an IOC project firstly.
+			prompt="--help" # "create" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			"set")
@@ -84,7 +84,7 @@ _mycommand_completion() {
 			prompt="$swarm_prompt"
 			;;
 			"service")
-			prompt="" # "service" should specify an IOC project firstly.
+			prompt="--help" # "service" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			*)

@@ -16,7 +16,7 @@ script_dir=$(dirname $script_abs)
 
 
 # installing shell command completion.
-echo installing shell command completion.
+echo installing shell command completion...
 cd imtools/command-completion
 # !!!
 script_abs_temp=$script_abs
@@ -28,13 +28,13 @@ cd $script_dir
 
 
 # set environment variable. 
-echo set environment variable.
+echo setting environment variable...
 file_path=/etc/profile.d/IocManagerInstaller.sh
 echo export MANAGER_PATH=$(pwd) > $file_path
 source $file_path
 # add command soft link.
-echo add command soft link.
-ln -s $script_dir/IocManager.py /usr/bin/IocManager
+echo making command soft link...
+ln -sf $script_dir/IocManager.py /usr/bin/IocManager
 
 
 #

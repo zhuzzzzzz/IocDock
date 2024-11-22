@@ -597,7 +597,7 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
                     'entrypoint': [
                         'bash',
                         '-c',
-                        f'. ~/.bash_aliases; echo run iocLogServer; iocLogServer'
+                        f'. ~/.bash_aliases; date; echo run iocLogServer; iocLogServer'
                     ],
                     'environment': {
                         'EPICS_IOC_LOG_FILE_NAME':
