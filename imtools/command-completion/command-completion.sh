@@ -66,7 +66,7 @@ _mycommand_completion() {
 			prompt="$ioc_list $prompt"
 			;;
 			"exec") # "exec" should specify an IOC project firstly or specify the commands that are to all IOC projects.
-			prompt="--gen-compose-file --gen-backup-file --restore-backup-file --run-check --verbose --help"
+			prompt="--gen-compose-file --gen-swarm-file --gen-backup-file --restore-backup-file --run-check --verbose --help"
 			prompt="$ioc_list $prompt"
 			;;
 			"list")
@@ -298,6 +298,9 @@ _mycommand_completion() {
 				;;
 				"--run-check")
 				;;
+				"--gen-swarm-file")
+				prompt="--ioc-list"
+				;;
 				"-v"|"--verbose")
 				;;
 				"-h"|"--help")
@@ -307,6 +310,8 @@ _mycommand_completion() {
 					prompt="--force-overwrite"
 				elif [ "$option_set_last" == "--hosts" ]; then 
 					prompt="--base-image ${hosts_list}"
+				elif [ "$option_set_last" == "--ioc-list" ]; then 
+					prompt="${ioc_list}"
 				elif [ "$option_set_last" == "--base-image" ]; then 
 					prompt="--hosts"
 				elif [ "$option_set_last" == "--backup-path" ]; then 
