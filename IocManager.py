@@ -736,7 +736,8 @@ def gen_swarm_files(mount_dir, iocs, verbose):
         else:
             for item in iocs:
                 if item not in processed_dir:
-                    print(f'gen_swarm_files: Creating swarm files for IOC project "{item}" failed.')
+                    print(f'gen_swarm_files: Creating swarm files for IOC project "{item}" failed, '
+                          f'may be it is not set in swarm mode.')
             else:
                 if not iocs:
                     print(f'gen_swarm_files: No IOC project was specified to generate compose file!')
