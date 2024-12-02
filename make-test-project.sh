@@ -4,6 +4,10 @@
 # run "./make-test-project.sh make swarm" to generate IOC project test cases for swarm deploy.
 # run "./make-test-project.sh del" to delete IOC project test cases.
 
+# command for testing communication of generated projects.
+# camonitor ramper:worker-standard_1 ramper:worker-standard_2 ramper:worker-standard_3 ramper:worker_test1_1 ramper:worker_test1_2 ramper:worker_test1_3 ramper:worker_test2_1 ramper:worker_test2_2 ramper:worker_test2_3 ramper:worker_test_1 ramper:worker_test_2 ramper:worker_test_3
+
+
 # set variables below to change generating configureation.
 base_image="image.dals/base:beta-0.2.2"
 ioc_image="image.dals/ioc-exec:beta-0.2.2"
@@ -31,7 +35,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# add source files
 				./IocManager.py exec "$create_prefix$i" --add-src-file --src-path ./imtools/template/test
 				# set options
-				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i; ramper.db, name=$create_prefix$i:2"
+				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i"
 				./IocManager.py set "$create_prefix$i" -o " host = swarm"
 				./IocManager.py set "$create_prefix$i" -o " image = $ioc_image "
 				# add set options here..
@@ -62,7 +66,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# add source files
 				./IocManager.py exec "$create_prefix$i" --add-src-file --src-path ./imtools/template/test
 				# set options
-				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i; ramper.db, name=$create_prefix$i:2"
+				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i"
 				./IocManager.py set "$create_prefix$i" -o " host = $item "
 				./IocManager.py set "$create_prefix$i" -o " image = $ioc_image "
 				# add set options here..

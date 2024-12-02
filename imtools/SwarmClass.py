@@ -372,6 +372,13 @@ class SwarmService:
         if self.is_deployed:
             print(f'SwarmService("{self.name}").remove_service: Removing this service.')
             os.system(f'docker service rm {self.service_name}')
+            if os.path.isfile(os.path.join(self.dir_path, self.service_file)):
+                try:
+                    os.remove(os.path.join(self.dir_path, self.service_file))
+                except Exception as e:
+                    print(f'SwarmService("{self.name}").remove_service: Remove swarm file failed.')
+                else:
+                    print(f'SwarmService("{self.name}").remove_service: Swarm file removed.')
         else:
             print(f'SwarmService("{self.name}").remove_service: Failed to remove, service is not deployed.')
 
@@ -418,4 +425,4 @@ if __name__ == '__main__':
     # s.show_info()
     # print(s.current_state)
     SwarmManager().show_info()
-    SwarmManager.backup_swarm()
+    # SwarmManager.backup_swarm()

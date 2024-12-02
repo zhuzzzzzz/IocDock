@@ -872,6 +872,23 @@ def update_ioc(args):
     print(f'Finished updating IOC projects.')
 
 
+# Edit settings file for an IOC project using vi command.
+def edit_ioc(args):
+    name = args.name
+    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+    file_path = os.path.join(dir_path, CONFIG_FILE_NAME)
+    if args.verbose:
+        print(f'edit_ioc: Edit file path: "{file_path}".')
+    if os.path.exists(file_path):
+        try:
+            os.system(f'vi {file_path}')
+        except Exception as e:
+            if args.verbose:
+                print(f'edit_ioc: Failed. Changing directory name failed, "{e}".')
+    else:
+        print(f'edit_ioc: Failed. IOC "{name}" not found.')
+
+
 if __name__ == '__main__':
     # argparse
     parser = argparse.ArgumentParser(description='Manager of IOC projects for docker deploying.',
@@ -1122,6 +1139,13 @@ if __name__ == '__main__':
     parser_update.add_argument('-v', '--verbose', action="store_true", help='show details.')
     parser_update.set_defaults(func='parse_update')
 
+    #
+    parser_edit = subparsers.add_parser('edit', help='Edit settings file for an IOC project.',
+                                        formatter_class=argparse.RawTextHelpFormatter)
+    parser_edit.add_argument('name', type=str, help='name of the IOC project.')
+    parser_edit.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_edit.set_defaults(func='parse_edit')
+
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
@@ -1206,3 +1230,6 @@ if __name__ == '__main__':
     if args.func == 'parse_service':
         # ./iocManager.py service
         execute_service(args)
+    if args.func == 'parse_edit':
+        # ./iocManager.py edit
+        edit_ioc(args)

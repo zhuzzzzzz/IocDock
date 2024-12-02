@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set exec list swarm service remove rename"
+	sub_command_opts="create set exec list swarm service remove rename edit"
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
 	_options_prompt="host= image= bin= description= load=  epics_env= report_info=true report_info=false caputlog_json=true caputlog_json=false "
@@ -85,6 +85,10 @@ _mycommand_completion() {
 			;;
 			"service")
 			prompt="--help" # "service" should specify an IOC project firstly.
+			prompt="$ioc_list $prompt"
+			;;
+			"edit")
+			prompt="--help" # "edit" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			*)
