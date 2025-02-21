@@ -1,122 +1,145 @@
+import filecmp
 import os
-import configparser
 import sys
+import configparser
 
-from .IMFuncsAndConst import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
-    format_normalize, relative_and_absolute_path_to_abs, get_manager_path, MOUNT_DIR
-from .IMFuncsAndConst import CONFIG_FILE_NAME, REPOSITORY_DIR, CONTAINER_IOC_PATH, CONTAINER_IOC_RUN_PATH, \
-    DEFAULT_IOC, MODULES_PROVIDED, DEFAULT_MODULES, PORT_SUPPORT, DB_SUFFIX, PROTO_SUFFIX, OTHER_SUFFIX, LOG_FILE_DIR, \
-    TOOLS_DIR, SNAPSHOT_PATH
+from .IMFuncs import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
+    format_normalize, relative_and_absolute_path_to_abs
+from .IMConsts import *
+from .IMError import IMValueError, IMIOCError
+
+STATE_NORMAL = 'normal'
+STATE_WARNING = 'warning'
+STATE_ERROR = 'error'
+
+
+def config_update_required(func):
+    def wrapper(self, *args, **kwargs):
+        res = func(self, *args, **kwargs)
+        if self.verbose:
+            print(f'Update config file of IOC "{self.name}".')
+        self.write_config()
+        return res
+
+    return wrapper
 
 
 class IOC:
     def __init__(self, dir_path=None, verbose=False, **kwargs):
+        """
+        Initialize an IOC project for a given path.
 
-        # self.dir_path
+        :param dir_path: path to project directory.
+        :param verbose: whether to show details about program processing.
+        :param kwargs: extra arguments.
+        """
+
+        # self.dir_path: directory for IOC project.
+        # self.src_path
+        # self.template_path
         # self.config_file_path
+        # self.project_path: directory for separating editing files and non-editing files.
         # self.settings_path
         # self.log_path
         # self.startup_path
         # self.db_path
         # self.boot_path
-        # self.src_path
-        # self.template_path
+        # self.snapshot_path
+        # self.config_snapshot_file
+        # self.src_snapshot_path
+        # self.dir_path_for_mount
+        # self.config_file_path_for_mount
         # self.settings_path_in_docker
         # self.log_path_in_docker
         # self.startup_path_in_docker
 
-        self.verbose = verbose
+        if verbose:
+            print(f'\nIOC.__init__: Initializing at "{dir_path}".')
 
+        self.verbose = verbose
         if not dir_path or not os.path.isdir(dir_path):
-            self.dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, 'default')
-            print(f'IOC.__init__: No path given or wrong path given, use default path: "{self.dir_path}".')
+            raise IMValueError(f'Incorrect initialization parameters: IOC(dir_path={dir_path}).')
         self.dir_path = os.path.normpath(dir_path)
-        try_makedirs(self.dir_path, self.verbose)
+        self.src_path = os.path.join(self.dir_path, 'src')
+        self.template_path = TEMPLATE_PATH
         self.config_file_path = os.path.join(self.dir_path, CONFIG_FILE_NAME)
+        self.project_path = os.path.join(dir_path, 'project')
+        self.settings_path = os.path.join(self.project_path, 'settings')
+        self.log_path = os.path.join(self.project_path, 'log')
+        self.startup_path = os.path.join(self.project_path, 'startup')
+        self.db_path = os.path.join(self.startup_path, 'db')
+        self.boot_path = os.path.join(self.startup_path, 'iocBoot')
 
         self.conf = None
-        if not self.read_config():
-            if self.verbose:
-                print(f'IOC.__init__": Initialize a new file "{self.config_file_path}" with default settings.')
-            self.set_config('name', os.path.basename(self.dir_path))
-            self.set_config('host', '')
-            self.set_config('image', '')
-            self.set_config('bin', '')
-            self.set_config('module', 'autosave, caputlog')
-            self.set_config('description', '')
-            self.set_config('status', 'created')
-            self.set_config('snapshot', '')
-            self.set_config('is_exported', 'false')
-            self.set_config('db_file', '', section='SRC')
-            self.set_config('protocol_file', '', section='SRC')
-            self.set_config('others_file', '', section='SRC')
-            self.set_config('load', '', section='DB')
-            self.add_settings_template()
-        else:
-            if self.verbose:
-                print(f'IOC.__init__: Initialize IOC from configuration file "{self.config_file_path}".')
+        self.read_config(create=kwargs.get('create', False))
+        self.state = self.get_config('state')
+        self.state_info = self.get_config('state_info')
 
         self.name = self.get_config('name')
         if self.name != os.path.basename(self.dir_path):
             old_name = self.name
             self.name = os.path.basename(self.dir_path)
             self.set_config('name', self.name)
-            print(f'IOC.__init__: Get wrong name "{old_name}" from configuration file "{self.config_file_path}", '
-                  f'name of IOC project directory may be manually changed to "{self.name}". '
-                  f'IOC name has been automatically set in configuration file to follow that change.')
+            self.write_config()
+            print(f'IOC.__init__: Get wrong name "{old_name}" from config file "{self.config_file_path}", '
+                  f'directory name of IOC project may has been manually changed to "{self.name}". '
+                  f'IOC name has been automatically set in config file to follow that change.')
 
-        self.settings_path = os.path.join(self.dir_path, 'settings')
-        try_makedirs(self.settings_path, self.verbose)
-        self.log_path = os.path.join(self.dir_path, 'log')
-        try_makedirs(self.log_path, self.verbose)
-        self.startup_path = os.path.join(self.dir_path, 'startup')
-        self.db_path = os.path.join(self.startup_path, 'db')
-        try_makedirs(self.db_path, self.verbose)
-        self.boot_path = os.path.join(self.startup_path, 'iocBoot')
-        try_makedirs(self.boot_path, self.verbose)
-        self.src_path = os.path.join(self.dir_path, 'src')
-        try_makedirs(self.src_path, self.verbose)
-        self.template_path = os.path.join(get_manager_path(), TOOLS_DIR, 'template')
-        if not os.path.exists(self.template_path):
-            print("IOC.__init__: Can't find \"template\" directory.")
-        self.snapshot_file = os.path.join(SNAPSHOT_PATH, self.name)
+        self.snapshot_path = os.path.join(SNAPSHOT_PATH, self.name)
+        self.config_snapshot_file = os.path.join(self.snapshot_path, CONFIG_FILE_NAME)
+        self.src_snapshot_path = os.path.join(self.snapshot_path, 'src')
+
+        self.dir_path_for_mount = os.path.normpath(
+            os.path.join(MOUNT_PATH, self.get_config('host'), self.get_config('name')))
+        self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, CONFIG_FILE_NAME)
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
-        mount_dir_in_sys = os.getenv('MOUNT_PATH', os.path.join(get_manager_path(), '..', MOUNT_DIR))
-        self.dir_path_for_mount = os.path.normpath(
-            os.path.join(mount_dir_in_sys, self.get_config('host'), self.get_config('name')))
-        self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, CONFIG_FILE_NAME)
-        if not os.path.isfile(self.config_file_path_for_mount) and self.verbose:
-            print(f"IOC.__init__: Can't find settings file \"{self.config_file_path_for_mount}\" in mount dir.")
-
-        #
-        #
+        # autocheck part.
+        # get currently managed source files.
         self.get_src_file()
         #
-        self.check_snapshot_status()
-        # set attributes in configure file a normalized format.
+        self.check_snapshot_files(print_info=self.verbose)
         self.normalize_config()
 
-    def read_config(self):
+        if self.verbose:
+            print(f'IOC.__init__: Finished initializing for IOC "{self.name}".')
+
+    def create_new(self):
+        try_makedirs(self.src_path, self.verbose)
+        try_makedirs(self.settings_path, self.verbose)
+        try_makedirs(self.log_path, self.verbose)
+        try_makedirs(self.db_path, self.verbose)
+        try_makedirs(self.boot_path, self.verbose)
+        self.add_default_settings()
+        self.add_settings_template()
+        self.write_config()
+
+    # read config or create a new config or raise error.
+    def read_config(self, create):
         if os.path.exists(self.config_file_path):
             conf = configparser.ConfigParser()
             if conf.read(self.config_file_path):
                 self.conf = conf
-                return True
-            else:
-                self.conf = None
                 if self.verbose:
-                    print(f'IOC.read_config: Failed. Path "{self.config_file_path}" exists but not a valid '
-                          f'configuration file.')
-                return False
+                    print(f'IOC.read_config: Initialize IOC from config file "{self.config_file_path}".')
+                return
+            else:
+                self.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')
+                raise IMIOCError(f'IOC Initialization failed: Can\'t read config file "{self.config_file_path}".')
         else:
-            self.conf = None
-            if self.verbose:
-                print(f'IOC.read_config: Failed. Path "{self.config_file_path}" does not exists.')
-            return False
+            if create:
+                self.conf = configparser.ConfigParser()
+                if self.verbose:
+                    print(f'IOC.read_config: Initialize a new config file "{self.config_file_path}" '
+                          f'with default settings.')
+                self.create_new()
+                return
+            else:
+                self.set_state_info(state=STATE_ERROR, state_info='config file lost.')
+                raise IMIOCError(f'IOC Initialization failed: Can\'t find config file "{self.config_file_path}".')
 
     def write_config(self):
         with open(self.config_file_path, 'w') as f:
@@ -131,7 +154,6 @@ class IOC:
             self.conf = configparser.ConfigParser()
             self.conf.add_section(section)
         self.conf.set(section, option, value)
-        self.write_config()
 
     def get_config(self, option, section="IOC"):
         value = ''  # undefined option will return ''.
@@ -193,67 +215,86 @@ class IOC:
             # remove entire project
             dir_remove(self.dir_path, self.verbose)
         else:
+            # delete auto-generated part
             for item in (os.path.join(self.dir_path, 'startup'), self.settings_path, self.log_path):
                 dir_remove(item, self.verbose)
-            self.set_config('snapshot', 'changed')
+            self.set_config('status', 'removed')
+            self.write_config()
+            self.check_snapshot_files()
 
-    def add_asyn_template(self, port_type):
-        sc = 'ASYN'
-        if self.conf.has_section(sc) and self.check_config('port_type', port_type, sc):
-            print(f'IOC("{self.name}").add_asyn_template: Failed. Section "{sc}" already exists.')
-            return False
-        if port_type in PORT_SUPPORT:
-            if self.conf.has_section(sc):
-                self.conf.remove_section(sc)
-            self.set_config('port_type', port_type, section=sc)
-            if port_type == 'tcp/ip':
-                self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
-            elif port_type == 'serial':
-                self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n',
-                                section=sc)
-                asyn_option_str = ''
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "baud", "9600")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "bits", "8")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "parity", "none")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "stop", "1")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "clocal", "Y")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "crtscts", "Y")\n'
-                self.set_config('asyn_option', asyn_option_str, section=sc)
-            self.set_config('load',
-                            'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n',
-                            section=sc)
-            return True
-        else:
-            print(f'IOC("{self.name}").add_asyn_template: Failed. Invalid port type "{port_type}".')
-            return False
+    def set_state_info(self, state, state_info, prompt=''):
+        state_info = f'\n[{state}] {state_info}\n'
+        if prompt:
+            state_info = state_info + '\t' + 'instruction: ' + prompt + '\n'
+        if state == STATE_ERROR:
+            self.state = state
+            self.state_info += state_info
+            self.set_config('state', self.state)
+            self.set_config('state_info', self.state_info)
+        elif state == STATE_WARNING:
+            if not self.state == STATE_ERROR:
+                self.state = state
+            else:
+                self.state = STATE_ERROR
+            self.state_info += state_info
+            self.set_config('state', self.state)
+            self.set_config('state_info', self.state_info)
 
-    def add_stream_template(self, port_type):
-        sc = 'STREAM'
-        if self.conf.has_section(sc) and self.check_config('port_type', port_type, sc):
-            print(f'IOC("{self.name}").add_stream_template: Failed. Section "{sc}" already exists.')
-            return False
-        if port_type in PORT_SUPPORT:
-            if self.conf.has_section(sc):
-                self.conf.remove_section(sc)
-            self.set_config('port_type', port_type, section=sc)
-            if port_type == 'tcp/ip':
-                self.set_config('port_config', 'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n', section=sc)
-            elif port_type == 'serial':
-                self.set_config('port_config', 'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n',
-                                section=sc)
-                asyn_option_str = ''
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "baud", "9600")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "bits", "8")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "parity", "none")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "stop", "1")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "clocal", "Y")\n'
-                asyn_option_str = f'{asyn_option_str}asynSetOption("L0", -1, "crtscts", "Y")\n'
-                self.set_config('asyn_option', asyn_option_str, section=sc)
-            self.set_config('protocol_file', 'xxx.proto', section=sc)
+    def add_default_settings(self):
+        self.set_config('name', os.path.basename(self.dir_path))
+        self.set_config('host', '')
+        self.set_config('image', '')
+        self.set_config('bin', '')
+        self.set_config('module', 'autosave, caputlog')
+        self.set_config('description', '')
+        self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
+        self.set_config('state_info', '')
+        self.set_config('status', 'created')
+        self.set_config('snapshot', 'untracked')  # untracked, tracked
+        self.set_config('is_exported', 'false')
+        self.set_config('db_file', '', section='SRC')
+        self.set_config('protocol_file', '', section='SRC')
+        self.set_config('others_file', '', section='SRC')
+        self.set_config('load', '', section='DB')
+
+    def add_module_template(self, template_type):
+        if template_type.lower() == 'asyn':
+            if not self.conf.has_section('RAW'):
+                self.add_raw_cmd_template()
+            cmd_before_dbload = (f'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n'
+                                 f'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n'
+                                 f'asynSetOption("L0", -1, "baud", "9600")\n'
+                                 f'asynSetOption("L0", -1, "bits", "8")\n'
+                                 f'asynSetOption("L0", -1, "parity", "none")\n'
+                                 f'asynSetOption("L0", -1, "stop", "1")\n'
+                                 f'asynSetOption("L0", -1, "clocal", "Y")\n'
+                                 f'asynSetOption("L0", -1, "crtscts", "Y")\n')
+            cmd_at_dbload = f'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n'
+            copy_str = f'template/db/asynRecord.db:src/asynRecord.db:wr'
+            self.set_config('cmd_before_dbload', cmd_before_dbload, section='RAW')
+            self.set_config('cmd_at_dbload', cmd_at_dbload, section='RAW')
+            self.set_config('file_copy', copy_str, section='RAW')
+            self.write_config()
             return True
-        else:
-            print(f'IOC("{self.name}").add_stream_template: Failed. Invalid port type "{port_type}".')
-            return False
+        elif template_type.lower() == 'stream':
+            if not self.conf.has_section('RAW'):
+                self.add_raw_cmd_template()
+            cmd_before_dbload = (f'epicsEnvSet("STREAM_PROTOCOL_PATH", {self.settings_path_in_docker})\n'
+                                 f'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n'
+                                 f'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n'
+                                 f'asynSetOption("L0", -1, "baud", "9600")\n'
+                                 f'asynSetOption("L0", -1, "bits", "8")\n'
+                                 f'asynSetOption("L0", -1, "parity", "none")\n'
+                                 f'asynSetOption("L0", -1, "stop", "1")\n'
+                                 f'asynSetOption("L0", -1, "clocal", "Y")\n'
+                                 f'asynSetOption("L0", -1, "crtscts", "Y")\n')
+            cmd_at_dbload = f'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n'
+            copy_str = f'src/protocol_file.proto:settings/protocol_file.proto:r'
+            self.set_config('cmd_before_dbload', cmd_before_dbload, section='RAW')
+            self.set_config('cmd_at_dbload', cmd_at_dbload, section='RAW')
+            self.set_config('file_copy', copy_str, section='RAW')
+            self.write_config()
+            return True
 
     def add_raw_cmd_template(self):
         sc = 'RAW'
@@ -283,6 +324,7 @@ class IOC:
         other_suffix = OTHER_SUFFIX
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
         if not os.path.exists(src_p):
+            self.set_state_info(state=STATE_ERROR, state_info='source directory lost.')
             print(f'IOC("{self.name}").get_src_file: Failed. Path provided "{src_p}" not exist.')
             return
 
@@ -351,6 +393,8 @@ class IOC:
         else:
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: No file for given suffix {other_suffix} found in "{src_p}".')
+        if any((db_list, proto_list, other_list)):
+            self.write_config()
 
     # Generate .substitutions file for st.cmd to load.
     # This function should be called after getting source files and setting the load options.
@@ -361,6 +405,9 @@ class IOC:
             # print(conditions)
             db_file = db_file.strip()
             if db_file not in os.listdir(self.src_path):
+                state_info = 'db file not found.'
+                prompt = f'db file "{db_file}" not found.'
+                self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                 print(f'IOC("{self.name}").generate_substitution_file: Failed. DB file "{db_file}" not found in '
                       f'path "{self.src_path}" while parsing string "{load_line}" in "load" option.')
                 return False
@@ -374,6 +421,9 @@ class IOC:
                     ks += f'{k}, '
                     vs += f'{v}, '
                 else:
+                    state_info = 'bad load string definition.'
+                    prompt = f'in "{load_line}".'
+                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad load string '
                           f'"{load_line}" defined in {CONFIG_FILE_NAME}. You may need to check and set the attributes correctly.')
                     return False
@@ -396,6 +446,8 @@ class IOC:
                 with open(file_path, 'w') as f:
                     f.writelines(lines_to_add)
             except Exception as e:
+                state_info = 'substitutions file generating failed.'
+                self.set_state_info(state=STATE_WARNING, state_info=state_info)
                 print(f'IOC("{self.name}").generate_substitution_file: Failed. '
                       f'Exception "{e}" occurs while trying to write "{self.name}.substitutions" file.')
                 return False
@@ -404,6 +456,8 @@ class IOC:
             print(f'IOC("{self.name}").generate_substitution_file: Success. "{self.name}.substitutions" created.')
             return True
         else:
+            state_info = 'empty load string definition.'
+            self.set_state_info(state=STATE_WARNING, state_info=state_info)
             print(f'IOC("{self.name}").generate_substitution_file: Failed. '
                   f'At least one load string should be defined to generate "{self.name}.substitutions".')
             return False
@@ -568,7 +622,7 @@ class IOC:
             # caPutLog .acf file
             # try_makedirs(self.settings_path, self.verbose)  # shutil.copy不会递归创建不存在的文件夹
             file_path = os.path.join(self.settings_path, f'{self.name}.acf')
-            template_file_path = os.path.join(self.template_path, 'template.acf')
+            template_file_path = os.path.join(TEMPLATE_PATH, 'template.acf')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # status-ioc configurations.
@@ -578,7 +632,7 @@ class IOC:
             lines_at_dbload.append(f'dbLoadRecords("db/status_ioc.db","IOC={self.name}")\n')
             # devIocStats .db
             file_path = os.path.join(self.db_path, 'status_ioc.db')
-            template_file_path = os.path.join(self.template_path, 'db', 'status_ioc.db')
+            template_file_path = os.path.join(TEMPLATE_PATH, 'db', 'status_ioc.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # status-os configurations.
@@ -588,7 +642,7 @@ class IOC:
             lines_at_dbload.append(f'dbLoadRecords("db/status_OS.db","HOST={self.name}:docker")\n')
             # devIocStats .db
             file_path = os.path.join(self.db_path, 'status_OS.db')
-            template_file_path = os.path.join(self.template_path, 'db', 'status_OS.db')
+            template_file_path = os.path.join(TEMPLATE_PATH, 'db', 'status_OS.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # asyn configurations.
@@ -607,7 +661,7 @@ class IOC:
             lines_at_dbload.append(f'{self.get_config("load", sc)}\n')
             # add asynRecord.db
             file_path = os.path.join(self.db_path, 'asynRecord.db')
-            template_file_path = os.path.join(self.template_path, 'db', 'asynRecord.db')
+            template_file_path = os.path.join(TEMPLATE_PATH, 'db', 'asynRecord.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # StreamDevice configurations.
@@ -663,6 +717,15 @@ class IOC:
                     print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid string "{item}" specified for '
                           f'file copy, skipped.')
                     continue
+                if src.startswith('src/'):
+                    src = os.path.join(self.src_path, src)
+                elif src.startswith('template/'):
+                    src = os.path.join(self.template_path, src)
+                else:
+                    print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid source directory "{src}" specified '
+                          f'for file copy, skipped.')
+                    continue
+                dest = os.path.join(self.project_path, dest)
                 file_copy(src, dest, mode, self.verbose)
 
         # write report code at the end of st.cmd file if defined "report_info: true".
@@ -672,15 +735,15 @@ class IOC:
                 '#report info\n',
                 f'system "touch {report_path}"\n',
 
-                f'system "echo \#date > {report_path}"\n',
+                f'system "echo \\#date > {report_path}"\n',
                 f'date >> {report_path}\n',
                 f'system "echo >> {report_path}"\n',
 
-                f'system "echo \#ip >> {report_path}"\n',
+                f'system "echo \\#ip >> {report_path}"\n',
                 f'system "hostname -I >> {report_path}"\n',
                 f'system "echo >> {report_path}"\n',
 
-                f'system "echo \#pv list >> {report_path}"\n',
+                f'system "echo \\#pv list >> {report_path}"\n',
                 f'dbl >> {report_path}\n',
                 f'system "echo >> {report_path}"\n',
 
@@ -716,56 +779,138 @@ class IOC:
 
         # set status: generated and save self.conf to ioc.ini file
         self.set_config('status', 'generated')
+        self.write_config()
         # add ioc.ini snapshot file
         self.add_snapshot_file()
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
-    def check_snapshot_status(self):
-        if not self.check_snapshot_file():
-            if os.path.isfile(self.snapshot_file):
-                self.set_config('snapshot', 'changed')
+    # return whether the files are in consistent with snapshot files.
+    def check_snapshot_files(self, print_info=False):
+        if not self.check_config('snapshot', 'tracked'):
+            if self.verbose:
+                print(f'IOC("{self.name}").check_snapshot_files: '
+                      f'Failed, can\'t check snapshot files as project is not in "tracked" state.')
+            return
+
+        consistent_flag = True
+        config_file_check_res = ''
+        source_file_check_res = ''
+        # check config snapshot file.
+        if os.path.isfile(self.config_snapshot_file):
+            if os.path.isfile(self.config_file_path):
+                compare_res = filecmp.cmp(self.config_snapshot_file, self.config_file_path)
+                if not compare_res:
+                    consistent_flag = False
+                    config_file_check_res = 'config file changed.'
             else:
-                self.set_config('snapshot', '')
+                consistent_flag = False
+                config_file_check_res = 'config file lost.'
+        else:
+            consistent_flag = False
+            self.set_config('snapshot', 'error')
+            config_file_check_res = 'config file snapshot lost.'
+        # check source snapshot files.
+        if os.path.isdir(self.src_snapshot_path):
+            if not os.path.isdir(self.src_path):
+                consistent_flag = False
+                self.set_config('state', 'error')
+                source_file_check_res = 'source directory lost.'
+            else:
+                src_compare_res = filecmp.dircmp(self.src_snapshot_path, self.src_path)
+                if src_compare_res.diff_files:
+                    consistent_flag = False
+                    source_file_check_res += 'changed files: '
+                    for item in src_compare_res.diff_files:
+                        source_file_check_res += f'{item}, '
+                    else:
+                        source_file_check_res = source_file_check_res.rstrip(', ')
+                        source_file_check_res += '.\n'
+                if src_compare_res.left_only:
+                    consistent_flag = False
+                    source_file_check_res += 'missing files and directories: '
+                    for item in src_compare_res.left_only:
+                        source_file_check_res += f'{item}, '
+                    else:
+                        source_file_check_res = source_file_check_res.rstrip(', ')
+                        source_file_check_res += '.\n'
+                if src_compare_res.right_only:
+                    consistent_flag = False
+                    source_file_check_res += 'untracked files and directories: '
+                    for item in src_compare_res.right_only:
+                        source_file_check_res += f'{item}, '
+                    else:
+                        source_file_check_res = source_file_check_res.rstrip(', ')
+                        source_file_check_res += '.\n'
+                source_file_check_res = source_file_check_res.rstrip('\n')
+        else:
+            consistent_flag = False
+            self.set_config('snapshot', 'error')
+            config_file_check_res = 'source directory snapshot lost.'
+
+        return consistent_flag, config_file_check_res, source_file_check_res
 
     def add_snapshot_file(self):
+        if self.verbose:
+            print(f'IOC("{self.name}").add_snapshot_file: Starting to add snapshot files.')
+        self.set_config('snapshot', 'tracked')
+        self.write_config()
+        snapshot_finished = True
+        # snapshot for config file.
         if os.path.isfile(self.config_file_path):
-            if self.verbose:
-                print(f'IOC("{self.name}").add_snapshot_file: Starting to add snapshot file.')
-            temp_config = self.get_config('snapshot')
-            self.set_config('snapshot', 'logged')
-            if file_copy(self.config_file_path, self.snapshot_file, 'r', self.verbose):
+            if file_copy(self.config_file_path, self.config_snapshot_file, 'r', self.verbose):
                 if self.verbose:
-                    print(f'IOC("{self.name}").add_snapshot_file: Snapshot file successfully created.')
+                    print(f'IOC("{self.name}").add_snapshot_file: Snapshot file for config successfully created.')
             else:
-                self.set_config('snapshot', temp_config)
+                snapshot_finished = False
                 if self.verbose:
-                    print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file created failed.')
+                    print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file for config created failed.')
         else:
+            snapshot_finished = False
             if self.verbose:
                 print(f'IOC("{self.name}").add_snapshot_file: failed, source file "{self.config_file_path}" not exist.')
-
-    def delete_snapshot_file(self):
-        if os.path.isfile(self.snapshot_file):
-            file_remove(self.snapshot_file, self.verbose)
+        if not snapshot_finished:
+            self.set_config('snapshot', 'error')
+            self.write_config()
+            return False
+        # snapshot for source files.
+        for item in os.listdir(self.src_path):
+            if file_copy(os.path.join(self.src_path, item), os.path.join(self.src_snapshot_path, item), 'r',
+                         self.verbose):
+                if self.verbose:
+                    print(f'IOC("{self.name}").add_snapshot_file: Snapshot file '
+                          f'"{os.path.join(self.src_snapshot_path, item)}" successfully created.')
+            else:
+                snapshot_finished = False
+                if self.verbose:
+                    print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file '
+                          f'"{os.path.join(self.src_snapshot_path, item)}" created failed.')
+            if not snapshot_finished:
+                self.set_config('snapshot', 'error')
+                self.write_config()
+                return False
         else:
             if self.verbose:
-                print(f'IOC("{self.name}").delete_snapshot_file: Failed, file "{self.snapshot_file}" not exist.')
+                print(f'IOC("{self.name}").add_snapshot_file: Snapshot for source files successfully created.')
 
-    def check_snapshot_file(self):
-        if not os.path.isfile(self.snapshot_file):
-            return False
+    def delete_snapshot_file(self):
+        if os.path.isdir(self.snapshot_path):
+            dir_remove(self.snapshot_path, self.verbose)
+            self.set_config('snapshot', 'untracked')
+            self.write_config()
         else:
-            with open(self.config_file_path, 'r') as f1, open(self.snapshot_file, 'r') as f2:
-                lines1 = f1.readlines()
-                lines2 = f2.readlines()
-                return lines1 == lines2
+            if self.verbose:
+                print(f'IOC("{self.name}").delete_snapshot_file: Failed, path "{self.snapshot_path}" not exist.')
 
-    def restore_snapshot_file(self, force_restore=False):
-        if not os.path.isfile(self.snapshot_file):
+    def restore_from_snapshot_file(self, force_restore=False):
+        if self.check_config('snapshot', 'error'):
+            print(f'IOC("{self.name}").restore_from_snapshot_file: '
+                  f'Failed, can\'t restore snapshot files in "error" state.')
+            return
+        if not os.path.isfile(self.config_snapshot_file):
             print(f'IOC("{self.name}").restore_snapshot_file: Failed, snapshot file not found. ')
             return
         conf_snap = configparser.ConfigParser()
-        if not conf_snap.read(self.snapshot_file):
+        if not conf_snap.read(self.config_snapshot_file):
             print(f'IOC("{self.name}").restore_snapshot_file: Failed, invalid snapshot file. ')
             return
         if not force_restore:
@@ -779,10 +924,10 @@ class IOC:
                 print(f'IOC("{self.name}").restore_snapshot_file: Wong input, restoring exit.')
         if force_restore:
             self.conf = conf_snap
+            self.set_config('status', 'restored')
             self.write_config()
-            self.check_snapshot_status()
+            self.check_snapshot_files()
             print(f'IOC("{self.name}").restore_snapshot_file: Restoring finished.')
-
 
     # Checks before generating the IOC project startup file.
     def generate_check(self):
@@ -795,110 +940,36 @@ class IOC:
                 continue
             else:
                 if s.strip().lower() not in MODULES_PROVIDED:
+                    state_info = 'invalid "module" setting.'
+                    prompt = f'"{s}" is not supported.'
+                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     print(f'IOC("{self.name}").generate_check: Failed. Invalid module "{s}" '
                           f'set in option "module", please check and reset the settings correctly.')
                     check_flag = False
 
-        # Check that asyn and stream not exist at the same time.
-        if self.conf.has_section('ASYN') and self.conf.has_section('STREAM'):
-            print(f'IOC("{self.name}").generate_check: Failed. ASYN and StreamDevice '
-                  f'should set in one IOC project simultaneously, please check and reset the settings correctly.')
-            check_flag = False
-
-        # Check whether section ASYN was set correctly.(now only check port type and other settings are not empty.)
-        if self.conf.has_section('ASYN'):
-            sc = 'ASYN'
-            if self.get_config('port_type', sc) not in PORT_SUPPORT:
-                print(f'IOC("{self.name}").generate_check": Failed. Invalid option '
-                      f'"port_type" in section "{sc}", please check and reset the settings correctly.')
-                check_flag = False
-            if self.get_config('port_config', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "port_config" detected in section '
-                      f'"{sc}", please check and reset the settings correctly.')
-                check_flag = False
-            if self.check_config('port_type', 'serial', sc) and self.get_config('asyn_option', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "asyn_option" detected in section '
-                      f'"{sc}", please check and reset the settings correctly.')
-                check_flag = False
-            if self.get_config('load', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "load" detected in section '
-                      f'"{sc}", please check and reset the settings correctly.')
-                check_flag = False
-
-        # check whether section STREAM was set correctly.(now only check port type and other settings are not empty.)
-        if self.conf.has_section('STREAM'):
-            sc = 'STREAM'
-            if self.get_config('port_type', sc) not in PORT_SUPPORT:
-                print(f'IOC("{self.name}").generate_check: Failed. Invalid option '
-                      f'"port_type" in section "{sc}", please check and reset the settings correctly.')
-                check_flag = False
-            if self.get_config('protocol_file', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "protocol_file" detected in '
-                      f'section "{sc}", please check and reset the settings correctly.')
-                check_flag = False
-            if self.get_config('port_config', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "port_config" detected in section '
-                      f'"{sc}", please check and reset the settings correctly.')
-                check_flag = False
-            if self.check_config('port_type', 'serial', sc) and self.get_config('asyn_option', sc) == '':
-                print(f'IOC("{self.name}").generate_check: Failed. Empty option "asyn_option" detected in '
-                      f' section "{sc}", please check and reset the settings correctly.')
-                check_flag = False
-
         return check_flag
 
-    # Checks differences between snapshot file and running settings file.
+    # Check differences between snapshot file and running settings file.
+    # Check differences between project files and running files.
     def check_consistency(self, print_info=False):
+        files_to_compare = (
+            (self.config_file_path, self.config_file_path_for_mount),
+        )
+        dirs_to_compare = (
+            (self.settings_path, os.path.join(self.dir_path_for_mount, 'settings')),
+            (self.startup_path, os.path.join(self.dir_path_for_mount, 'startup')),
+        )
         if not self.check_config('is_exported', 'true'):
             return False, "Project not exported. "
-        if not os.path.isfile(self.snapshot_file):
-            return False, "Snapshot file not found. "
-        conf_snap = configparser.ConfigParser()
-        if not conf_snap.read(self.snapshot_file):
-            return False, "Invalid snapshot file. "
-        # Check whether settings file in mount dir is consistent with the one in repository.
-        if os.path.isfile(self.config_file_path_for_mount):
-            conf_run = configparser.ConfigParser()
-            if not conf_run.read(self.config_file_path_for_mount):
-                return False, "Invalid running settings file. "
-            else:
-                # sections comparing
-                if set(conf_run.sections()).issubset(set(conf_snap.sections())):
-                    if not set(conf_snap.sections()).issubset(set(conf_run.sections())):
-                        return False, "New settings available. "
-                else:
-                    return False, "Deprecated settings detected. "
-                # options comparing
-                fine_flag = True
-                for section in conf_run.sections():
-                    if section == 'SRC':
-                        continue
-                    if set(conf_run[section].keys()).issubset(set(conf_snap[section].keys())):
-                        for key in conf_run[section]:
-                            if conf_run[section][key] != conf_snap[section][key]:
-                                fine_flag = False
-                                if print_info:
-                                    print(f'Inconsistent settings detected for "{self.name}". '
-                                          f'"{key}[{section}]": "{conf_run[section][key]}" in running settings while '
-                                          f'"{key}[{section}]": "{conf_snap[section][key]}" in snapshot settings.')
-                        else:
-                            if not set(conf_snap[section].keys()).issubset(set(conf_run[section].keys())):
-                                fine_flag = False
-                                if print_info:
-                                    print(f'New options to apply for "{self.name}" in section [{section}]: '
-                                          f'{set(conf_run[section].keys()).difference(set(conf_snap[section].keys()))}. ')
-                    else:
-                        fine_flag = False
-                        if print_info:
-                            print(f'Inconsistent options detected for "{self.name}" in section [{section}]: '
-                                  f'{set(conf_run[section].keys()).difference(set(conf_snap[section].keys()))}')
-                else:
-                    if fine_flag:
-                        return True, "Fine."
-                    else:
-                        return False, "Inconsistent settings detected. "
-        else:
-            return False, "Running settings file not found. "
+        if not self.check_config('snapshot', 'tracked'):
+            return False, "Project not exported. "
+
+        for item in files_to_compare:
+            pass
+
+        for item in dirs_to_compare:
+            pass
+
 
     # Checks for IOC projects.
     def run_check(self, print_info=True, print_prompt=False):

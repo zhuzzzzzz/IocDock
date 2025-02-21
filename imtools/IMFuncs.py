@@ -3,62 +3,8 @@ import sys
 import datetime
 import shutil
 import socket
-
-
-def get_manager_path():
-    repository_path = os.environ.get("MANAGER_PATH", default='')
-    if repository_path:
-        if os.path.isdir(repository_path):
-            return repository_path
-        else:
-            print(f'get_manager_path() failed, $MANAGER_PATH is not a valid directory.')
-            exit(1)
-    else:
-        print(f'get_repository_path() failed, $MANAGER_PATH is not defined.')
-        exit(1)
-        # return os.getcwd()
-
-
-#
-# directory name or file name definition for IocManager.
-TOOLS_DIR = 'imtools'
-OPERATION_LOG_FILE = '.OperationLogs'
-
-SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR,
-                             'ioc-snapshot')  # path for newest snapshot file of ioc.ini
-CONFIG_FILE_NAME = 'ioc.ini'
-REPOSITORY_DIR = 'ioc-repository'
-MOUNT_DIR = 'ioc-for-docker'  # default directory for docker mounting
-IOC_BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and other run-time log files
-SWARM_BACKUP_DIR = 'swarm-backup'  # version backup directory for swarm
-
-# source file format used by IOC.get_src_file()
-DB_SUFFIX = ('.db',)
-PROTO_SUFFIX = ('.proto',)
-OTHER_SUFFIX = ('.im',)
-
-#
-# IOC settings.
-DEFAULT_IOC = 'ST-IOC'
-MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
-# asyn, stream device needs to be set separately for different hosts, so they are not supported by default.
-DEFAULT_MODULES = 'autosave, caputlog, status-ioc'
-PORT_SUPPORT = ('tcp/ip', 'serial')
-
-#
-# path definition in running container.
-CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
-CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
-CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
-
-LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
-
-#
-# swarm orchestration settings.
-SWARM_DIR = 'swarm'
-IOC_SERVICE_FILE = 'compose-swarm.yaml'
-GLOBAL_SERVICE_FILE = 'compose-swarm-init.yaml'
-PREFIX_STACK_NAME = 'dals'
+import filecmp
+from .IMConsts import get_manager_path, TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE
 
 
 def try_makedirs(d, verbose=False):
@@ -189,7 +135,7 @@ def condition_parse(condition: str, split_once=None):
         # if set, split once at most.
         c_s = condition.strip().split(sep='=', maxsplit=1)
     else:
-        # if not set, split as much times as the number of '='.
+        # if not set, split as many times as the number of '='.
         c_s = condition.strip().split(sep='=')
     # print(c_s)
     # condition should only be split one time
@@ -212,9 +158,11 @@ def multi_line_parse(input_str: str):
 
 
 def format_normalize(raw_str: str):
-    # a standard format of value, for example "ramper.db,name = xxx1" will be changed to "ramper.db, name=xxx1"
+    # return a standard format of value, for example "ramper.db,name = xxx1" will get "ramper.db, name=xxx1" as return.
     raw_str = raw_str.replace(';', '\n')
     raw_str = '\n'.join(filter(None, raw_str.split('\n')))  # number of return char will be reduced to 1.
+    if raw_str.count('\n') > 1:
+        raw_str = '\n' + raw_str
     raw_str = ' '.join(filter(None, raw_str.split(' ')))  # number of space char will be reduced to 1.
     raw_str = raw_str.replace(', ', ',')
     raw_str = raw_str.replace(' ,', ',')
@@ -226,6 +174,40 @@ def format_normalize(raw_str: str):
     return raw_str
 
 
+def dir_compare(snapshot_dir, source_dir, return_info=False):
+    compare_res = filecmp.dircmp(snapshot_dir, source_dir, ignore=['project', ])
+    diff_flag = False
+    if any((compare_res.diff_files, compare_res.left_only, compare_res.right_only)):
+        diff_flag = True
+    res_str = ''
+    if return_info:
+        if compare_res.diff_files:
+            res_str += 'changed files: '
+            for item in compare_res.diff_files:
+                res_str += f'{item}, '
+            else:
+                res_str = res_str.rstrip(', ')
+                res_str += '.\n'
+        if compare_res.left_only:
+            res_str += 'missing files and directories: '
+            for item in compare_res.left_only:
+                res_str += f'{item}, '
+            else:
+                res_str = res_str.rstrip(', ')
+                res_str += '.\n'
+        if compare_res.right_only:
+            res_str += 'untracked files and directories: '
+            for item in compare_res.right_only:
+                res_str += f'{item}, '
+            else:
+                res_str = res_str.rstrip(', ')
+                res_str += '.\n'
+        res_str = res_str.rstrip('\n')
+        return diff_flag, res_str
+    else:
+        return diff_flag
+
+
 #########################################################
 
 def operation_log():
@@ -235,10 +217,12 @@ def operation_log():
     log_host = socket.gethostname()
     log_id = log_user + '@' + log_host
     log_str = '\t'.join([log_time, log_id, log_command])
-    file_path = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_FILE)
+    file_path = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE)
     with open(file_path, 'a') as f:
         f.write(log_str + '\n')
 
 
 if __name__ == '__main__':
-    print(relative_and_absolute_path_to_abs(''))
+    a, b = dir_compare('/home/zhu/docker/repository-IOC/imtools/ioc-snapshot/worker_test_1_1',
+                       '/home/zhu/docker/repository-IOC/ioc-repository/worker_test_1_1', return_info=True)
+    print(b)

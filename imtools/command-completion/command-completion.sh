@@ -23,7 +23,7 @@ _mycommand_completion() {
 	_port_type_prompt="tcp/ip serial"
 	#
 	exec_prompt="--verbose --help" # general prompt for all exec commands.
-	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file" # exec commands for specified IOC projects.
+	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file --gen-swarm-file" # exec commands for specified IOC projects.
 	_backup_mode_prompt="src all"
 	#
 	list_prompt="--section --ioc-list --show-info --prompt-info --raw-info --verbose --help"
@@ -66,7 +66,7 @@ _mycommand_completion() {
 			prompt="$ioc_list $prompt"
 			;;
 			"exec") # "exec" should specify an IOC project firstly or specify the commands that are to all IOC projects.
-			prompt="--gen-compose-file --gen-swarm-file --gen-backup-file --restore-backup-file --run-check --verbose --help"
+			prompt="--gen-compose-file --gen-backup-file --restore-backup-file --run-check --verbose --help"
 			prompt="$ioc_list $prompt"
 			;;
 			"list")
@@ -303,7 +303,7 @@ _mycommand_completion() {
 				"--run-check")
 				;;
 				"--gen-swarm-file")
-				prompt="--ioc-list"
+				prompt="--mount-path"
 				;;
 				"-v"|"--verbose")
 				;;
