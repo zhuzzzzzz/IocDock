@@ -196,7 +196,8 @@ def get_all_ioc(dir_path=None, from_list=None, verbose=False):
     items.sort()  # sort according to name string.
     for ioc_name in items:
         subdir_path = os.path.join(dir_path, ioc_name)
-        if os.path.isdir(subdir_path) and CONFIG_FILE_NAME in os.listdir(subdir_path):
+        # if os.path.isdir(subdir_path) and CONFIG_FILE_NAME in os.listdir(subdir_path):
+        if os.path.isdir(subdir_path):
             ioc_temp = IOC(subdir_path, verbose)
             ioc_temp.run_check(print_info=False)
             ioc_list.append(ioc_temp)
@@ -347,8 +348,7 @@ def execute_ioc(args):
                                                         force_default=args.force_default)
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
-                        export_for_mount(name, mount_dir=args.mount_path, force_overwrite=args.force_overwrite,
-                                         verbose=args.verbose)
+                        ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
                     elif args.gen_startup_file:
                         if args.verbose:
                             print(f'execute_ioc: generating startup files.')
@@ -357,12 +357,11 @@ def execute_ioc(args):
                     elif args.export_for_mount:
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
-                        export_for_mount(name, mount_dir=args.mount_path, force_overwrite=args.force_overwrite,
-                                         verbose=args.verbose)
-                    elif args.restore_from_snapshot_file:
+                        ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
+                    elif args.restore_from_snapshot_files:
                         if args.verbose:
                             print(f'execute_ioc: restoring snapshot file.')
-                        ioc_temp.restore_from_snapshot_file(force_restore=args.force_silent)
+                        ioc_temp.restore_from_snapshot_files(force_restore=args.force_silent)
                     else:
                         if args.verbose:
                             print(f'execute_ioc: No "exec" operation specified.')
@@ -426,81 +425,6 @@ def execute_service(args):
                 print(temp_service.get_logs())
             elif args.update:
                 temp_service.update()
-
-
-# Copy IOC startup files to mount dir for running in container.
-# mount_dir: a top path for MOUNT_DIR.
-# force_overwrite: "True" will overwrite all files, "False" only files that are not generated during running.
-def export_for_mount(name, mount_dir=None, force_overwrite=False, verbose=False):
-    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-    ioc_temp = IOC(dir_path, verbose)
-
-    if ioc_temp.check_config('status', 'generated') and not ioc_temp.check_config('snapshot', 'logged'):
-        print(f'export_for_mount: Failed for "{name}", startup files should be generated before exporting.')
-        return
-    if ioc_temp.check_config('status', 'exported') and not ioc_temp.check_config('snapshot', 'logged'):
-        print(f'export_for_mount: Failed for "{name}", IOC settings had been changed, '
-              f'you need to generate startup files first.')
-        return
-
-    container_name = ioc_temp.name
-    host_name = ioc_temp.get_config('host')
-    if not host_name:
-        host_name = 'localhost'
-        if verbose:
-            print(f'export_for_mount: Option "host" not defined in IOC "{ioc_temp.name}", '
-                  f'automatically use "localhost" as host name.')
-
-    ioc_temp.set_config('status', 'exported')
-    ioc_temp.set_config('is_exported', 'true')
-    # add ioc.ini snapshot file
-    ioc_temp.add_snapshot_file()
-
-    mount_path = relative_and_absolute_path_to_abs(mount_dir, '..')
-    if not os.path.isdir(mount_path):
-        print(f'export_for_mount: Failed. Path for mounting "{mount_path}" not exists.')
-        return
-
-    top_path = os.path.join(mount_path, MOUNT_DIR, host_name, container_name)
-    if not os.path.isdir(top_path):
-        file_to_copy = (CONFIG_FILE_NAME,)
-        dir_to_copy = ('settings', 'log', 'startup',)
-        for item_file in file_to_copy:
-            file_copy(os.path.join(ioc_temp.dir_path, item_file), os.path.join(top_path, item_file), verbose=verbose)
-            os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
-        for item_dir in dir_to_copy:
-            if not dir_copy(os.path.join(ioc_temp.project_path, item_dir), os.path.join(top_path, item_dir), verbose):
-                print(f'export_for_mount: Failed. You may run this command again with "-v" option to see '
-                      f'what happened for IOC "{name}" in details.')
-                return
-        else:
-            print(f'export_for_mount: Success. IOC "{name}" created in {top_path}.')
-    elif os.path.isdir(top_path) and force_overwrite:
-        file_to_copy = (CONFIG_FILE_NAME,)
-        dir_to_copy = ('settings', 'log', 'startup',)
-        for item_file in file_to_copy:
-            file_copy(os.path.join(ioc_temp.dir_path, item_file), os.path.join(top_path, item_file), verbose=verbose)
-            os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
-        for item_dir in dir_to_copy:
-            if not dir_copy(os.path.join(ioc_temp.project_path, item_dir), os.path.join(top_path, item_dir), verbose):
-                print(f'export_for_mount: Failed. You may run this command again with "-v" option to see '
-                      f'what happened for IOC "{name}" in details.')
-                return
-        else:
-            print(f'export_for_mount: Success. IOC "{name}" overwrite in {top_path}.')
-    elif os.path.isdir(top_path) and not force_overwrite:
-        file_to_copy = (CONFIG_FILE_NAME,)
-        dir_to_copy = ('startup',)
-        for item_file in file_to_copy:
-            file_copy(os.path.join(ioc_temp.dir_path, item_file), os.path.join(top_path, item_file), verbose=verbose)
-            os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
-        for item_dir in dir_to_copy:
-            if not dir_copy(os.path.join(ioc_temp.project, item_dir), os.path.join(top_path, item_dir), verbose):
-                print(f'export_for_mount: Failed. You may run this command again with "-v" option to see '
-                      f'what happened for IOC "{name}" in details.')
-                return
-        else:
-            print(f'export_for_mount: Success. IOC "{name}" updated in {top_path}.')
 
 
 # Generate Docker Compose file for IOC projects and IOC logserver in given host path.
@@ -863,7 +787,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
             if restore_flag:
                 temp_ioc = IOC(current_path, verbose=verbose)
                 # delete snapshot file for restored IOC.
-                temp_ioc.delete_snapshot_file()
+                temp_ioc.delete_snapshot_files()
                 # set status for restored IOC.
                 temp_ioc.set_config('status', 'restored')
     except KeyboardInterrupt:

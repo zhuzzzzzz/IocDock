@@ -4,7 +4,7 @@ import sys
 import configparser
 
 from .IMFuncs import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
-    format_normalize, relative_and_absolute_path_to_abs
+    format_normalize, relative_and_absolute_path_to_abs, dir_copy
 from .IMConsts import *
 from .IMError import IMValueError, IMIOCError
 
@@ -71,9 +71,10 @@ class IOC:
         self.boot_path = os.path.join(self.startup_path, 'iocBoot')
 
         self.conf = None
+        self.state_info = ''
         self.read_config(create=kwargs.get('create', False))
         self.state = self.get_config('state')
-        self.state_info = self.get_config('state_info')
+        self.state_info += self.get_config('state_info')
 
         self.name = self.get_config('name')
         if self.name != os.path.basename(self.dir_path):
@@ -81,9 +82,10 @@ class IOC:
             self.name = os.path.basename(self.dir_path)
             self.set_config('name', self.name)
             self.write_config()
-            print(f'IOC.__init__: Get wrong name "{old_name}" from config file "{self.config_file_path}", '
-                  f'directory name of IOC project may has been manually changed to "{self.name}". '
-                  f'IOC name has been automatically set in config file to follow that change.')
+            if not self.check_config('state', STATE_ERROR):
+                print(f'IOC.__init__: Get wrong name "{old_name}" from config file "{self.config_file_path}", '
+                      f'directory name of IOC project may has been manually changed to "{self.name}". '
+                      f'IOC name has been automatically set in config file to follow that change.')
 
         self.snapshot_path = os.path.join(SNAPSHOT_PATH, self.name)
         self.config_snapshot_file = os.path.join(self.snapshot_path, CONFIG_FILE_NAME)
@@ -128,7 +130,8 @@ class IOC:
                 return
             else:
                 self.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')
-                raise IMIOCError(f'IOC Initialization failed: Can\'t read config file "{self.config_file_path}".')
+                return
+                # raise IMIOCError(f'IOC Initialization failed: Can\'t read config file "{self.config_file_path}".')
         else:
             if create:
                 self.conf = configparser.ConfigParser()
@@ -139,7 +142,8 @@ class IOC:
                 return
             else:
                 self.set_state_info(state=STATE_ERROR, state_info='config file lost.')
-                raise IMIOCError(f'IOC Initialization failed: Can\'t find config file "{self.config_file_path}".')
+                return
+                # raise IMIOCError(f'IOC Initialization failed: Can\'t find config file "{self.config_file_path}".')
 
     def write_config(self):
         with open(self.config_file_path, 'w') as f:
@@ -211,7 +215,7 @@ class IOC:
     def remove(self, all_remove=False):
         if all_remove:
             # delete log file
-            self.delete_snapshot_file()
+            self.delete_snapshot_files()
             # remove entire project
             dir_remove(self.dir_path, self.verbose)
         else:
@@ -229,16 +233,17 @@ class IOC:
         if state == STATE_ERROR:
             self.state = state
             self.state_info += state_info
-            self.set_config('state', self.state)
-            self.set_config('state_info', self.state_info)
         elif state == STATE_WARNING:
             if not self.state == STATE_ERROR:
                 self.state = state
             else:
                 self.state = STATE_ERROR
             self.state_info += state_info
-            self.set_config('state', self.state)
-            self.set_config('state_info', self.state_info)
+        else:
+            return
+        self.set_config('state', self.state)
+        self.set_config('state_info', self.state_info)
+        self.write_config()
 
     def add_default_settings(self):
         self.set_config('name', os.path.basename(self.dir_path))
@@ -485,12 +490,16 @@ class IOC:
             else:
                 if force_executing:
                     print(f'IOC("{self.name}").generate_st_cmd: Failed. No executable IOC specified.')
+                    state_info = 'option "bin" not set.'
+                    self.set_state_info(state=STATE_WARNING, state_info=state_info)
                     return
                 while not force_executing:
                     ans = input(f'IOC("{self.name}").generate_st_cmd: Executable IOC not defined. '
                                 f'Use default "{DEFAULT_IOC}" to continue?[y|n]:')
                     if ans.lower() == 'n' or ans.lower() == 'no':
                         print(f'IOC("{self.name}").generate_st_cmd": Failed. No executable IOC specified.')
+                        state_info = 'option "bin" not set.'
+                        self.set_state_info(state=STATE_WARNING, state_info=state_info)
                         return
                     if ans.lower() == 'y' or ans.lower() == 'yes':
                         self.set_config('bin', DEFAULT_IOC)
@@ -547,9 +556,11 @@ class IOC:
             if env_name:
                 temp.append(f'epicsEnvSet("{env_name}","{env_val}")\n')
             else:
-                print(env_name, env_val)
                 print(f'IOC("{self.name}").generate_st_cmd: Failed. Bad environment "{env_def}" defined in SETTING '
                       f'section. You may need to check and set the attributes correctly.')
+                state_info = 'bad "epics_env" definition.'
+                prompt = f'in "{env_def}".'
+                self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                 return
         else:
             temp.append('\n')
@@ -684,6 +695,9 @@ class IOC:
                 if item not in os.listdir(self.src_path):
                     print(f'IOC("{self.name}").generate_st_cmd: Failed. StreamDevice protocol file "{item}" '
                           f'not found in "{self.src_path}", you need to add it then run this command again.')
+                    state_info = 'protocol file not found.'
+                    prompt = f'protocol file "{item}" not found.'
+                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     return
                 else:
                     # add .proto file
@@ -715,16 +729,22 @@ class IOC:
                     mode = fs[2]
                 else:
                     print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid string "{item}" specified for '
-                          f'file copy, skipped.')
-                    continue
+                          f'file copy, exit.')
+                    state_info = 'bad "file_copy" definition.'
+                    prompt = f'in "{item}". try standard format: source_dir/file:dest_dir/file:[rwx].'
+                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                    return
                 if src.startswith('src/'):
                     src = os.path.join(self.src_path, src)
                 elif src.startswith('template/'):
                     src = os.path.join(self.template_path, src)
                 else:
                     print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid source directory "{src}" specified '
-                          f'for file copy, skipped.')
-                    continue
+                          f'for file copy, exit.')
+                    state_info = 'bad "file_copy" definition.'
+                    prompt = f'in "{item}". only "src/" or "template/" directory is supported.'
+                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                    return
                 dest = os.path.join(self.project_path, dest)
                 file_copy(src, dest, mode, self.verbose)
 
@@ -754,6 +774,8 @@ class IOC:
         # generate .substitutions file.
         if not self.generate_substitution_file():
             print(f'IOC("{self.name}").generate_st_cmd": Failed. Generate .substitutions file failed.')
+            state_info = 'generate substitutions file failed.'
+            self.set_state_info(state=STATE_WARNING, state_info=state_info)
             return
 
         # write st.cmd file.
@@ -771,6 +793,8 @@ class IOC:
         except Exception as e:
             print(f'IOC("{self.name}").generate_st_cmd: Failed. '
                   f'Exception "{e}" occurs while trying to write st.cmd file.')
+            state_info = 'write st.cmd file failed.'
+            self.set_state_info(state=STATE_WARNING, state_info=state_info)
             return
         # set readable and executable permission.
         os.chmod(file_path, 0o555)
@@ -779,13 +803,95 @@ class IOC:
 
         # set status: generated and save self.conf to ioc.ini file
         self.set_config('status', 'generated')
+        self.set_config('state', 'normal')
+        self.set_config('state_info', '')
         self.write_config()
-        # add ioc.ini snapshot file
-        self.add_snapshot_file()
+        # add snapshot files
+        self.add_snapshot_files()
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
+    # Copy IOC startup files to mount dir for running in container.
+    # mount_dir: a top path for MOUNT_DIR.
+    # force_overwrite: "True" will overwrite all files, "False" only files that are not generated during running.
+    def export_for_mount(self, mount_dir=None, force_overwrite=False):
+        if not self.check_config('state', 'normal'):
+            print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
+                  f'exporting operation must under "normal" state.')
+            return
+
+        if not self.check_config('status', 'generated') or self.check_config('status', 'exported'):
+            print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
+                  f'startup files should be generated before exporting.')
+            return
+
+        container_name = self.name
+        host_name = self.get_config('host')
+        if not host_name:
+            state_info = 'option "host" not set.'
+            self.set_state_info(state=STATE_WARNING, state_info=state_info)
+            return
+
+        mount_path = relative_and_absolute_path_to_abs(mount_dir, '..')
+        if not os.path.isdir(mount_path):
+            print(f'IOC("{self.name}").export_for_mount: Failed. Path for mounting "{mount_path}" not exists.')
+            return
+
+        self.set_config('status', 'exported')
+        self.set_config('is_exported', 'true')
+        self.write_config()
+        self.add_snapshot_files()
+
+        top_path = os.path.join(mount_path, MOUNT_DIR, host_name, container_name)
+        if not os.path.isdir(top_path):
+            file_to_copy = (CONFIG_FILE_NAME,)
+            dir_to_copy = ('settings', 'log', 'startup',)
+            for item_file in file_to_copy:
+                file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
+                          verbose=self.verbose)
+                os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
+            for item_dir in dir_to_copy:
+                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
+                                self.verbose):
+                    print(f'IOC("{self.name}").export_for_mount: Failed. '
+                          f'You may run this command again with "-v" option to see '
+                          f'what happened for IOC "{self.name}" in details.')
+                    return
+            else:
+                print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" created in {top_path}.')
+        elif os.path.isdir(top_path) and force_overwrite:
+            file_to_copy = (CONFIG_FILE_NAME,)
+            dir_to_copy = ('settings', 'log', 'startup',)
+            for item_file in file_to_copy:
+                file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
+                          verbose=self.verbose)
+                os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
+            for item_dir in dir_to_copy:
+                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
+                                self.verbose):
+                    print(f'IOC("{self.name}").export_for_mount: Failed. '
+                          f'You may run this command again with "-v" option to see '
+                          f'what happened for IOC "{self.name}" in details.')
+                    return
+            else:
+                print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" overwrite in {top_path}.')
+        elif os.path.isdir(top_path) and not force_overwrite:
+            file_to_copy = (CONFIG_FILE_NAME,)
+            dir_to_copy = ('startup',)
+            for item_file in file_to_copy:
+                file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
+                          verbose=self.verbose)
+                os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
+            for item_dir in dir_to_copy:
+                if not dir_copy(os.path.join(self.project, item_dir), os.path.join(top_path, item_dir), self.verbose):
+                    print(f'IOC("{self.name}").export_for_mount: Failed. '
+                          f'You may run this command again with "-v" option to see '
+                          f'what happened for IOC "{self.name}" in details.')
+                    return
+            else:
+                print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" updated in {top_path}.')
+
     # return whether the files are in consistent with snapshot files.
-    def check_snapshot_files(self, print_info=False):
+    def check_snapshot_files(self, print_info=True):
         if not self.check_config('snapshot', 'tracked'):
             if self.verbose:
                 print(f'IOC("{self.name}").check_snapshot_files: '
@@ -805,15 +911,19 @@ class IOC:
             else:
                 consistent_flag = False
                 config_file_check_res = 'config file lost.'
+                state_info = config_file_check_res
+                self.set_state_info(state=STATE_ERROR, state_info=state_info)
         else:
             consistent_flag = False
             self.set_config('snapshot', 'error')
+            self.write_config()
             config_file_check_res = 'config file snapshot lost.'
         # check source snapshot files.
         if os.path.isdir(self.src_snapshot_path):
             if not os.path.isdir(self.src_path):
                 consistent_flag = False
                 self.set_config('state', 'error')
+                self.write_config()
                 source_file_check_res = 'source directory lost.'
             else:
                 src_compare_res = filecmp.dircmp(self.src_snapshot_path, self.src_path)
@@ -845,13 +955,28 @@ class IOC:
         else:
             consistent_flag = False
             self.set_config('snapshot', 'error')
+            self.write_config()
             config_file_check_res = 'source directory snapshot lost.'
-
+        if not consistent_flag and print_info:
+            prefix_str = ''
+            if config_file_check_res and source_file_check_res:
+                config_file_check_print = f'1: \n{config_file_check_res}\n'
+                source_file_check_print = f'2: \n{source_file_check_res}'
+            else:
+                prefix_str = '1: \n'
+                config_file_check_print = config_file_check_res
+                source_file_check_print = source_file_check_res
+            print(f'IOC("{self.name}").check_snapshot_files: Inconsistency with snapshot files found: \n'
+                  f'{prefix_str}'
+                  f'{config_file_check_print}'
+                  f'{source_file_check_print}'
+                  f'\n')
         return consistent_flag, config_file_check_res, source_file_check_res
 
-    def add_snapshot_file(self):
+    def add_snapshot_files(self):
         if self.verbose:
             print(f'IOC("{self.name}").add_snapshot_file: Starting to add snapshot files.')
+        self.delete_snapshot_files()
         self.set_config('snapshot', 'tracked')
         self.write_config()
         snapshot_finished = True
@@ -864,6 +989,7 @@ class IOC:
                 snapshot_finished = False
                 if self.verbose:
                     print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file for config created failed.')
+
         else:
             snapshot_finished = False
             if self.verbose:
@@ -871,6 +997,8 @@ class IOC:
         if not snapshot_finished:
             self.set_config('snapshot', 'error')
             self.write_config()
+            state_info = 'add config snapshot file failed.'
+            self.set_state_info(state=STATE_WARNING, state_info=state_info)
             return False
         # snapshot for source files.
         for item in os.listdir(self.src_path):
@@ -887,12 +1015,14 @@ class IOC:
             if not snapshot_finished:
                 self.set_config('snapshot', 'error')
                 self.write_config()
+                state_info = 'add source snapshot files failed.'
+                self.set_state_info(state=STATE_WARNING, state_info=state_info)
                 return False
         else:
             if self.verbose:
                 print(f'IOC("{self.name}").add_snapshot_file: Snapshot for source files successfully created.')
 
-    def delete_snapshot_file(self):
+    def delete_snapshot_files(self):
         if os.path.isdir(self.snapshot_path):
             dir_remove(self.snapshot_path, self.verbose)
             self.set_config('snapshot', 'untracked')
@@ -901,7 +1031,7 @@ class IOC:
             if self.verbose:
                 print(f'IOC("{self.name}").delete_snapshot_file: Failed, path "{self.snapshot_path}" not exist.')
 
-    def restore_from_snapshot_file(self, force_restore=False):
+    def restore_from_snapshot_files(self, force_restore=False):
         if self.check_config('snapshot', 'error'):
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
                   f'Failed, can\'t restore snapshot files in "error" state.')
@@ -970,61 +1100,7 @@ class IOC:
         for item in dirs_to_compare:
             pass
 
-
     # Checks for IOC projects.
     def run_check(self, print_info=True, print_prompt=False):
 
-        # output redirect.
-        with open(os.devnull, 'w') as devnull:
-            original_stdout = sys.stdout
-            original_stderr = sys.stderr
-            sys.stdout = devnull
-            sys.stderr = devnull
-            if print_info:
-                sys.stdout = original_stdout
-                sys.stderr = original_stderr
-            #####
-            # checks that give prompt for further operation.
-            res_prompt = ''
-            if not self.check_config('is_exported', 'true'):
-                if self.check_config('status', 'created'):
-                    res_prompt = (f'Project just created, '
-                                  f'make settings then generate startup files and export them into running dir.')
-                elif self.check_config('status', 'generated'):
-                    if self.check_config('snapshot', 'logged'):
-                        res_prompt = f'Project just generated, now you can export them into running dir.'
-                    elif self.check_config('snapshot', 'changed'):
-                        res_prompt = (f'Settings has been changed but not generated. Generate startup files again to '
-                                      f'apply new settings or just restore old settings from snapshot file.')
-                elif self.check_config('status', 'restored'):
-                    res_prompt = (f'Project just restored, make settings then generate startup files and '
-                                  f'export them into running dir.')
-                if print_prompt:
-                    print(f'IOC("{self.name}").run_check: {res_prompt}')
-            else:
-                if self.check_config('snapshot', ''):
-                    res_prompt = (f'Snapshot file not found, project may be just restored, '
-                                  f'please generate startup file to make snapshot files.')
-                    print(f'IOC("{self.name}").run_check: Warning. {res_prompt}')
-                elif self.check_config('snapshot', 'changed'):
-                    res_prompt = (f'Settings has been changed, generate startup files again to make snapshot file for '
-                                  f'new settings or just restore old settings from snapshot file.')
-                    print(f'IOC("{self.name}").run_check: Warning. {res_prompt}')
-                elif self.check_config('snapshot', 'logged'):
-                    if print_prompt:
-                        res, prompt_info = self.check_consistency(print_info=True)
-                    else:
-                        res, prompt_info = self.check_consistency()
-                    if not res:
-                        res_prompt = (f'Settings are not consistent between running settings file and snapshot file, '
-                                      f'you should export startup files again.')
-                        print(f'IOC("{self.name}").run_check: Warning. {res_prompt}')
-                    else:
-                        res_prompt = prompt_info
-                        if print_prompt:
-                            print(f'IOC("{self.name}").run_check: {prompt_info}')
-            #####
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
-
-            return res_prompt
+        pass
