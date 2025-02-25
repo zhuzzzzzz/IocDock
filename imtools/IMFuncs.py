@@ -81,6 +81,8 @@ def file_copy(src, dest, mode='r', verbose=False):
         if verbose:
             print(f'file_copy: success, copy file from "{src}" to "{dest}.')
         mode_number = 0o000
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, os.path.basename(src))
         if 'r' in mode or 'R' in mode:
             mode_number += 0o444
             if verbose:
@@ -161,7 +163,7 @@ def format_normalize(raw_str: str):
     # return a standard format of value, for example "ramper.db,name = xxx1" will get "ramper.db, name=xxx1" as return.
     raw_str = raw_str.replace(';', '\n')
     raw_str = '\n'.join(filter(None, raw_str.split('\n')))  # number of return char will be reduced to 1.
-    if raw_str.count('\n') > 1:
+    if raw_str.count('\n') >= 1:
         raw_str = '\n' + raw_str
     raw_str = ' '.join(filter(None, raw_str.split(' ')))  # number of space char will be reduced to 1.
     raw_str = raw_str.replace(', ', ',')
@@ -174,38 +176,47 @@ def format_normalize(raw_str: str):
     return raw_str
 
 
-def dir_compare(snapshot_dir, source_dir, return_info=False):
-    compare_res = filecmp.dircmp(snapshot_dir, source_dir, ignore=['project', ])
+def dircmp_compare(dcmp, print_info=False):
     diff_flag = False
-    if any((compare_res.diff_files, compare_res.left_only, compare_res.right_only)):
+    res_str = f'diff {dcmp.left} {dcmp.right}\n'
+    if dcmp.diff_files:
         diff_flag = True
-    res_str = ''
-    if return_info:
-        if compare_res.diff_files:
-            res_str += 'changed files: '
-            for item in compare_res.diff_files:
-                res_str += f'{item}, '
-            else:
-                res_str = res_str.rstrip(', ')
-                res_str += '.\n'
-        if compare_res.left_only:
-            res_str += 'missing files and directories: '
-            for item in compare_res.left_only:
-                res_str += f'{item}, '
-            else:
-                res_str = res_str.rstrip(', ')
-                res_str += '.\n'
-        if compare_res.right_only:
-            res_str += 'untracked files and directories: '
-            for item in compare_res.right_only:
-                res_str += f'{item}, '
-            else:
-                res_str = res_str.rstrip(', ')
-                res_str += '.\n'
-        res_str = res_str.rstrip('\n')
-        return diff_flag, res_str
-    else:
-        return diff_flag
+        res_str += 'changed files: '
+        for item in dcmp.diff_files:
+            res_str += f'"{item}", '
+        else:
+            res_str = res_str.rstrip(', ')
+            res_str += '.\n'
+    if dcmp.left_only:
+        diff_flag = True
+        res_str += 'missing files and directories: '
+        for item in dcmp.left_only:
+            res_str += f'"{item}", '
+        else:
+            res_str = res_str.rstrip(', ')
+            res_str += '.\n'
+    if dcmp.right_only:
+        diff_flag = True
+        res_str += 'untracked files and directories: '
+        for item in dcmp.right_only:
+            res_str += f'"{item}", '
+        else:
+            res_str = res_str.rstrip(', ')
+            res_str += '.\n'
+    if print_info:
+        print(res_str)
+    for sub_dcmp in dcmp.subdirs.values():
+        if dircmp_compare(sub_dcmp, print_info):
+            diff_flag = True
+
+    return diff_flag
+
+
+def dir_compare(snapshot_dir, source_dir, print_info=False):
+    compare_res = filecmp.dircmp(snapshot_dir, source_dir)
+    return dircmp_compare(compare_res, print_info=print_info)
+    # print('==============')
+    # compare_res.report_full_closure()
 
 
 #########################################################
@@ -223,6 +234,6 @@ def operation_log():
 
 
 if __name__ == '__main__':
-    a, b = dir_compare('/home/zhu/docker/repository-IOC/imtools/ioc-snapshot/worker_test_1_1',
-                       '/home/zhu/docker/repository-IOC/ioc-repository/worker_test_1_1', return_info=True)
-    print(b)
+    a = dir_compare('/home/zhu/docker/repository-IOC/imtools/ioc-snapshot/worker_test_1_1',
+                    '/home/zhu/docker/repository-IOC/ioc-repository/worker_test_1_1', return_info=False)
+    print()

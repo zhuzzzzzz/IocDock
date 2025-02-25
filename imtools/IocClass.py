@@ -1,27 +1,15 @@
-import filecmp
 import os
-import sys
+import filecmp
 import configparser
 
-from .IMFuncs import try_makedirs, file_remove, dir_remove, file_copy, condition_parse, multi_line_parse, \
-    format_normalize, relative_and_absolute_path_to_abs, dir_copy
+from .IMFuncs import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, condition_parse, multi_line_parse, \
+    format_normalize, relative_and_absolute_path_to_abs, dir_compare
 from .IMConsts import *
-from .IMError import IMValueError, IMIOCError
+from .IMError import IMValueError
 
 STATE_NORMAL = 'normal'
 STATE_WARNING = 'warning'
 STATE_ERROR = 'error'
-
-
-def config_update_required(func):
-    def wrapper(self, *args, **kwargs):
-        res = func(self, *args, **kwargs)
-        if self.verbose:
-            print(f'Update config file of IOC "{self.name}".')
-        self.write_config()
-        return res
-
-    return wrapper
 
 
 class IOC:
@@ -71,6 +59,7 @@ class IOC:
         self.boot_path = os.path.join(self.startup_path, 'iocBoot')
 
         self.conf = None
+        self.state = ''
         self.state_info = ''
         self.read_config(create=kwargs.get('create', False))
         self.state = self.get_config('state')
@@ -99,27 +88,33 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
-        # autocheck part.
         # get currently managed source files.
         self.get_src_file()
-        #
-        self.check_snapshot_files(print_info=self.verbose)
+        # normalize settings format.
         self.normalize_config()
+        #
+        if not self.check_config('state', 'normal'):
+            if self.verbose:
+                print(f'IOC.__init__: Try repairing IOC "{self.name}".')
+            self.try_repair()
 
         if self.verbose:
             print(f'IOC.__init__: Finished initializing for IOC "{self.name}".')
 
     def create_new(self):
+        self.make_directory_structure()
+        self.add_default_settings()
+        self.add_settings_template()
+        self.write_config()
+
+    def make_directory_structure(self):
         try_makedirs(self.src_path, self.verbose)
         try_makedirs(self.settings_path, self.verbose)
         try_makedirs(self.log_path, self.verbose)
         try_makedirs(self.db_path, self.verbose)
         try_makedirs(self.boot_path, self.verbose)
-        self.add_default_settings()
-        self.add_settings_template()
-        self.write_config()
 
-    # read config or create a new config or raise error.
+    # read config or create a new config or set error.
     def read_config(self, create):
         if os.path.exists(self.config_file_path):
             conf = configparser.ConfigParser()
@@ -131,7 +126,6 @@ class IOC:
             else:
                 self.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')
                 return
-                # raise IMIOCError(f'IOC Initialization failed: Can\'t read config file "{self.config_file_path}".')
         else:
             if create:
                 self.conf = configparser.ConfigParser()
@@ -143,7 +137,6 @@ class IOC:
             else:
                 self.set_state_info(state=STATE_ERROR, state_info='config file lost.')
                 return
-                # raise IMIOCError(f'IOC Initialization failed: Can\'t find config file "{self.config_file_path}".')
 
     def write_config(self):
         with open(self.config_file_path, 'w') as f:
@@ -227,9 +220,13 @@ class IOC:
             self.check_snapshot_files()
 
     def set_state_info(self, state, state_info, prompt=''):
-        state_info = f'\n[{state}] {state_info}\n'
+        if self.state_info:
+            prefix_newline = '\n'
+        else:
+            prefix_newline = ''
+        state_info = f'{prefix_newline}[{state}] {state_info}'
         if prompt:
-            state_info = state_info + '\t' + 'instruction: ' + prompt + '\n'
+            state_info = state_info + '\n' + '====>>>> ' + prompt + '\n'
         if state == STATE_ERROR:
             self.state = state
             self.state_info += state_info
@@ -249,7 +246,7 @@ class IOC:
         self.set_config('name', os.path.basename(self.dir_path))
         self.set_config('host', '')
         self.set_config('image', '')
-        self.set_config('bin', '')
+        self.set_config('bin', 'ST-IOC')
         self.set_config('module', 'autosave, caputlog')
         self.set_config('description', '')
         self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
@@ -381,23 +378,14 @@ class IOC:
             self.set_config('db_file', db_list, 'SRC')
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: Add db files. Set attribute "file: {db_list}".')
-        else:
-            if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: No db files found in "{src_p}".')
         if proto_list:
             self.set_config('protocol_file', proto_list, 'SRC')
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: Add protocol files "{proto_list}".')
-        else:
-            if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: No protocol files found in "{src_p}".')
         if other_list:
             self.set_config('other_file', other_list, 'SRC')
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: Add files "{other_list}".')
-        else:
-            if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: No file for given suffix {other_suffix} found in "{src_p}".')
         if any((db_list, proto_list, other_list)):
             self.write_config()
 
@@ -481,7 +469,7 @@ class IOC:
                            f'dbLoadTemplate "db/{self.name}.substitutions"\n', ]
         lines_after_iocinit = ['\niocInit\n\n']
 
-        # Question whether to use default if unspecified IOC executable binary.
+        # Query whether to use default if unspecified IOC executable binary.
         if not self.get_config('bin'):
             if force_default:
                 self.set_config('bin', DEFAULT_IOC)
@@ -507,7 +495,7 @@ class IOC:
                         break
                     print('Invalid input, please try again.')
 
-        # Question whether to use default if unspecified install modules.
+        # Query whether to use default if unspecified install modules.
         if not self.get_config('module'):
             if force_default:
                 self.set_config('module', DEFAULT_MODULES)
@@ -891,12 +879,15 @@ class IOC:
                 print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" updated in {top_path}.')
 
     # return whether the files are in consistent with snapshot files.
-    def check_snapshot_files(self, print_info=True):
+    def check_snapshot_files(self, print_info=False):
         if not self.check_config('snapshot', 'tracked'):
             if self.verbose:
                 print(f'IOC("{self.name}").check_snapshot_files: '
                       f'Failed, can\'t check snapshot files as project is not in "tracked" state.')
             return
+        if self.verbose or print_info:
+            print(f'IOC("{self.name}").check_snapshot_files: '
+                  f'Start checking snapshot files.')
 
         consistent_flag = True
         config_file_check_res = ''
@@ -963,7 +954,6 @@ class IOC:
                 config_file_check_print = f'1: \n{config_file_check_res}\n'
                 source_file_check_print = f'2: \n{source_file_check_res}'
             else:
-                prefix_str = '1: \n'
                 config_file_check_print = config_file_check_res
                 source_file_check_print = source_file_check_res
             print(f'IOC("{self.name}").check_snapshot_files: Inconsistency with snapshot files found: \n'
@@ -1031,33 +1021,79 @@ class IOC:
             if self.verbose:
                 print(f'IOC("{self.name}").delete_snapshot_file: Failed, path "{self.snapshot_path}" not exist.')
 
-    def restore_from_snapshot_files(self, force_restore=False):
-        if self.check_config('snapshot', 'error'):
+    def restore_from_snapshot_files(self, restore_files: list, force_restore=False):
+        if self.check_config('snapshot', 'untracked'):
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
-                  f'Failed, can\'t restore snapshot files in "error" state.')
+                  f'Failed, can\'t restore snapshot files in "untracked" state.')
             return
-        if not os.path.isfile(self.config_snapshot_file):
-            print(f'IOC("{self.name}").restore_snapshot_file: Failed, snapshot file not found. ')
+        if not isinstance(restore_files, list) or not restore_files:
+            print(f'IOC("{self.name}").restore_from_snapshot_file: '
+                  f'Failed, input arg "restore_files" must be a non-empty list.')
             return
-        conf_snap = configparser.ConfigParser()
-        if not conf_snap.read(self.config_snapshot_file):
-            print(f'IOC("{self.name}").restore_snapshot_file: Failed, invalid snapshot file. ')
-            return
-        if not force_restore:
-            ans = input(f'IOC("{self.name}").restore_snapshot_file: Confirm to restore snapshot settings file?[y|n]:')
-            if ans.lower() == 'yes' or ans.lower() == 'y':
-                force_restore = True
-                print(f'IOC("{self.name}").restore_snapshot_file: Restoring.')
-            elif ans.lower() == 'no' or ans.lower() == 'n':
-                print(f'IOC("{self.name}").restore_snapshot_file: Choose to give up restoring.')
-            else:
-                print(f'IOC("{self.name}").restore_snapshot_file: Wong input, restoring exit.')
-        if force_restore:
-            self.conf = conf_snap
-            self.set_config('status', 'restored')
-            self.write_config()
-            self.check_snapshot_files()
-            print(f'IOC("{self.name}").restore_snapshot_file: Restoring finished.')
+        files_to_restore = {'config': '', 'src': []}
+        files_provided = {'config': '', 'src': []}
+        unsupported_items = []
+        if os.path.isfile(self.config_snapshot_file):
+            files_provided['config'] = self.config_snapshot_file
+        for item in os.listdir(self.src_snapshot_path):
+            files_provided['src'].append(os.path.join(self.src_snapshot_path, item))
+        if 'all' in restore_files:
+            files_to_restore = files_provided
+        else:
+            if 'ioc.ini' in restore_files:
+                restore_files.remove('ioc.ini')
+                files_to_restore['config'] = files_provided['config']
+                if not files_to_restore['config']:
+                    unsupported_items.append('ioc.ini')
+            for item in restore_files:
+                item_path = os.path.join(self.src_snapshot_path, item)
+                if item_path in files_provided:
+                    files_to_restore['src'].append(item_path)
+                else:
+                    unsupported_items.append(item)
+
+        file_string = ''
+        if files_to_restore['config']:
+            file_string += f"{files_to_restore['config']} "
+        for item in files_to_restore['src']:
+            file_string += f"{item} "
+        file_string = file_string.rstrip()
+        if not file_string:
+            print(f'IOC("{self.name}").restore_from_snapshot_file: '
+                  f'Failed to Restore any snapshot files from {restore_files}, as they are not exist.')
+        else:
+            if not force_restore:
+                while not force_restore:
+                    print(f'IOC("{self.name}").restore_from_snapshot_file: Restoring snapshot files.\n'
+                          f'{file_string} will be restored.')
+                    if unsupported_items:
+                        print(f'{unsupported_items} can\'t be restored as they are not exist.')
+                    ans = input(f'Confirm to continue?[y|n]:')
+                    if ans.lower() == 'n' or ans.lower() == 'no':
+                        print(f'IOC("{self.name}").restore_from_snapshot_file": Restoring canceled.')
+                        return
+                    if ans.lower() == 'y' or ans.lower() == 'yes':
+                        print(f'IOC("{self.name}").restore_from_snapshot_file": Executing restoring.')
+                        force_restore = True
+                        break
+                    print('Invalid input, please try again.')
+            if force_restore:
+                if files_to_restore['config']:
+                    if not file_copy(files_to_restore['config'], self.dir_path, mode='rw', verbose=self.verbose):
+                        print(f'IOC("{self.name}").restore_from_snapshot_file": '
+                              f'Restoring {files_to_restore['config']} failed.')
+                    else:
+                        if self.verbose:
+                            print(f'IOC("{self.name}").restore_from_snapshot_file": '
+                                  f'Restoring {files_to_restore['config']} succeed.')
+                for item in files_to_restore['src']:
+                    if not file_copy(item, self.src_path, mode='rw', verbose=self.verbose):
+                        print(f'IOC("{self.name}").restore_from_snapshot_file": '
+                              f'Restoring {item} failed.')
+                    else:
+                        if self.verbose:
+                            print(f'IOC("{self.name}").restore_from_snapshot_file": '
+                                  f'Restoring {item} succeed.')
 
     # Checks before generating the IOC project startup file.
     def generate_check(self):
@@ -1071,7 +1107,7 @@ class IOC:
             else:
                 if s.strip().lower() not in MODULES_PROVIDED:
                     state_info = 'invalid "module" setting.'
-                    prompt = f'"{s}" is not supported.'
+                    prompt = f'"{s.strip()}" is not supported.'
                     self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     print(f'IOC("{self.name}").generate_check: Failed. Invalid module "{s}" '
                           f'set in option "module", please check and reset the settings correctly.')
@@ -1082,25 +1118,66 @@ class IOC:
     # Check differences between snapshot file and running settings file.
     # Check differences between project files and running files.
     def check_consistency(self, print_info=False):
+        if not self.check_config('is_exported', 'true'):
+            if self.verbose:
+                print(f'IOC("{self.name}").check_consistency: '
+                      f'Failed, can\'t check consistency as project is not in "exported" state.')
+            return False, "Project not exported."
+        if not os.path.isfile(self.config_snapshot_file):
+            if self.verbose:
+                print(f'IOC("{self.name}").check_consistency: '
+                      f'Failed, can\'t check consistency as config snapshot file lost.')
+            return False, "Config snapshot file lost."
+        if not os.path.isfile(self.config_file_path_for_mount):
+            if self.verbose:
+                print(f'IOC("{self.name}").check_consistency: '
+                      f'Failed, can\'t check consistency as config file in mount dir lost.')
+            return False, "Differences detected."
+
+        if self.verbose or print_info:
+            print(f'IOC("{self.name}").check_consistency: '
+                  f'Start checking consistency.')
+
+        consistent_flag = True
+        check_res = 'Consistency checked.'
+
         files_to_compare = (
-            (self.config_file_path, self.config_file_path_for_mount),
+            (self.config_snapshot_file, self.config_file_path_for_mount),
         )
         dirs_to_compare = (
             (self.settings_path, os.path.join(self.dir_path_for_mount, 'settings')),
             (self.startup_path, os.path.join(self.dir_path_for_mount, 'startup')),
         )
-        if not self.check_config('is_exported', 'true'):
-            return False, "Project not exported. "
-        if not self.check_config('snapshot', 'tracked'):
-            return False, "Project not exported. "
-
         for item in files_to_compare:
-            pass
-
+            if print_info:
+                print(f'diff {item[0]} {item[1]}')
+            compare_res = filecmp.cmp(item[0], item[1])
+            if not compare_res:
+                consistent_flag = False
+                check_res = 'Differences detected.'
+                if print_info:
+                    print('changed files: "ioc.ini".\n')
+            if print_info:
+                print()
         for item in dirs_to_compare:
-            pass
+            if dir_compare(item[0], item[1], print_info=print_info):
+                consistent_flag = False
+                check_res = 'Differences detected.'
+        return consistent_flag, check_res
 
     # Checks for IOC projects.
-    def run_check(self, print_info=True, print_prompt=False):
+    def project_check(self, print_info=False):
+        print(f'---------------------------------------------')
+        consistent_flag, _, _ = self.check_snapshot_files(print_info=print_info)
+        if consistent_flag:
+            print(f'IOC("{self.name}").project_check: snapshot consistency OK.')
+        else:
+            print(f'IOC("{self.name}").project_check: snapshot inconsistency found!')
+        consistent_flag, _ = self.check_consistency(print_info=print_info)
+        if consistent_flag:
+            print(f'IOC("{self.name}").project_check: running file consistency OK.')
+        else:
+            print(f'IOC("{self.name}").project_check: running file inconsistency found!')
 
-        pass
+    def try_repair(self):
+        self.make_directory_structure()

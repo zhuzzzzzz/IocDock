@@ -62,8 +62,6 @@ def create_ioc(name, args, config=None, verbose=False):
                 else:
                     ioc_temp.write_config()
             print(f'create_ioc: Success. IOC "{name}" created.')
-            if hasattr(args, 'print_ioc') and args.print_ioc:
-                ioc_temp.show_config()
     elif isinstance(name, Iterable):
         for n in name:
             create_ioc(n, args, config=config, verbose=verbose)
@@ -113,8 +111,6 @@ def set_ioc(name, args, config=None, verbose=False):
             if modify_flag:
                 ioc_temp.write_config()
                 print(f'set_ioc: Success. IOC "{name}" modified by given settings.')
-                if args.print_ioc:
-                    ioc_temp.show_config()
             else:
                 if verbose:
                     print(f'set_ioc: No setting was given for IOC "{name}".')
@@ -127,11 +123,11 @@ def set_ioc(name, args, config=None, verbose=False):
 
 # do not accept iterable for input
 # Remove IOC projects. just remove generated files or remove all files.
-def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
+def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
     dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
     if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
         if not force_removal:
-            if all_remove:
+            if remove_all:
                 print(f'remove_ioc: IOC "{name}" will be removed completely.', end='')
             else:
                 print(f'remove_ioc: Remove IOC "{name}" partially. only the generated files will be removed,'
@@ -145,8 +141,8 @@ def remove_ioc(name, all_remove=False, force_removal=False, verbose=False):
                 print(f'remove_ioc: Failed. Invalid input, remove canceled.')
         if force_removal:
             ioc_temp = IOC(dir_path, verbose)
-            ioc_temp.remove(all_remove)
-            if all_remove:
+            ioc_temp.remove(remove_all)
+            if remove_all:
                 print(f'remove_ioc: Success. IOC "{name}" removed completely.')
             else:
                 print(f'remove_ioc: Success. IOC "{name}" removed, '
@@ -199,14 +195,12 @@ def get_all_ioc(dir_path=None, from_list=None, verbose=False):
         # if os.path.isdir(subdir_path) and CONFIG_FILE_NAME in os.listdir(subdir_path):
         if os.path.isdir(subdir_path):
             ioc_temp = IOC(subdir_path, verbose)
-            ioc_temp.run_check(print_info=False)
             ioc_list.append(ioc_temp)
     return ioc_list
 
 
 # Show IOC projects that meeting the specified conditions and section, AND logic is implied to each condition.
-def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_info=False, show_info=False,
-                     prompt_info=False, verbose=False):
+def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_info=False, verbose=False):
     section = section.upper()  # to support case-insensitive filter for section.
 
     ioc_list = get_all_ioc(from_list=from_list, verbose=verbose)
@@ -283,34 +277,14 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, raw_inf
         else:
             index_to_preserve.append(i)
     # print results.
-    raw_print = [["Name", "Host", "Status", "Snapshot", "ExportConsistency"], ]
     ioc_print = []
-    prompt_print = [["Name", "Host", "Prompt"]]
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
-        if raw_info:
-            raw_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("status"),
-                              ioc_list[i].get_config("snapshot"),
-                              ioc_list[i].check_consistency(print_info=False)[1]])
-            # print(f'{ioc_list[i].name}\t\t\t{ioc_list[i].get_config("host")}\t\t\t{ioc_list[i].get_config("status")}')
-        elif prompt_info:
-            prompt_print.append(
-                [ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].run_check(print_info=False)])
         else:
             ioc_print.append(ioc_list[i].name)
     else:
-        if raw_info:
-            print(tabulate(raw_print, headers="firstrow", tablefmt='plain'))
-            print('')
-        elif prompt_info:
-            print(tabulate(prompt_print, headers="firstrow", tablefmt='plain'))
-            print('')
-        else:
-            print(' '.join(ioc_print))
-
-    for i in index_to_preserve:
-        ioc_list[i].run_check()
+        print(' '.join(ioc_print))
 
 
 def execute_ioc(args):
@@ -324,8 +298,17 @@ def execute_ioc(args):
     elif args.restore_backup_file:
         restore_backup(backup_path=args.backup_file, force_overwrite=args.force_overwrite, verbose=args.verbose)
     elif args.run_check:
-        for ioc_temp in get_all_ioc():
-            ioc_temp.run_check(print_prompt=True)
+        if args.name:
+            for name in args.name:
+                dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+                if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+                    ioc_temp = IOC(dir_path, args.verbose)
+                    ioc_temp.project_check(print_info=True)
+                else:
+                    print(f'execute_ioc: Failed. IOC "{name}" not found.')
+        else:
+            for ioc_temp in get_all_ioc():
+                ioc_temp.project_check()
     else:
         # operation inside IOC projects.
         if not args.name:
@@ -358,10 +341,11 @@ def execute_ioc(args):
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
                         ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
-                    elif args.restore_from_snapshot_files:
+                    elif args.restore_snapshot_file:
                         if args.verbose:
                             print(f'execute_ioc: restoring snapshot file.')
-                        ioc_temp.restore_from_snapshot_files(force_restore=args.force_silent)
+                        ioc_temp.restore_from_snapshot_files(restore_files=args.restore_snapshot_file,
+                                                             force_restore=args.force_silent)
                     else:
                         if args.verbose:
                             print(f'execute_ioc: No "exec" operation specified.')
@@ -857,20 +841,11 @@ if __name__ == '__main__':
     parser_create.add_argument('--status-os', action="store_true",
                                help='add devIocStats module for OS monitor.')
     parser_create.add_argument('--autosave', action="store_true", help='add autosave module.')
-    parser_create.add_argument('--add-asyn', action="store_true",
-                               help='add asyn template.\n'
-                                    'set "--port-type" to choose port type, default "tcp/ip".')
-    parser_create.add_argument('--add-stream', action="store_true",
-                               help='add StreamDevice template.\n'
-                                    'set "--port-type" to choose port type, default "tcp/ip".')
-    parser_create.add_argument('--port-type', type=str, default='tcp/ip',
-                               help='specify port type.\n'
-                                    'choose from "tcp/ip"(default) or "serial".')
+    parser_create.add_argument('--add-asyn', action="store_true", help='add asyn template.\n')
+    parser_create.add_argument('--add-stream', action="store_true", help='add StreamDevice template.\n')
     parser_create.add_argument('--add-raw', action="store_true",
-                               help=f'add raw command template in {CONFIG_FILE_NAME} file, '
-                                    f'so to add customized commands.')
-    parser_create.add_argument('-p', '--print-ioc', action="store_true", help='print settings of created IOC projects.')
-    parser_create.add_argument('-v', '--verbose', action="store_true", help='show details.')
+                               help=f'add raw command template, so to add customized commands.')
+    parser_create.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_create.set_defaults(func='parse_create')
 
     #
@@ -891,20 +866,11 @@ if __name__ == '__main__':
     parser_set.add_argument('--status-os', action="store_true",
                             help='add devIocStats module for OS monitor.')
     parser_set.add_argument('--autosave', action="store_true", help='add autosave module.')
-    parser_set.add_argument('--add-asyn', action="store_true",
-                            help='add asyn template.\n'
-                                 'set "--port-type" to choose port type, default "tcp/ip".')
-    parser_set.add_argument('--add-stream', action="store_true",
-                            help='add StreamDevice template.\n'
-                                 'set "--port-type" to choose port type, default "tcp/ip".')
-    parser_set.add_argument('--port-type', type=str, default='tcp/ip',
-                            help='specify port type.\n'
-                                 'choose from "tcp/ip"(default) or "serial".')
+    parser_set.add_argument('--add-asyn', action="store_true", help='add asyn template.\n')
+    parser_set.add_argument('--add-stream', action="store_true", help='add StreamDevice template.\n')
     parser_set.add_argument('--add-raw', action="store_true",
-                            help=f'add raw command template in {CONFIG_FILE_NAME} file, '
-                                 f'so to add customized commands.')
-    parser_set.add_argument('-p', '--print-ioc', action="store_true", help='print settings of modified IOC projects.')
-    parser_set.add_argument('-v', '--verbose', action="store_true", help='show details.')
+                            help=f'add raw command template, so to add customized commands.')
+    parser_set.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_set.set_defaults(func='parse_set')
 
     #
@@ -977,12 +943,12 @@ if __name__ == '__main__':
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--backup-file', type=str, default='',
                                 help='tgz backup file of IOC projects.')
-    parser_execute.add_argument('--restore-snapshot-file', action="store_true",
-                                help='restore IOC projects from snapshot settings file. '
-                                     '\nset "--force-silent" to run quiet and not ask for confirmation.')
+    parser_execute.add_argument('-t', '--restore-snapshot-file', type=str, nargs='+',
+                                help='restore IOC projects from snapshot files. '
+                                     '\nset "--force-silent" to force silent restoring.')
     parser_execute.add_argument('--run-check', action="store_true",
-                                help='execute run-check for all IOC projects.')
-    parser_execute.add_argument('-v', '--verbose', action="store_true", help='show details.')
+                                help='check given IOC project or all IOC projects.')
+    parser_execute.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_execute.set_defaults(func='parse_execute')
 
     #
@@ -994,12 +960,9 @@ if __name__ == '__main__':
     parser_list.add_argument('-s', '--section', type=str, default='IOC',
                              help='specify a section applied for condition filtering. default section: "IOC".')
     parser_list.add_argument('-l', '--ioc-list', type=str, nargs='*',
-                             help='from a IOC list to filter IOC projects by given conditions.')
+                             help='filter IOC projects by given conditions from given IOC list.')
     parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC settings.')
-    parser_list.add_argument('-r', '--raw-info', action="store_true", help='show IOC status in raw format.')
-    parser_list.add_argument('-p', '--prompt-info', action="store_true",
-                             help='show prompt information for IOC project.')
-    parser_list.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_list.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_list.set_defaults(func='parse_list')
 
     #
@@ -1038,7 +1001,7 @@ if __name__ == '__main__':
     parser_swarm.add_argument('--backup-file', type=str, default='', help='tgz backup file for swarm.')
     parser_swarm.add_argument('--update-deployed-services', action="store_true",
                               help='update all services deployed in swarm to force load balance.')
-    parser_swarm.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_swarm.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_swarm.set_defaults(func='parse_swarm')
 
     #
@@ -1051,7 +1014,7 @@ if __name__ == '__main__':
     parser_service.add_argument('--show-info', action="store_true", help='show information of running service.')
     parser_service.add_argument('--show-logs', action="store_true", help='show logs of running service.')
     parser_service.add_argument('--update', action="store_true", help='restart running service.')
-    parser_service.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_service.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_service.set_defaults(func='parse_service')
 
     #
@@ -1061,7 +1024,7 @@ if __name__ == '__main__':
     parser_remove.add_argument('-r', '--remove-all', action="store_true",
                                help='enable this option will delete the entire IOC project!')
     parser_remove.add_argument('-f', '--force', action="store_true", help='force removal, do not ask.')
-    parser_remove.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_remove.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_remove.set_defaults(func='parse_remove')
 
     #
@@ -1069,20 +1032,20 @@ if __name__ == '__main__':
                                           formatter_class=argparse.RawTextHelpFormatter)
     parser_rename.add_argument('name', type=str, nargs=2,
                                help='only accept 2 arguments, old name and new name of the IOC project.')
-    parser_rename.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_rename.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_rename.set_defaults(func='parse_rename')
 
     #
     parser_update = subparsers.add_parser('update', help='Update IOC project to the form of newer version.',
                                           formatter_class=argparse.RawTextHelpFormatter)
-    parser_update.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_update.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_update.set_defaults(func='parse_update')
 
     #
     parser_edit = subparsers.add_parser('edit', help='Edit settings file for an IOC project.',
                                         formatter_class=argparse.RawTextHelpFormatter)
     parser_edit.add_argument('name', type=str, help='name of the IOC project.')
-    parser_edit.add_argument('-v', '--verbose', action="store_true", help='show details.')
+    parser_edit.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_edit.set_defaults(func='parse_edit')
 
     args = parser.parse_args()
@@ -1149,12 +1112,12 @@ if __name__ == '__main__':
             set_ioc(args.name, args, config=conf_temp, verbose=args.verbose)
     if args.func == 'parse_list':
         # ./iocManager.py list
-        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list, raw_info=args.raw_info,
-                         show_info=args.show_info, prompt_info=args.prompt_info, verbose=args.verbose)
+        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list,
+                         show_info=args.show_info, verbose=args.verbose)
     if args.func == 'parse_remove':
         # ./iocManager.py remove
         for item in args.name:
-            remove_ioc(item, all_remove=args.remove_all, force_removal=args.force, verbose=args.verbose)
+            remove_ioc(item, remove_all=args.remove_all, force_removal=args.force, verbose=args.verbose)
     if args.func == 'parse_execute':
         # ./iocManager.py exec
         execute_ioc(args)
