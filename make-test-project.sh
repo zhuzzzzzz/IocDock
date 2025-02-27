@@ -35,7 +35,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# create IOC project
 				./IocManager.py create "$create_prefix$i" -f "./imtools/template/test/ioc.ini" $verbose
 				# add source files
-				./IocManager.py exec "$create_prefix$i" --add-src-file --src-path ./imtools/template/test $verbose
+				./IocManager.py exec "$create_prefix$i" --add-src-file ./imtools/template/test $verbose
 				# set options
 				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i" $verbose
 				./IocManager.py set "$create_prefix$i" -o " host = swarm" $verbose
@@ -46,7 +46,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# generate startup files
 				./IocManager.py exec "$create_prefix$i" --gen-startup-file $verbose
 				# copy files to default mount path 
-				./IocManager.py exec "$create_prefix$i" -e --force-overwrite $verbose
+				./IocManager.py exec "$create_prefix$i" --export-for-mount --force-overwrite $verbose
 				verbose=""
 			done
 		done
@@ -67,7 +67,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# create IOC project
 				./IocManager.py create "$create_prefix$i" -f "./imtools/template/test/ioc.ini" $verbose
 				# add source files
-				./IocManager.py exec "$create_prefix$i" --add-src-file --src-path ./imtools/template/test $verbose
+				./IocManager.py exec "$create_prefix$i" --add-src-file ./imtools/template/test $verbose
 				# set options
 				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i" $verbose
 				./IocManager.py set "$create_prefix$i" -o " host = $item " $verbose
@@ -86,7 +86,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 		echo
 		echo "####### generate compose files in default mount path #######"
 		# generate compose files in default mount path 
-		./IocManager.py exec --gen-compose-file --hosts ${create_host[@]} --base $base_image -v
+		./IocManager.py exec --gen-compose-file ${create_host[@]} --base $base_image -v
 	fi
 fi
 

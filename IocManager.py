@@ -290,13 +290,15 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
 def execute_ioc(args):
     # operation outside IOC projects.
     if args.gen_compose_file:
-        gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path, hosts=args.hosts, verbose=args.verbose)
+        gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path, hosts=args.gen_compose_file,
+                          verbose=args.verbose)
     elif args.gen_swarm_file:
         gen_swarm_files(mount_dir=args.mount_path, iocs=args.name, verbose=args.verbose)
     elif args.gen_backup_file:
         repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
     elif args.restore_backup_file:
-        restore_backup(backup_path=args.backup_file, force_overwrite=args.force_overwrite, verbose=args.verbose)
+        restore_backup(backup_path=args.restore_backup_file, force_overwrite=args.force_overwrite,
+                       verbose=args.verbose)
     elif args.run_check:
         if args.name:
             for name in args.name:
@@ -320,23 +322,21 @@ def execute_ioc(args):
                     if args.verbose:
                         print(f'execute_ioc: dealing with IOC "{name}".')
                     ioc_temp = IOC(dir_path, args.verbose)
-                    if args.add_src_file:
+                    if isinstance(args.add_src_file, str):
                         if args.verbose:
                             print(f'execute_ioc: adding source file.')
-                        ioc_temp.get_src_file(src_dir=args.src_path)
+                        ioc_temp.get_src_file(src_dir=args.add_src_file, print_info=True)
                     elif args.generate_and_export:
                         if args.verbose:
                             print(f'execute_ioc: generating startup files.')
-                        ioc_temp.generate_startup_files(force_executing=args.force_silent,
-                                                        force_default=args.force_default)
+                        ioc_temp.generate_startup_files()
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
                         ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
                     elif args.gen_startup_file:
                         if args.verbose:
                             print(f'execute_ioc: generating startup files.')
-                        ioc_temp.generate_startup_files(force_executing=args.force_silent,
-                                                        force_default=args.force_default)
+                        ioc_temp.generate_startup_files()
                     elif args.export_for_mount:
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
@@ -345,7 +345,25 @@ def execute_ioc(args):
                         if args.verbose:
                             print(f'execute_ioc: restoring snapshot file.')
                         ioc_temp.restore_from_snapshot_files(restore_files=args.restore_snapshot_file,
-                                                             force_restore=args.force_silent)
+                                                             force_restore=args.force_overwrite)
+                    elif args.deploy:
+                        if args.verbose:
+                            print(f'execute_ioc: generating startup files.')
+                        ioc_temp.generate_startup_files()
+                        if args.verbose:
+                            print(f'execute_ioc: exporting startup files.')
+                        ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
+                        if ioc_temp.check_config('host', 'swarm'):
+                            if args.verbose:
+                                print(f'execute_ioc: generating swarm file.')
+                            gen_swarm_files(mount_dir=args.mount_path, iocs=list([ioc_temp.name, ]),
+                                            verbose=args.verbose)
+                        else:
+                            if args.verbose:
+                                print(f'execute_ioc: generating compose file.')
+                            gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path,
+                                              hosts=list([ioc_temp.get_config('host'), ]),
+                                              verbose=args.verbose)
                     else:
                         if args.verbose:
                             print(f'execute_ioc: No "exec" operation specified.')
@@ -769,20 +787,19 @@ def restore_backup(backup_path, force_overwrite, verbose):
                 if verbose:
                     print(f'restore_backup: Skip invalid directory "{ioc_item}".')
             if restore_flag:
+                print(f'restore_backup: Restoring IOC project "{ioc_item}" finished.')
                 temp_ioc = IOC(current_path, verbose=verbose)
-                # delete snapshot file for restored IOC.
-                temp_ioc.delete_snapshot_files()
                 # set status for restored IOC.
                 temp_ioc.set_config('status', 'restored')
-    except KeyboardInterrupt:
+                temp_ioc.write_config()
+    except Exception as e:
         # remove temporary directory finally.
-        print(f'\nrestore_backup: KeyboardInterrupt detected.')
+        print(f'\nrestore_backup: {e}.')
         dir_remove(temp_dir, verbose=verbose)
-        return
-
-    # remove temporary directory finally.
-    print(f'restore_backup: Restoring Finished.')
-    dir_remove(temp_dir, verbose=verbose)
+    else:
+        # remove temporary directory finally.
+        print(f'restore_backup: Restoring Finished.')
+        dir_remove(temp_dir, verbose=verbose)
 
 
 # Update IOC project to the form of newer version.
@@ -831,7 +848,8 @@ if __name__ == '__main__':
                                help=f'manually specify attributes in {CONFIG_FILE_NAME} file, format: "key=value".\n'
                                     f'attributes set by this option will override other options if conflicts.')
     parser_create.add_argument('-s', '--section', type=str, default='IOC',
-                               help='specify section used for manually specified attributes. default section "IOC".')
+                               help='specify section used for manually specified attributes.'
+                                    '\ndefault: "IOC" ')
     parser_create.add_argument('-f', '--ini-file', type=str,
                                help=f'copy settings from specified {CONFIG_FILE_NAME} files.\n'
                                     f'attributes set by this option may be override by other options.')
@@ -856,7 +874,8 @@ if __name__ == '__main__':
                             help=f'manually specify attributes in {CONFIG_FILE_NAME} file, format: "key=value".\n'
                                  f'attributes set by this option will override other options if conflicts.')
     parser_set.add_argument('-s', '--section', type=str, default='IOC',
-                            help='specify section used for manually specified attributes. default section "IOC".')
+                            help='specify section used for manually specified attributes. '
+                                 '\ndefault: "IOC" ')
     parser_set.add_argument('-f', '--ini-file', type=str,
                             help=f'copy settings from specified {CONFIG_FILE_NAME} files.\n'
                                  f'attributes set by this option may be override by other options.')
@@ -878,76 +897,71 @@ if __name__ == '__main__':
                                            formatter_class=argparse.RawTextHelpFormatter)
     parser_execute.add_argument('name', type=str, nargs='*', help='name for IOC project, a name list is supported.')
     # Sort by operation procedure.
-    parser_execute.add_argument('--add-src-file', action="store_true",
-                                help='add source files from given path and update settings. '
-                                     '\ndefault the "src" folder of IOC project. '
-                                     '\nset "--src-path" to choose a path to find the source files.')
-    parser_execute.add_argument('--src-path', type=str, default='',
-                                help='path to find source files. '
-                                     '\ndefault the "src" folder in the IOC project directory structure.')
+    parser_execute.add_argument('--add-src-file', metavar="SRC_FILE", type=str, nargs='?', const='', default=None,
+                                help='add source files from given path and update settings automatically. '
+                                     '\ndefault: the "src" directory in project ')
     parser_execute.add_argument('--gen-startup-file', action="store_true",
-                                help='generate st.cmd file and other startup files for IOC running in container. '
-                                     '\nset "--force-silent" to force silent running. '
-                                     '\nset "--force-default" to use default settings.')
-    parser_execute.add_argument('--force-silent', action="store_true",
-                                help='force silent running while generating startup files or restoring snapshot files.')
-    parser_execute.add_argument('--force-default', action="store_true",
-                                help='use default when generating startup files.')
-    parser_execute.add_argument('-e', '--export-for-mount', action="store_true",
-                                help='export runtime files of specified IOC projects into a mount dir. '
+                                help='generate st.cmd file and other startup files. ')
+    parser_execute.add_argument('--export-for-mount', action="store_true",
+                                help='export generated runtime files into mount dir. '
                                      '\nset "--mount-path" to choose a top path for mount dir. '
-                                     '\nset "--force-overwrite" to enable overwrite when IOC in mount dir '
-                                     'conflicts with the one in repository. ')
+                                     '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
+                                     'conflicts with the those in repository. ')
     parser_execute.add_argument('--mount-path', type=str, default=f'{os.path.join(get_manager_path(), "..")}',
-                                help=f'top path for mount dir, dir "{MOUNT_DIR}" would be created there if not exists. '
-                                     f'\ndefault the upper directory of the manager tool, "$MANAGER_PATH/../".')
+                                help=f'the top path for mount dir, "{MOUNT_DIR}" directory will be created there. '
+                                     f'\ndefault: the parent directory of the manager tool, "$MANAGER_PATH/../" ')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
-                                help='force overwrite if the IOC project already exists.')
+                                help='force overwrite if files in the IOC project already exists.')
     parser_execute.add_argument('--generate-and-export', action="store_true",
-                                help='generate startup files and then automatically export them into mount dir. '
-                                     '\nset "--force-silent" to force silent running when generating startup files. '
-                                     '\nset "--force-default" to use default settings when generating startup files. '
+                                help='generate startup files and then export them into mount dir. '
                                      '\nset "--mount-path" to choose a top path for mount dir to export. '
                                      '\nset "--force-overwrite" to enable overwrite exporting when IOC in mount dir '
                                      'conflicts with the one in repository. ')
-    parser_execute.add_argument('--gen-compose-file', action="store_true",
-                                help='generate Docker Compose file hosts and IOC projects in mount directory. '
+    parser_execute.add_argument('--gen-compose-file', metavar="HOST", type=str, nargs='+',
+                                help='generate docker compose file of IOC projects in mount directory '
+                                     'with the host as smallest unit. '
                                      '\nset "--mount-path" to select a top path to find mount dir. '
-                                     '\nset "--base-image" to choose a base image used for running iocLogserver.'
-                                     '\nset "--hosts" to choose hosts in mount dir to generate Docker Compose file.')
-    parser_execute.add_argument('--hosts', type=str, nargs='*', default=[],
-                                help='hosts in mount dir to generate Docker Compose file.')
+                                     '\nset "--base-image" to choose a base image used for running iocLogserver.')
     parser_execute.add_argument('--base-image', type=str, default='base:dev',
-                                help='base image used for running iocLogserver. default "base:dev".')
+                                help='base image used for running iocLogserver. '
+                                     '\ndefault: "base:dev" ')
     parser_execute.add_argument('--gen-swarm-file', action="store_true",
-                                help='generate Docker Compose file of IOC projects for swarm deploying. '
+                                help='generate docker compose file of IOC projects for swarm deploying. '
                                      '\nset "--mount-path" to select a top path to find mount dir. ')
+    # new
+    parser_execute.add_argument('--deploy', action="store_true",
+                                help='generate and export startup files, then generate compose file for docker running.'
+                                     '\nset "--mount-path" to select a top path to find mount dir. '
+                                     '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
+                                     'conflicts with the those in repository. '
+                                     '\nset "--base-image" to choose a base image used for running iocLogserver'
+                                     '(only in compose deploy mode).'
+                                )
     parser_execute.add_argument('-b', '--gen-backup-file', action="store_true",
-                                help='generate backup file of all IOC projects, all IOC projects in repository will be '
-                                     'packed and compressed into a tgz file. '
+                                help='generate backup file, all IOC projects currently '
+                                     'in the repository will be packed and compressed into a tgz file. '
                                      '\nset "--backup-path" to choose a backup directory. '
                                      '\nset "--backup-mode" to choose a backup mode.')
     parser_execute.add_argument('--backup-path', type=str,
                                 default=f'{os.path.join(get_manager_path(), "..", IOC_BACKUP_DIR)}',
-                                help=f'dir path used for storing backup files of IOC projects. '
-                                     f'\ndefault "$MANAGER_PATH/../{IOC_BACKUP_DIR}/".')
+                                help=f'path of directory used for storing backup files of IOC projects. '
+                                     f'\ndefault: "$MANAGER_PATH/../{IOC_BACKUP_DIR}/" ')
     parser_execute.add_argument('--backup-mode', type=str, default='src',
                                 help='backup mode for IOC projects. '
                                      '\n"all": back up all files including running files'
                                      '(files generated by autosave, etc.). '
-                                     '\n"src": just back up files of IOC settings and source files. default "src" mode.')
-    parser_execute.add_argument('-r', '--restore-backup-file', action="store_true",
+                                     '\n"src": back up config file and source files. '
+                                     '\ndefault: "src" ')
+    parser_execute.add_argument('-r', '--restore-backup-file', metavar="BACKUP_FILE", type=str,
                                 help='restore IOC projects from tgz backup file. '
-                                     '\nset "--backup-path" to choose a backup directory. '
                                      '\nset "--force-overwrite" to enable overwrite when IOC in backup file '
                                      'conflicts with the one in repository.')
-    parser_execute.add_argument('--backup-file', type=str, default='',
-                                help='tgz backup file of IOC projects.')
-    parser_execute.add_argument('-t', '--restore-snapshot-file', type=str, nargs='+',
+    parser_execute.add_argument('--restore-snapshot-file', metavar="SNAPSHOT_FILE", type=str, nargs='+',
                                 help='restore IOC projects from snapshot files. '
-                                     '\nset "--force-silent" to force silent restoring.')
+                                     '\nset "--force-overwrite" to enable overwrite when snapshot file '
+                                     'conflicts with the one in repository.')
     parser_execute.add_argument('--run-check', action="store_true",
-                                help='check given IOC project or all IOC projects.')
+                                help='check IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_execute.set_defaults(func='parse_execute')
 

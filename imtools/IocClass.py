@@ -320,11 +320,13 @@ class IOC:
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
-    def get_src_file(self, src_dir=None):
+    def get_src_file(self, src_dir=None, print_info=False):
         db_suffix = DB_SUFFIX
         proto_suffix = PROTO_SUFFIX
         other_suffix = OTHER_SUFFIX
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
+        if self.verbose:
+            print(f'IOC("{self.name}").get_src_file: get files from "{src_p}".')
         if not os.path.exists(src_p):
             self.set_state_info(state=STATE_ERROR, state_info='source directory lost.')
             print(f'IOC("{self.name}").get_src_file: Failed. Path provided "{src_p}" not exist.')
@@ -350,25 +352,37 @@ class IOC:
                     db_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
+                        if print_info:
+                            print(f'IOC("{self.name}").get_src_file: add "{item}".')
                 else:
-                    print(f'IOC("{self.name}").get_src_file: Warning. File "{item}" was already added, skipped. '
-                          f'You\'d better to check whether the db files are conflicting.')
+                    if src_p != self.src_path:
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
+                    if print_info:
+                        print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
             elif item.endswith(proto_suffix):
                 if item not in proto_list:
                     proto_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
+                        if print_info:
+                            print(f'IOC("{self.name}").get_src_file: add "{item}".')
                 else:
-                    print(f'IOC("{self.name}").get_src_file: Warning. File "{item}" was already added, skipped. '
-                          f'You\'d better to check whether the .proto files are conflicting.')
+                    if src_p != self.src_path:
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
+                    if print_info:
+                        print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
             elif item.endswith(other_suffix):
                 if item not in other_list:
                     other_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
+                        if print_info:
+                            print(f'IOC("{self.name}").get_src_file: add "{item}".')
                 else:
-                    print(f'IOC("{self.name}").get_src_file: Warning. File "{item}" was already added, skipped. '
-                          f'You\'d better to check whether files are conflicting.')
+                    if src_p != self.src_path:
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
+                    if print_info:
+                        print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
 
         # Update the settings.
         db_list = db_list.rstrip(', ')
@@ -377,15 +391,15 @@ class IOC:
         if db_list:
             self.set_config('db_file', db_list, 'SRC')
             if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: Add db files. Set attribute "file: {db_list}".')
+                print(f'IOC("{self.name}").get_src_file: get db files "{db_list}".')
         if proto_list:
             self.set_config('protocol_file', proto_list, 'SRC')
             if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: Add protocol files "{proto_list}".')
+                print(f'IOC("{self.name}").get_src_file: get protocol files "{proto_list}".')
         if other_list:
             self.set_config('other_file', other_list, 'SRC')
             if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: Add files "{other_list}".')
+                print(f'IOC("{self.name}").get_src_file: get other files "{other_list}".')
         if any((db_list, proto_list, other_list)):
             self.write_config()
 
@@ -457,7 +471,7 @@ class IOC:
 
     # Generate all startup files for running an IOC project.
     # This function should be called after that generate_check is passed.
-    def generate_startup_files(self, force_executing=False, force_default=False):
+    def generate_startup_files(self):
         if not self.generate_check():
             print(f'IOC("{self.name}").generate_st_cmd": Failed. Checks failed before generating startup files.')
             return
@@ -471,51 +485,10 @@ class IOC:
 
         # Query whether to use default if unspecified IOC executable binary.
         if not self.get_config('bin'):
-            if force_default:
-                self.set_config('bin', DEFAULT_IOC)
-                if self.verbose:
-                    print(f'IOC("{self.name}").generate_st_cmd": Executable IOC was set to default "{DEFAULT_IOC}".')
-            else:
-                if force_executing:
-                    print(f'IOC("{self.name}").generate_st_cmd: Failed. No executable IOC specified.')
-                    state_info = 'option "bin" not set.'
-                    self.set_state_info(state=STATE_WARNING, state_info=state_info)
-                    return
-                while not force_executing:
-                    ans = input(f'IOC("{self.name}").generate_st_cmd: Executable IOC not defined. '
-                                f'Use default "{DEFAULT_IOC}" to continue?[y|n]:')
-                    if ans.lower() == 'n' or ans.lower() == 'no':
-                        print(f'IOC("{self.name}").generate_st_cmd": Failed. No executable IOC specified.')
-                        state_info = 'option "bin" not set.'
-                        self.set_state_info(state=STATE_WARNING, state_info=state_info)
-                        return
-                    if ans.lower() == 'y' or ans.lower() == 'yes':
-                        self.set_config('bin', DEFAULT_IOC)
-                        print(f'IOC("{self.name}").generate_st_cmd": Executable IOC set default to "{DEFAULT_IOC}".')
-                        break
-                    print('Invalid input, please try again.')
-
-        # Query whether to use default if unspecified install modules.
-        if not self.get_config('module'):
-            if force_default:
-                self.set_config('module', DEFAULT_MODULES)
-                if self.verbose:
-                    print(f'IOC("{self.name}").generate_st_cmd": Modules to be installed was set to default'
-                          f' "{DEFAULT_MODULES}".')
-            else:
-                while not force_executing:
-                    ans = input(
-                        f'IOC("{self.name}").generate_st_cmd": Modules to be installed not defined. '
-                        f'Use default "{DEFAULT_MODULES}" to continue?[y|n]:')
-                    if ans.lower() == 'n' or ans.lower() == 'no':
-                        print('Continue, no module will be installed.')
-                        break
-                    if ans.lower() == 'y' or ans.lower() == 'yes':
-                        self.set_config('module', DEFAULT_MODULES)
-                        print(f'IOC("{self.name}").generate_st_cmd": Modules to be installed was set to default'
-                              f' "{DEFAULT_MODULES}".')
-                        break
-                    print('Invalid input, please try again.')
+            print(f'IOC("{self.name}").generate_st_cmd": Failed. No executable IOC specified.')
+            state_info = 'option "bin" not set.'
+            self.set_state_info(state=STATE_WARNING, state_info=state_info)
+            return
 
         if self.verbose:
             print(f'IOC("{self.name}").generate_st_cmd": Setting "module: {self.get_config("module")}" '
@@ -870,13 +843,14 @@ class IOC:
                           verbose=self.verbose)
                 os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
             for item_dir in dir_to_copy:
-                if not dir_copy(os.path.join(self.project, item_dir), os.path.join(top_path, item_dir), self.verbose):
+                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir), self.verbose):
                     print(f'IOC("{self.name}").export_for_mount: Failed. '
                           f'You may run this command again with "-v" option to see '
                           f'what happened for IOC "{self.name}" in details.')
                     return
             else:
-                print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" updated in {top_path}.')
+                print(f'IOC("{self.name}").export_for_mount: Success. '
+                      f'Config file and "src" directory of updated in {top_path}.')
 
     # return whether the files are in consistent with snapshot files.
     def check_snapshot_files(self, print_info=False):
@@ -884,7 +858,7 @@ class IOC:
             if self.verbose:
                 print(f'IOC("{self.name}").check_snapshot_files: '
                       f'Failed, can\'t check snapshot files as project is not in "tracked" state.')
-            return
+            return False, 'unchecked', 'unchecked'
         if self.verbose or print_info:
             print(f'IOC("{self.name}").check_snapshot_files: '
                   f'Start checking snapshot files.')
@@ -1168,11 +1142,15 @@ class IOC:
     # Checks for IOC projects.
     def project_check(self, print_info=False):
         print(f'---------------------------------------------')
-        consistent_flag, _, _ = self.check_snapshot_files(print_info=print_info)
+        consistent_flag, temp, _ = self.check_snapshot_files(print_info=print_info)
         if consistent_flag:
             print(f'IOC("{self.name}").project_check: snapshot consistency OK.')
         else:
-            print(f'IOC("{self.name}").project_check: snapshot inconsistency found!')
+            if temp == 'unchecked':
+                print(f'IOC("{self.name}").project_check: '
+                      f'can\'t check snapshot consistency as project is not tracked by snapshot.')
+            else:
+                print(f'IOC("{self.name}").project_check: snapshot inconsistency found!')
         consistent_flag, _ = self.check_consistency(print_info=print_info)
         if consistent_flag:
             print(f'IOC("{self.name}").project_check: running file consistency OK.')
