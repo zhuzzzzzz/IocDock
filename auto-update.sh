@@ -2,7 +2,7 @@
 
 #######   Do As Following Instructions   #######
 #
-### If you want to update IOC settings from old version to new version, do as the followings. ###
+### If you want to update IOC settings from old version to new version, do as followings. ###
 ## backup old IOC projects.
 #	IocManager.py exec -b
 ## update IOC projects.
@@ -29,8 +29,12 @@ cd $script_dir
 
 # set environment variable. 
 echo setting environment variable...
+repository_path=$script_dir/ioc-repository/
+mount_path=$script_dir/../ioc-for-docker/
 file_path=/etc/profile.d/IocManagerInstaller.sh
-echo export MANAGER_PATH=$(pwd) > $file_path
+echo "export MANAGER_PATH=$script_dir" > $file_path
+echo "export REPOSITORY_PATH=$repository_path" >> $file_path # $REPOSITORY_PATH for finding IOC projects.
+echo "export MOUNT_PATH=$mount_path" >> $file_path # $MOUNT_PATH for finding hosts.
 source $file_path
 # add command soft link.
 echo making command soft link...
@@ -38,7 +42,7 @@ ln -sf $script_dir/IocManager.py /usr/bin/IocManager
 
 
 #
-echo "Update finished."
+echo "Update finished. You may need to reboot to make the settings to take effect."
 # 
 
 

@@ -200,7 +200,8 @@ def get_all_ioc(dir_path=None, from_list=None, verbose=False):
 
 
 # Show IOC projects that meeting the specified conditions and section, AND logic is implied to each condition.
-def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_info=False, verbose=False):
+def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_info=False, show_panel=False,
+                     verbose=False):
     section = section.upper()  # to support case-insensitive filter for section.
 
     ioc_list = get_all_ioc(from_list=from_list, verbose=verbose)
@@ -278,12 +279,33 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
             index_to_preserve.append(i)
     # print results.
     ioc_print = []
+    panel_print = [["IOC", "Host", "State", "Status", "RunningStatus", "ExportConsistency"], ]
+    running_iocs = []
+    if show_panel:
+        running_iocs = SwarmManager.get_deployed_swarm_services()
+        running_iocs.extend(SwarmManager.get_deployed_compose_services())
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
+        elif show_panel:
+            if ioc_list[i].check_config('host', 'swarm'):
+                if f'{PREFIX_STACK_NAME}_srv-{ioc_list[i].name}' in running_iocs:
+                    temp = 'running'
+                else:
+                    temp = 'not running'
+            else:
+                if f'ioc-{ioc_list[i].get_config("host")}' in running_iocs:
+                    temp = 'running in compose'
+                else:
+                    temp = 'not running'
+            panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("state"),
+                                ioc_list[i].get_config("status"), temp,
+                                ioc_list[i].check_consistency(print_info=False)[1]])
         else:
             ioc_print.append(ioc_list[i].name)
     else:
+        if show_panel:
+            print(tabulate(panel_print, headers="firstrow", tablefmt='plain'))
         print(' '.join(ioc_print))
 
 
@@ -391,9 +413,11 @@ def execute_swarm(args):
         SwarmManager().remove_all_services()
     elif args.show_digest:
         SwarmManager().show_info()
+    elif args.show_compose:
+        SwarmManager.show_compose_services()
     elif args.show_services:
         if args.detail:
-            SwarmManager.show_deployed_info()
+            SwarmManager.show_deployed_services_detail()
         else:
             SwarmManager.show_deployed_services()
     elif args.show_nodes:
@@ -897,7 +921,7 @@ if __name__ == '__main__':
                                            formatter_class=argparse.RawTextHelpFormatter)
     parser_execute.add_argument('name', type=str, nargs='*', help='name for IOC project, a name list is supported.')
     # Sort by operation procedure.
-    parser_execute.add_argument('--add-src-file', metavar="SRC_FILE", type=str, nargs='?', const='', default=None,
+    parser_execute.add_argument('--add-src-file', metavar="DIR_PATH", type=str, nargs='?', const='', default=None,
                                 help='add source files from given path and update settings automatically. '
                                      '\ndefault: the "src" directory in project ')
     parser_execute.add_argument('--gen-startup-file', action="store_true",
@@ -910,8 +934,9 @@ if __name__ == '__main__':
     parser_execute.add_argument('--mount-path', type=str, default=f'{os.path.join(get_manager_path(), "..")}',
                                 help=f'the top path for mount dir, "{MOUNT_DIR}" directory will be created there. '
                                      f'\ndefault: the parent directory of the manager tool, "$MANAGER_PATH/../" ')
-    parser_execute.add_argument('--force-overwrite', action="store_true", default=False,
-                                help='force overwrite if files in the IOC project already exists.')
+    parser_execute.add_argument('--force-overwrite', action="store_true", default=True,
+                                help='force overwrite if files in the IOC project already exists.'
+                                     '\ndefault: True')
     parser_execute.add_argument('--generate-and-export', action="store_true",
                                 help='generate startup files and then export them into mount dir. '
                                      '\nset "--mount-path" to choose a top path for mount dir to export. '
@@ -924,7 +949,7 @@ if __name__ == '__main__':
                                      '\nset "--base-image" to choose a base image used for running iocLogserver.')
     parser_execute.add_argument('--base-image', type=str, default='base:dev',
                                 help='base image used for running iocLogserver. '
-                                     '\ndefault: "base:dev" ')
+                                     '\ndefault: "base:beta-0.2.2" ')
     parser_execute.add_argument('--gen-swarm-file', action="store_true",
                                 help='generate docker compose file of IOC projects for swarm deploying. '
                                      '\nset "--mount-path" to select a top path to find mount dir. ')
@@ -976,6 +1001,7 @@ if __name__ == '__main__':
     parser_list.add_argument('-l', '--ioc-list', type=str, nargs='*',
                              help='filter IOC projects by given conditions from given IOC list.')
     parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC settings.')
+    parser_list.add_argument('-p', '--show-panel', action="store_true", help='show panel of IOC information.')
     parser_list.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
     parser_list.set_defaults(func='parse_list')
 
@@ -985,7 +1011,7 @@ if __name__ == '__main__':
     parser_swarm.add_argument('--gen-global-compose-file', action="store_true",
                               help='generate global compose file for swarm deploying.'
                                    '\nset "--base-image" to choose a base image used for running iocLogserver.')
-    parser_swarm.add_argument('--base-image', type=str, default='base:dev',
+    parser_swarm.add_argument('--base-image', type=str, default='base:beta-0.2.2',
                               help='base image used for running iocLogserver. default "base:dev".')
     parser_swarm.add_argument('--deploy-global-services', action="store_true",
                               help='deploy all global services into running.')
@@ -999,6 +1025,8 @@ if __name__ == '__main__':
                               help='remove all deployed services including global services.')
     parser_swarm.add_argument('--show-digest', action="store_true",
                               help='show digest information of current swarm deploying.')
+    parser_swarm.add_argument('--show-compose', action="store_true",
+                              help='show all deployed compose projects. ')
     parser_swarm.add_argument('--show-services', action="store_true",
                               help='show all service deployed in swarm. '
                                    '\nset "--detail" to show details.')
@@ -1126,8 +1154,8 @@ if __name__ == '__main__':
             set_ioc(args.name, args, config=conf_temp, verbose=args.verbose)
     if args.func == 'parse_list':
         # ./iocManager.py list
-        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list,
-                         show_info=args.show_info, verbose=args.verbose)
+        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list, show_info=args.show_info,
+                         show_panel=args.show_panel, verbose=args.verbose)
     if args.func == 'parse_remove':
         # ./iocManager.py remove
         for item in args.name:

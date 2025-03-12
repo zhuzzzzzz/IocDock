@@ -16,26 +16,23 @@ _mycommand_completion() {
 	
 	# 
 	sub_command_opts="create set exec list swarm service remove rename edit"
+	
 	#
-	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw --print-ioc --verbose --help"
-	_options_prompt="host= image= bin= description= load=  epics_env= report_info=true report_info=false caputlog_json=true caputlog_json=false "
-	_section_prompt="DB SETTING ASYN STREAM RAW"
-	_port_type_prompt="tcp/ip serial"
+	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw"
 	#
-	exec_prompt="--verbose --help" # general prompt for all exec commands.
-	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file --gen-swarm-file" # exec commands for specified IOC projects.
-	_backup_mode_prompt="src all"
+	exec_prompt="" # general prompt for all exec commands.
+	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file --gen-swarm-file --deploy" # exec commands for specified IOC projects.
 	#
-	list_prompt="--section --ioc-list --show-info --prompt-info --raw-info --verbose --help"
-	_condition_type_prompt="name= host= status=created status=generated status=exported snapshot=logged snapshot=changed is_exported=true is_exported=false"
+	list_prompt="--section --ioc-list --show-info --show-panel"
+	_condition_type_prompt="name= host= state= status= snapshot= is_exported= "
 	#
-	remove_prompt="--remove-all --force --verbose --help"
+	remove_prompt="--remove-all --force"
 	#
-	rename_prompt="--verbose --help"
+	rename_prompt=""
 	#
-	swarm_prompt="--gen-global-compose-file --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services --verbose --help"
+	swarm_prompt="--gen-global-compose-file --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-compose --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services"
 	#
-	service_prompt="--deploy --remove --show-config --show-info --show-logs --update --verbose --help"
+	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
 	
 	#
 	image_prefix="image.dals/"
@@ -58,15 +55,15 @@ _mycommand_completion() {
 	if [ $COMP_CWORD -eq 2 ]; then
 		case "$3" in 
 			"create")
-			prompt="--help" # "create" should specify an IOC project firstly.
+			prompt="" # "create" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			"set")
 			prompt="" # "set" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
-			"exec") # "exec" should specify an IOC project firstly or specify the commands that are to all IOC projects.
-			prompt="--gen-compose-file --gen-backup-file --restore-backup-file --run-check --verbose --help"
+			"exec") # "exec" may specify an IOC project firstly or specify the commands that are applied to all IOC projects.
+			prompt="--gen-compose-file --gen-backup-file --restore-backup-file --run-check"
 			prompt="$ioc_list $prompt"
 			;;
 			"list")
@@ -84,11 +81,11 @@ _mycommand_completion() {
 			prompt="$swarm_prompt"
 			;;
 			"service")
-			prompt="--help" # "service" should specify an IOC project firstly.
+			prompt="" # "service" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			"edit")
-			prompt="--help" # "edit" should specify an IOC project firstly.
+			prompt="" # "edit" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
 			;;
 			*)
@@ -113,10 +110,10 @@ _mycommand_completion() {
 			case ${COMP_WORDS[$i]} in
 				-*)
 				option_set_first=${COMP_WORDS[$i]} # get that first option.
-				ioc_list_temp="" # ioc projects will not be prompted. used for "create" "set" "exec" "remove", etc. 
-				exec_ioc_prompt_temp="" # commands for specified IOC projects will not be prompted, otherwise those should be prompt. used for "exec". 
-				_condition_type_prompt_temp="" # conditions will not be prompted. used for "list".
-				service_prompt_temp="--verbose --help"
+				ioc_list_temp="" # ioc projects will not be prompted when option has been set.
+				exec_ioc_prompt_temp="" # commands for specified IOC projects will not be prompted, otherwise those should be prompt. for "exec". 
+				_condition_type_prompt_temp="" # conditions will not be prompted. for "list".
+				service_prompt_temp=""
 				break
 				;;
 			esac
@@ -131,27 +128,12 @@ _mycommand_completion() {
 			esac
 		done
 		
-		# if "--hosts" was set at last, get hosts list.
-		if [ "$option_set_last" == "--hosts" ]; then
-			# get hosts list.
-			if [ -d "$MOUNT_PATH" ]; then 
-				hosts_list=$(ls $MOUNT_PATH)   
-			else
-				hosts_list="" 
-			fi	
-		fi
-		
 		# options completion for "create" and "set".
 		if [ ${COMP_WORDS[1]} == "create" -o ${COMP_WORDS[1]} == "set" ]; then 
 			case "$3" in 
 				"-o"|"--options")
-				compopt -o nospace
-				COMPREPLY=( $(compgen -W "${_options_prompt}" $2) )
-				return 0
 				;;
 				"-s"|"--section")
-				COMPREPLY=( $(compgen -W "${_section_prompt}" -- $2) )
-				return 0
 				;;
 				"-f"|"--ini-file")
 				compopt -o nospace
@@ -174,31 +156,15 @@ _mycommand_completion() {
 				"--autosave")
 				;;
 				"--add-asyn")
-				prompt="--port-type"
 				;;
 				"--add-stream")
-				prompt="--port-type"
-				;;
-				"--port-type")
-				COMPREPLY=( $(compgen -W "${_port_type_prompt}" -- $2) )
-				return 0
 				;;
 				"--add-raw")
 				;;
-				"-p"|"--print-ioc")
-				;;
-				"-v"|"--verbose")
-				;;
-				"-h"|"--help")
-				;;
 				*)
-				if [ "$option_set_last" == "--options" -o "$option_set_last" == "-o" ]; then 
-					compopt -o nospace
-					prompt=$_options_prompt
-				fi
 				;;
 			esac
-			prompt="$prompt $create_prompt"
+			prompt="$create_prompt"
 			prompt="$prompt $ioc_list_temp"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 			return 0
@@ -207,9 +173,6 @@ _mycommand_completion() {
 		if [ ${COMP_WORDS[1]} == "exec" ]; then 
 			case "$3" in 
 				"--add-src-file")
-				prompt="--src-path"
-				;;
-				"--src-path")
 				compopt -o nospace
 				directory_list=$(compgen -d -- $2) # Variable Type!!!
 				for dir in $directory_list; do
@@ -218,23 +181,11 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--gen-startup-file")
-				prompt="--force-silent --force-default"
-				;;
-				"--force-silent")
-				if [ "$option_set_first" == "--gen-startup-file" ]; then
-					prompt="--force-default"
-				elif [ "$option_set_first" == "--restore-snapshot-file" ]; then
-					prompt=""
-				else
-					return 0
-				fi
-				prompt="--force-default"
-				;;
-				"--force-default")
-				prompt="--force-silent"
+				return 0
 				;;
 				"-e"|"--export-for-mount")
-				prompt="--mount-path --force-overwrite"
+				COMPREPLY=( $(compgen -W "--mount-path --force-overwrite" -- $2) )
+				return 0
 				;;
 				"--mount-path")
 				compopt -o nospace
@@ -245,24 +196,26 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--force-overwrite")
-				if [ "$option_set_first" == "--export-for-mount" ]; then
-					prompt="--mount-path"
-				elif [ "$option_set_first" == "--restore-backup-file" ]; then
-					prompt="--backup-path"
-				else
-					return 0
-				fi
+				;;
+				"--generate-and-export")
+				COMPREPLY=( $(compgen -W "--mount-path --force-overwrite" -- $2) )
+				return 0
 				;;
 				"--gen-compose-file")
-				prompt="--base-image --hosts"
-				;;
-				"--hosts")
-				COMPREPLY=( $(compgen -W "${hosts_list}" -- $2) )
+				COMPREPLY=( $(compgen -W "$(ls $MOUNT_PATH)" -- $2) )
 				return 0
 				;;
 				"--base-image")
 				compopt -o nospace
 				COMPREPLY=( $(compgen -W $image_prefix -- $2) )
+				return 0
+				;;
+				"--gen-swarm-file")
+				COMPREPLY=( $(compgen -W "--mount-path" -- $2) )
+				return 0
+				;;
+				"--deploy")
+				COMPREPLY=( $(compgen -W "--mount-path --force-overwrite --base-image" -- $2) )
 				return 0
 				;;
 				"-b"|"--gen-backup-file")
@@ -278,14 +231,10 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--backup-mode")
-				COMPREPLY=( $(compgen -W "${_backup_mode_prompt}" -- $2) )
+				COMPREPLY=( $(compgen -W "all src" -- $2) )
 				return 0
 				;;
 				"-r"|"--restore-backup-file")
-				COMPREPLY=( $(compgen -W "--backup-file " -- $2) )
-				return 0
-				;;
-				"--backup-file")
 				compopt -o nospace
 				file_list=$(compgen -f -- $2) # Variable Type!!!
 				for file in $file_list; do
@@ -298,35 +247,29 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--restore-snapshot-file")
-				prompt="--force-silent"
+				COMPREPLY=( $(compgen -W "all ioc.ini" -- $2) )
+				return 0
 				;;
 				"--run-check")
 				;;
-				"--gen-swarm-file")
-				prompt="--mount-path"
-				;;
-				"-v"|"--verbose")
-				;;
-				"-h"|"--help")
-				;;
 				*)
-				if [ "$option_set_last" == "--mount-path" ]; then 
-					prompt="--force-overwrite"
-				elif [ "$option_set_last" == "--hosts" ]; then 
-					prompt="--base-image ${hosts_list}"
-				elif [ "$option_set_last" == "--ioc-list" ]; then 
-					prompt="${ioc_list}"
-				elif [ "$option_set_last" == "--base-image" ]; then 
-					prompt="--hosts"
-				elif [ "$option_set_last" == "--backup-path" ]; then 
-					prompt="--backup-mode"
-				elif [ "$option_set_last" == "--backup-mode" ]; then 
-					prompt="--backup-path"
-				elif [ "$option_set_last" == "--backup-file" ]; then 
-					prompt="--force-overwrite"
-				fi
 				;;
 			esac
+			if [[ "$option_set_first" == "--export-for-mount" ]]; then 
+				prompt="--mount-path --force-overwrite"
+			elif [ "$option_set_first" == "--generate-and-export" ]; then 
+				prompt="--mount-path --force-overwrite"
+			elif [ "$option_set_first" == "--gen-compose-file" ]; then 
+				prompt="--mount-path --base-image"
+			elif [ "$option_set_first" == "--deploy" ]; then 
+				prompt="--mount-path --force-overwrite --base-image"
+			elif [ "$option_set_first" == "--gen-backup-file" ]; then 
+				prompt="--backup-path --backup-mode"
+			elif [ "$option_set_first" == "--restore-backup-file" ]; then 
+				prompt="--force-overwrite"
+			elif [ "$option_set_first" == "--restore-snapshot-file" ]; then 
+				prompt="--force-overwrite"
+			fi
 			prompt="$prompt $exec_ioc_prompt_temp"
 			prompt="$prompt $exec_prompt"
 			prompt="$prompt $ioc_list_temp"
@@ -337,7 +280,7 @@ _mycommand_completion() {
 		if [ ${COMP_WORDS[1]} == "list" ]; then 
 			case "$3" in
 				"-s"|"--section")
-				COMPREPLY=( $(compgen -W "${_section_prompt}" -- $2) )
+				COMPREPLY=( $(compgen -W "IOC SETTING" -- $2) )
 				return 0
 				;;
 				"-l"|"--ioc-list")
@@ -356,7 +299,7 @@ _mycommand_completion() {
 				;;
 				*)
 				if [ "$option_set_last" == "--ioc-list" -o "$option_set_last" == "-l" ]; then 
-					prompt="--section --show-info --raw-info --prompt-info --verbose $ioc_list"
+					prompt="--section --show-info --show-panel $ioc_list"
 					COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 					return 0
 				fi
@@ -401,24 +344,14 @@ _mycommand_completion() {
 		if [ ${COMP_WORDS[1]} == "swarm" ]; then 
 			case "$3" in
 				"--gen-global-compose-file")
-				prompt="--base-image"
+				COMPREPLY=( $(compgen -W "--base-image" -- $2) )
+				return 0
 				;;
 				"--base-image")
 				compopt -o nospace
 				COMPREPLY=( $(compgen -W $image_prefix -- $2) )
 				return 0
-				;;				
-				"--show-digest")
-				;;
-				"--show-services")
-				prompt="--detail"
-				;;
-				"--detail")
-				;;
-				"--show-nodes")
-				;;
-				"--show-tokens")
-				;;
+				;;	
 				"--deploy-global-services")
 				;;
 				"--deploy-all-iocs")
@@ -429,10 +362,24 @@ _mycommand_completion() {
 				;;
 				"--remove-all-services")
 				;;
+				"--show-digest")
+				;;
+				"--show-compose")
+				;;
+				"--show-services")
+				prompt="--detail"
+				;;
+				"--detail")
+				;;
+				"--show-nodes")
+				;;
+				"--show-tokens")
+				;;
 				"-b"|"--backup-swarm")
 				;;
 				"-r"|"--restore-swarm")
-				prompt="--backup-file"
+				COMPREPLY=( $(compgen -W "--backup-file" -- $2) )
+				return 0
 				;;
 				"--backup-file")
 				compopt -o nospace
@@ -451,7 +398,7 @@ _mycommand_completion() {
 				*)
 				;;
 			esac
-			prompt="$prompt --verbose --help"
+			prompt="$prompt"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 			return 0
 		fi	
@@ -487,4 +434,3 @@ complete -F _mycommand_completion "./IocManager.py"
 complete -F _mycommand_completion "IocManager.py"
 complete -F _mycommand_completion "IocManager"
 
-# export $REPOSITORY_PATH here.

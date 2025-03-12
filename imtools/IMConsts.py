@@ -2,7 +2,7 @@ import os
 from .IMError import IMValueError
 
 
-def get_manager_path():
+def get_manager_path() -> str:
     repository_path = os.environ.get("MANAGER_PATH", default='')
     if repository_path:
         if os.path.isdir(repository_path):

@@ -4,6 +4,9 @@ import datetime
 import shutil
 import socket
 import filecmp
+import logging
+from logging.handlers import RotatingFileHandler
+
 from .IMConsts import get_manager_path, TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE
 
 
@@ -220,17 +223,36 @@ def dir_compare(snapshot_dir, source_dir, print_info=False):
 
 
 #########################################################
-
 def operation_log():
+    # 生成日志内容
     log_time = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
     log_command = ' '.join(sys.argv)
     log_user = os.getenv("USER")
     log_host = socket.gethostname()
-    log_id = log_user + '@' + log_host
-    log_str = '\t'.join([log_time, log_id, log_command])
+    log_id = f"{log_user}@{log_host}"
+    log_str = '\t'.join([log_time, log_id, log_command]) + '\n'  # 自带换行符
+
+    # 获取日志文件路径
     file_path = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE)
-    with open(file_path, 'a') as f:
-        f.write(log_str + '\n')
+
+    # 配置日志记录器
+    logger = logging.getLogger('operation_logger')
+
+    # 防止重复添加handler
+    if not logger.handlers:
+        # 设置循环日志处理器
+        handler = RotatingFileHandler(
+            filename=file_path,
+            maxBytes=10 * 1024 * 1024,  # 10MB滚动
+            encoding='utf-8'
+        )
+        # 保持原始日志格式（仅记录纯消息）
+        handler.setFormatter(logging.Formatter('%(message)s'))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+    # 记录日志
+    logger.info(log_str)
 
 
 if __name__ == '__main__':
