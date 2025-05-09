@@ -1055,11 +1055,11 @@ class IOC:
                 if files_to_restore['config']:
                     if not file_copy(files_to_restore['config'], self.dir_path, mode='rw', verbose=self.verbose):
                         print(f'IOC("{self.name}").restore_from_snapshot_file": '
-                              f'Restoring {files_to_restore['config']} failed.')
+                              f'Restoring {files_to_restore["config"]} failed.')
                     else:
                         if self.verbose:
                             print(f'IOC("{self.name}").restore_from_snapshot_file": '
-                                  f'Restoring {files_to_restore['config']} succeed.')
+                                  f'Restoring {files_to_restore["config"]} succeed.')
                 for item in files_to_restore['src']:
                     if not file_copy(item, self.src_path, mode='rw', verbose=self.verbose):
                         print(f'IOC("{self.name}").restore_from_snapshot_file": '

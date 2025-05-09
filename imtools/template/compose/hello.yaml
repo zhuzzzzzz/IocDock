@@ -1,0 +1,11 @@
+services:
+  srv-hello:
+    image: m.daocloud.io/docker.io/busybox
+    entrypoint: 
+    - /bin/sh
+    - -c
+    - "echo hello; sleep infinity"
+    deploy:
+      mode: replicated
+      replicas: 2
+

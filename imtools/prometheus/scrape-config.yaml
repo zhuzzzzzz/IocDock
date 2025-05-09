@@ -1,0 +1,50 @@
+  # Create a job for Docker Swarm containers.
+#  - job_name: "docker-containers"
+#    docker_sd_configs:
+#      - host: unix:///var/run/docker.sock # You can also use http/https to connect to the Docker daemon.
+  
+  - job_name: 'node-swarm'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: nodes
+   #     port: 9323
+    relabel_configs:
+      # Fetch metrics on port 9323.
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: $1:9323
+      # Set hostname as instance label
+      - source_labels: [__meta_dockerswarm_node_hostname]
+        target_label: instance
+        replacement: $1-swarm
+
+  # Create a job for Swarm tasks.
+  - job_name: 'task-swarm'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: tasks
+    relabel_configs:
+      # Set hostname as instance label
+      - source_labels: [__meta_dockerswarm_node_hostname]
+        target_label: instance
+        replacement: $1-cadvisor
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: $1:8080
+      # Only keep containers that have a `prometheus-job` label.
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        regex: .+
+        action: keep
+#      - source_labels: [__meta_dockerswarm_node_role]
+#        regex: manager
+#        action: keep
+      # Use the prometheus-job Swarm label as Prometheus job label.
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        target_label: job
+        replacement: $1
+  
+  # Create a job for Swarm services.
+#  - job_name: 'service-swarm'
+#    dockerswarm_sd_configs:
+#      - host: unix:///var/run/docker.sock
+#        role: services

@@ -1,0 +1,32 @@
+networks:
+  hostnet:
+    external: true
+    name: host
+services:
+  srv-iocLogServer:
+    deploy:
+      mode: global
+      restart_policy:
+        window: 10s
+      update_config:
+        delay: 10s
+        failure_action: rollback
+        parallelism: 1
+    entrypoint:
+    - bash
+    - -c
+    - . ~/.bash_aliases; export EPICS_IOC_LOG_FILE_NAME=/opt/EPICS/RUN/iocLog/$$(hostname).ioc.log;
+      date; echo export EPICS_IOC_LOG_FILE_NAME=$${EPICS_IOC_LOG_FILE_NAME}; echo
+      run iocLogServer; iocLogServer
+    image: image.dals/base:beta-0.2.2
+    networks:
+    - hostnet
+    tty: true
+    volumes:
+    - source: ../iocLog
+      target: /opt/EPICS/RUN/iocLog
+      type: bind
+    - read_only: true
+      source: /etc/localtime
+      target: /etc/localtime
+      type: bind
