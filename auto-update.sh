@@ -42,7 +42,7 @@ ln -sf $script_dir/IocManager.py /usr/bin/IocManager
 
 
 #
-echo "Update finished. You may need to reboot to make the settings to take effect."
+echo "Update finished. You may need to reboot to make some settings to take effect."
 # 
 
 

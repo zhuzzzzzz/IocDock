@@ -1,9 +1,9 @@
-networks:
-  hostnet:
-    external: true
-    name: host
 services:
   srv-iocLogServer:
+    ports:
+    - target: 7004
+      published: 7004
+      mode: host # bypass the routing mesh
     deploy:
       mode: global
       restart_policy:
@@ -15,12 +15,12 @@ services:
     entrypoint:
     - bash
     - -c
-    - . ~/.bash_aliases; export EPICS_IOC_LOG_FILE_NAME=/opt/EPICS/RUN/iocLog/$$(hostname).ioc.log;
-      date; echo export EPICS_IOC_LOG_FILE_NAME=$${EPICS_IOC_LOG_FILE_NAME}; echo
-      run iocLogServer; iocLogServer
+    - . ~/.bash_aliases; 
+      date; 
+      export EPICS_IOC_LOG_FILE_NAME=/opt/EPICS/RUN/iocLog/$$HOSTNAME.ioc.log; 
+      echo export EPICS_IOC_LOG_FILE_NAME=$$EPICS_IOC_LOG_FILE_NAME; 
+      echo run iocLogServer...; iocLogServer
     image: image.dals/base:beta-0.2.2
-    networks:
-    - hostnet
     tty: true
     volumes:
     - source: ../iocLog

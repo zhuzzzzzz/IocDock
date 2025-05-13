@@ -1,8 +1,2 @@
-1. 统一 exec 命令及 service 命令的调用格式 (done)
-2. 增加 IOC 文件修改后直接生成导出及创建swarm文件和部署的快捷命令 (done)
-3. 对于 swarm 部署方式增加 IOC 是否正在运行的状态变量，以API方式 (done)
-4. 将用户无法设置的字段标注，并提供字段设置的过滤手段 (pass)
-5. 考虑在ini文件中通过注释增加关于字段设置的帮助信息 (pass)
-6. 协议文件在导出时由于冲突将不会新增文件，需要解决问题，考虑使用默认强制覆盖 (done)
-7. 添加移动至IOC项目目录的快捷命令，ioc-repository及ioc-for-docker (pass 无法使用python脚本实现)
-8. 操作日志的覆盖写入 (done)
+1. 为所有swarm主机添加设置 HOSTNAME=`hostname` 的环境变量初始化设置
+2. 将registry portainer服务迁移至 swarm部署，通过placement指定manager或worker，移除compose模式相关代码

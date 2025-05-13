@@ -398,8 +398,8 @@ def execute_ioc(args):
 
 
 def execute_swarm(args):
-    if args.gen_global_compose_file:
-        SwarmManager.gen_global_compose_file(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
+    if args.gen_compose_file:
+        SwarmManager.gen_compose_file(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
     elif args.deploy_global_services:
         SwarmManager().deploy_global_services()
     elif args.deploy_all_iocs:
@@ -1007,11 +1007,8 @@ if __name__ == '__main__':
     #
     parser_swarm = subparsers.add_parser('swarm', help='Functions for managing swarm system.',
                                          formatter_class=argparse.RawTextHelpFormatter)
-    parser_swarm.add_argument('--gen-global-compose-file', action="store_true",
-                              help='generate global compose file for swarm deploying.'
-                                   '\nset "--base-image" to choose a base image used for running iocLogserver.')
-    parser_swarm.add_argument('--base-image', type=str, default='base:beta-0.2.2',
-                              help='base image used for running iocLogserver. default "base:dev".')
+    parser_swarm.add_argument('--gen-compose-file', action="store_true",
+                              help='generate global compose file for swarm deploying.')
     parser_swarm.add_argument('--deploy-global-services', action="store_true",
                               help='deploy all global services into running.')
     parser_swarm.add_argument('--deploy-all-iocs', action="store_true",

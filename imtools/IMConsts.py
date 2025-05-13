@@ -67,4 +67,4 @@ PREFIX_STACK_NAME = 'dals'
 SWARM_DIR = 'swarm'
 
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
-GLOBAL_SERVICE_FILE_DIR = 'compose-global'
+COMPOSE_SERVICE_FILE_DIR = 'compose-swarn'

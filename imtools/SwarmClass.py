@@ -4,11 +4,11 @@ import subprocess
 import docker
 from tabulate import tabulate
 
-from imtools.IMConsts import (CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
-                              PREFIX_STACK_NAME, REPOSITORY_DIR, SWARM_BACKUP_DIR, GLOBAL_SERVICE_FILE_DIR,
+from imtools.IMConsts import (LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
+                              PREFIX_STACK_NAME, REPOSITORY_DIR, SWARM_BACKUP_DIR, COMPOSE_SERVICE_FILE_DIR,
                               TEMPLATE_PATH, )
 from imtools.IMFuncs import relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, file_copy
-from imtools.ServiceDefinition import GlobalServicesList, LocalServicesList
+from imtools.ServiceDefinition import GlobalServicesList, CustomServicesList, LocalServicesList
 
 
 class SwarmManager:
@@ -18,8 +18,10 @@ class SwarmManager:
         for ss in GlobalServicesList:
             self.services[ss] = SwarmService(name=ss, service_type='global')
         for ss in LocalServicesList:
+            self.services[ss] = SwarmService(name=ss, service_type='local')
+        for ss in CustomServicesList:
             name, compose_file = ss
-            self.services[ss] = SwarmService(name=name, service_type='local', compose_file=compose_file)
+            self.services[ss] = SwarmService(name=name, service_type='custom', compose_file=compose_file)
         self.client = docker.from_env()
         self.running_services = self.get_services_from_docker()
 
@@ -37,21 +39,26 @@ class SwarmManager:
 
     def show_info(self):
         raw_print = [["Name", "ServiceName", "Type", "Status", ], ]
+        custom_print = []
         local_print = []
         global_print = []
         ioc_print = []
         for item in self.services.values():
             if item.service_type == 'ioc':
                 ioc_print.append([item.name, item.service_name, item.service_type, item.current_state])
-            elif item.service_type == 'global':
+            if item.service_type == 'global':
                 global_print.append([item.name, item.service_name, item.service_type, item.current_state])
-            else:
+            if item.service_type == 'local':
                 local_print.append([item.name, item.service_name, item.service_type, item.current_state])
+            if item.service_type == 'custom':
+                custom_print.append([item.name, item.service_name, item.service_type, item.current_state])
         ioc_print.sort(key=lambda x: x[0])
         global_print.sort(key=lambda x: x[0])
         local_print.sort(key=lambda x: x[0])
+        custom_print.sort(key=lambda x: x[0])
         raw_print.extend(local_print)
         raw_print.extend(global_print)
+        raw_print.extend(custom_print)
         raw_print.extend(ioc_print)
         print(tabulate(raw_print, headers="firstrow", tablefmt='plain'))
         print('')
@@ -144,7 +151,7 @@ class SwarmManager:
 
     # copy compose file for global services to swarm dir from template dir.
     @staticmethod
-    def gen_global_compose_file(mount_dir):
+    def gen_compose_file(mount_dir):
         #
         mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
         top_path = os.path.join(mount_path, MOUNT_DIR, 'swarm')
@@ -152,11 +159,11 @@ class SwarmManager:
         try_makedirs(os.path.join(top_path, LOG_FILE_DIR))
         #
         template_dir = os.path.join(TEMPLATE_PATH, 'compose')
-        for item in GlobalServicesList:
+        for item in GlobalServicesList + LocalServicesList:
             if f'{item}.yaml' in os.listdir(template_dir):
                 # copy yaml file
                 template_path = os.path.join(template_dir, f'{item}.yaml')
-                file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
+                file_path = os.path.join(top_path, COMPOSE_SERVICE_FILE_DIR, f'{item}.yaml')
                 file_copy(template_path, file_path)
                 print(f'SwarmManager: Create compose file for "{item}".')
             else:
@@ -292,7 +299,8 @@ class SwarmService:
         :param service_type:
             "ioc",
             "global"(services that should run on each node), or
-            "local"(other services that also should run in this system)
+            "local"(services of swarm infrastructures), or
+            "custom"(other services that also should run in this system)
         """
         self.name = name
         self.service_type = None
@@ -301,18 +309,18 @@ class SwarmService:
             self.service_type = 'ioc'
             self.dir_path = os.path.abspath(os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, self.name))
             self.service_file = IOC_SERVICE_FILE
-        elif service_type == 'global':
-            self.service_type = 'global'
+        elif service_type == 'global' or service_type == 'local':
+            self.service_type = service_type
             self.dir_path = os.path.abspath(
-                os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, GLOBAL_SERVICE_FILE_DIR))
+                os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, COMPOSE_SERVICE_FILE_DIR))
             self.service_file = f'{self.name}.yaml'
         else:
-            self.service_type = 'local'
+            self.service_type = 'custom'
             compose_file_path = kwargs.get('compose_file')
             if not compose_file_path:
                 # if no extra arg about compose_file path given, try to find it from ServiceDefinition.py.
                 flag = False
-                for item in LocalServicesList:
+                for item in CustomServicesList:
                     if self.name == item[0]:
                         compose_file_path = relative_and_absolute_path_to_abs(item[1])
                         self.dir_path = os.path.dirname(compose_file_path)
