@@ -29,8 +29,8 @@ IOC_BACKUP_DIR = 'ioc-backup'  # version backup directory for ioc.ini file and o
 
 SWARM_BACKUP_DIR = 'swarm-backup'  # version backup directory for swarm
 
-OPERATION_LOG_PATH = 'log'
-OPERATION_LOG_FILE = 'OperationLogs'
+OPERATION_LOG_PATH = os.path.join(get_manager_path(), TOOLS_DIR)
+OPERATION_LOG_FILE = 'OperationLog'
 OPERATION_LOG_NUM = 1000
 
 TEMPLATE_PATH = os.path.join(get_manager_path(), TOOLS_DIR, 'template')

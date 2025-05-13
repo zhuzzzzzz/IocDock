@@ -233,7 +233,7 @@ def operation_log():
     log_str = '\t'.join([log_time, log_id, log_command]) + '\n'  # 自带换行符
 
     # 获取日志文件路径
-    file_path = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE)
+    file_path = os.path.join(OPERATION_LOG_PATH, OPERATION_LOG_FILE)
 
     # 配置日志记录器
     logger = logging.getLogger('operation_logger')
@@ -256,6 +256,4 @@ def operation_log():
 
 
 if __name__ == '__main__':
-    a = dir_compare('/home/zhu/docker/repository-IOC/imtools/ioc-snapshot/worker_test_1_1',
-                    '/home/zhu/docker/repository-IOC/ioc-repository/worker_test_1_1', return_info=False)
     print()

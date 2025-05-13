@@ -149,7 +149,7 @@ class SwarmManager:
             print(f'Operation exit.')
             return
 
-    # copy compose file for global services to swarm dir from template dir.
+    # copy compose file to swarm dir from template dir for global and local services.
     @staticmethod
     def gen_compose_file(mount_dir):
         #

@@ -1,41 +1,49 @@
   
-  - job_name: 'node-swarm'
+  - job_name: 'scrape-swarm-node'
     dockerswarm_sd_configs:
       - host: unix:///var/run/docker.sock
         role: nodes
-   #     port: 9323
     relabel_configs:
-      # Fetch metrics on port 9323.
       - source_labels: [__meta_dockerswarm_node_address]
         target_label: __address__
         replacement: $1:9323
-      # Set hostname as instance label
       - source_labels: [__meta_dockerswarm_node_hostname]
         target_label: instance
         replacement: $1
 
-  # Create a job for Swarm tasks.
-  - job_name: 'task-swarm'
+  - job_name: 'scrape-cadvisor'
     dockerswarm_sd_configs:
       - host: unix:///var/run/docker.sock
         role: tasks
     relabel_configs:
-      # Set hostname as instance label
       - source_labels: [__meta_dockerswarm_node_hostname]
         target_label: instance
         replacement: $1
       - source_labels: [__meta_dockerswarm_node_address]
         target_label: __address__
         replacement: $1:8080
-      # Only keep containers that have a `prometheus-job` label.
       - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
         regex: cadvisor
         action: keep
-#      - source_labels: [__meta_dockerswarm_node_role]
-#        regex: manager
-#        action: keep
-      # Use the prometheus-job Swarm label as Prometheus job label.
       - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
         target_label: job
         replacement: $1-swarm
-  
+
+  - job_name: 'scrape-node-exporter'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: tasks
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_node_hostname]
+        target_label: instance
+        replacement: $1
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: $1:9100
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        regex: node_exporter
+        action: keep
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        target_label: job
+        replacement: node-exporter
+
