@@ -1,0 +1,21 @@
+services:
+  srv-nodeExporter:
+    image: quay.io/prometheus/node-exporter
+    ports:
+    - target: 9100
+      published: 9100
+      mode: host # bypass the routing mesh
+    labels:
+      prometheus-job: node_exporter
+    deploy:
+      mode: global
+    volumes:
+    - /:/host:ro,rslave
+    - /sys:/host/sys:ro
+    - /proc:/host/proc:ro
+    command:
+    - "--web.disable-exporter-metrics"
+    - "--path.rootfs=/host"
+    - "--path.procfs=/host/proc"
+    - "--path.sysfs=/host/sys"
+    - "--collector.processes"

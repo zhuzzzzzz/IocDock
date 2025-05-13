@@ -38,20 +38,20 @@ class SwarmManager:
             print()
 
     def show_info(self):
-        raw_print = [["Name", "ServiceName", "Type", "Status", ], ]
+        raw_print = [["Name", "ServiceName", "Type", "Replicas", "Status"], ]
         custom_print = []
         local_print = []
         global_print = []
         ioc_print = []
         for item in self.services.values():
             if item.service_type == 'ioc':
-                ioc_print.append([item.name, item.service_name, item.service_type, item.current_state])
+                ioc_print.append([item.name, item.service_name, item.service_type, item.replicas, item.current_state])
             if item.service_type == 'global':
-                global_print.append([item.name, item.service_name, item.service_type, item.current_state])
+                global_print.append([item.name, item.service_name, item.service_type, item.replicas, item.current_state])
             if item.service_type == 'local':
-                local_print.append([item.name, item.service_name, item.service_type, item.current_state])
+                local_print.append([item.name, item.service_name, item.service_type, item.replicas, item.current_state])
             if item.service_type == 'custom':
-                custom_print.append([item.name, item.service_name, item.service_type, item.current_state])
+                custom_print.append([item.name, item.service_name, item.service_type, item.replicas, item.current_state])
         ioc_print.sort(key=lambda x: x[0])
         global_print.sort(key=lambda x: x[0])
         local_print.sort(key=lambda x: x[0])
@@ -297,7 +297,7 @@ class SwarmService:
         """
         :param name: service name.
         :param service_type:
-            "ioc",
+            "ioc", or
             "global"(services that should run on each node), or
             "local"(services of swarm infrastructures), or
             "custom"(other services that also should run in this system)
@@ -366,6 +366,17 @@ class SwarmService:
                 return 'Available but not deployed'
             else:
                 return 'Not Available'
+
+    @property
+    def replicas(self):
+        if self.is_deployed:
+            result = subprocess.run(
+                ['docker', 'stack', 'services', PREFIX_STACK_NAME, '-f', f'name={self.service_name}', '--format',
+                 '{{.Replicas}}', ],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return f'{result.stdout}{result.stderr}'
+        else:
+            return '-/-'
 
     def deploy(self):
         print(self)
