@@ -13,14 +13,23 @@ def get_manager_path() -> str:
         raise IMInitError(f'System environment variable "$MANAGER_PATH" is not defined.')
 
 
-# Definitions for directory name or file name.
-#####################################################################################################
-## dir names
+#
+#
+# Tool settings
+#######################################################################################################################
+
+## directory names
+#########################################################################
 REPOSITORY_DIR = 'ioc-repository'
+
 TOOLS_DIR = 'imtools'
+
 MOUNT_DIR = 'ioc-for-docker'  # directory for docker mounting
+
 SWARM_DIR = 'swarm'
+
 COMPOSE_SERVICE_FILE_DIR = 'compose-swarm'
+
 LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 
 IOC_BACKUP_DIR = 'ioc-backup'  # backup directory for IOC project files
@@ -28,43 +37,67 @@ IOC_BACKUP_DIR = 'ioc-backup'  # backup directory for IOC project files
 SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
 
 ## file names
+#########################################################################
 IOC_CONFIG_FILE = 'ioc.ini'
+
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
+
 OPERATION_LOG_FILE = 'OperationLog'
 
-## Path generated according to the above definitions
+## paths
+#########################################################################
+REPOSITORY_PATH = os.path.normpath(os.path.join(get_manager_path(), REPOSITORY_DIR))
+
 MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(get_manager_path(), '..', MOUNT_DIR)))
+
 SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR, 'ioc-snapshot')
+
 TEMPLATE_PATH = os.path.join(get_manager_path(), TOOLS_DIR, 'template')
 if not os.path.exists(TEMPLATE_PATH):
     raise IMInitError(f"Can't find directory \"template\".")
+
 COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'compose')
 if not os.path.exists(COMPOSE_TEMPLATE_PATH):
     raise IMInitError(f"Can't find directory \"template/compose\".")
+
+DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
+if not os.path.exists(DB_TEMPLATE_PATH):
+    raise IMInitError(f"Can't find directory \"template/db\".")
+
 OPERATION_LOG_PATH = os.path.join(get_manager_path(), TOOLS_DIR)
 
-# Tool settings.
-#####################################################################################################
-## swarm orchestration settings.
-PREFIX_STACK_NAME = 'dals'  # stack name in swarm
+## others
+#########################################################################
+OPERATION_LOG_NUM = 3000  # entry numbers of OperationLog
 
-## source file suffix recognized by IOC.get_src_file()
-DB_SUFFIX = ('.db',)
+#
+# IOC settings
+#######################################################################################################################
+
+## IOC repository setting
+#########################################################################
+STATE_NORMAL = 'normal'  # IOC state string
+STATE_WARNING = 'warning'
+STATE_ERROR = 'error'
+
+DB_SUFFIX = ('.db',)  # file name suffix recognized by get_src_file()
 PROTO_SUFFIX = ('.proto',)
 OTHER_SUFFIX = ('.im',)
 
-##
-OPERATION_LOG_NUM = 1000  # entry numbers of OperationLog
+MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc',
+                    'status-os']  # modules supported for automatic configuration and installation
 
-##
-MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
-DEFAULT_MODULES = 'autosave, caputlog, status-ioc'
+DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for created IOC projects
 
-# IOC settings.
-#####################################################################################################
-DEFAULT_IOC = 'ST-IOC'
+## IOC container setting
+#########################################################################
+DEFAULT_IOC = 'ST-IOC'  # default executable IOC in container
 
-## path definition in running container.
-CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')
+CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')  # path definition in running container.
 CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
 CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
+
+#
+# Deploy settings
+#######################################################################################################################
+PREFIX_STACK_NAME = 'dals'  # stack name in swarm

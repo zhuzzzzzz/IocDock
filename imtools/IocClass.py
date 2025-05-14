@@ -7,10 +7,6 @@ from .IMFunc import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, 
 from .IMConfig import *
 from .IMError import IMValueError
 
-STATE_NORMAL = 'normal'
-STATE_WARNING = 'warning'
-STATE_ERROR = 'error'
-
 
 class IOC:
     def __init__(self, dir_path=None, verbose=False, **kwargs):
@@ -213,7 +209,7 @@ class IOC:
             dir_remove(self.dir_path, self.verbose)
         else:
             # delete auto-generated part
-            for item in (os.path.join(self.dir_path, 'startup'), self.settings_path, self.log_path):
+            for item in (self.project_path,):
                 dir_remove(item, self.verbose)
             self.set_config('status', 'removed')
             self.write_config()
@@ -246,8 +242,8 @@ class IOC:
         self.set_config('name', os.path.basename(self.dir_path))
         self.set_config('host', '')
         self.set_config('image', '')
-        self.set_config('bin', 'ST-IOC')
-        self.set_config('module', 'autosave, caputlog')
+        self.set_config('bin', DEFAULT_IOC)
+        self.set_config('module', DEFAULT_MODULES)
         self.set_config('description', '')
         self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
         self.set_config('state_info', '')
@@ -604,7 +600,7 @@ class IOC:
             lines_at_dbload.append(f'dbLoadRecords("db/status_ioc.db","IOC={self.name}")\n')
             # devIocStats .db
             file_path = os.path.join(self.db_path, 'status_ioc.db')
-            template_file_path = os.path.join(TEMPLATE_PATH, 'db', 'status_ioc.db')
+            template_file_path = os.path.join(DB_TEMPLATE_PATH, 'status_ioc.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # status-os configurations.
@@ -614,7 +610,7 @@ class IOC:
             lines_at_dbload.append(f'dbLoadRecords("db/status_OS.db","HOST={self.name}:docker")\n')
             # devIocStats .db
             file_path = os.path.join(self.db_path, 'status_OS.db')
-            template_file_path = os.path.join(TEMPLATE_PATH, 'db', 'status_OS.db')
+            template_file_path = os.path.join(DB_TEMPLATE_PATH, 'status_OS.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # asyn configurations.
@@ -633,7 +629,7 @@ class IOC:
             lines_at_dbload.append(f'{self.get_config("load", sc)}\n')
             # add asynRecord.db
             file_path = os.path.join(self.db_path, 'asynRecord.db')
-            template_file_path = os.path.join(TEMPLATE_PATH, 'db', 'asynRecord.db')
+            template_file_path = os.path.join(DB_TEMPLATE_PATH, 'asynRecord.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # StreamDevice configurations.
@@ -780,7 +776,7 @@ class IOC:
                   f'exporting operation must under "normal" state.')
             return
 
-        if not self.check_config('status', 'generated') or self.check_config('status', 'exported'):
+        if not (self.check_config('status', 'generated') or self.check_config('status', 'exported')):
             print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
                   f'startup files should be generated before exporting.')
             return
@@ -843,7 +839,8 @@ class IOC:
                           verbose=self.verbose)
                 os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
             for item_dir in dir_to_copy:
-                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir), self.verbose):
+                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
+                                self.verbose):
                     print(f'IOC("{self.name}").export_for_mount: Failed. '
                           f'You may run this command again with "-v" option to see '
                           f'what happened for IOC "{self.name}" in details.')

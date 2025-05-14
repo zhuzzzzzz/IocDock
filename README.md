@@ -4,6 +4,10 @@ IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC
 
 ### 工具说明
 
+#### python package required
+
+```pip install docker tabulate ```
+
 #### 更新IOC项目管理工具
 
 在需要进行版本更新时, 按如下操作:

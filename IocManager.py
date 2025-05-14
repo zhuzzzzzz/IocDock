@@ -25,7 +25,7 @@ def create_ioc(name, args, config=None, verbose=False):
                 print(f'create_ioc: Failed. IOC name "{name}" has invalid character "{cha}".')
                 return
         #
-        dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+        dir_path = os.path.join(REPOSITORY_PATH, name)
         if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
             print(f'create_ioc: Failed. IOC "{name}" already exists.')
         else:
@@ -72,7 +72,7 @@ def create_ioc(name, args, config=None, verbose=False):
 # accept iterable for input
 def set_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
-        dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+        dir_path = os.path.join(REPOSITORY_PATH, name)
         if not os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
             print(f'set_ioc: Failed. IOC "{name}" is not exist.')
         else:
@@ -124,7 +124,7 @@ def set_ioc(name, args, config=None, verbose=False):
 # do not accept iterable for input
 # Remove IOC projects. just remove generated files or remove all files.
 def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
-    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+    dir_path = os.path.join(REPOSITORY_PATH, name)
     if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
         if not force_removal:
             if remove_all:
@@ -153,22 +153,22 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
 
 # do not accept iterable for input
 def rename_ioc(old_name, new_name, verbose):
-    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, old_name)
+    dir_path = os.path.join(REPOSITORY_PATH, old_name)
     if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
         try:
-            os.rename(dir_path, os.path.join(get_manager_path(), REPOSITORY_DIR, new_name))
+            os.rename(dir_path, os.path.join(REPOSITORY_PATH, new_name))
         except Exception as e:
             print(f'rename_ioc: Failed. Changing directory name failed, "{e}".')
         else:
             if verbose:
-                IOC(os.path.join(get_manager_path(), REPOSITORY_DIR, new_name), verbose=verbose)
+                IOC(os.path.join(REPOSITORY_PATH, new_name), verbose=verbose)
             else:
                 with open(os.devnull, 'w') as devnull:
                     original_stdout = sys.stdout
                     original_stderr = sys.stderr
                     sys.stdout = devnull
                     sys.stderr = devnull
-                    IOC(os.path.join(get_manager_path(), REPOSITORY_DIR, new_name), verbose=verbose)
+                    IOC(os.path.join(REPOSITORY_PATH, new_name), verbose=verbose)
                     sys.stdout = original_stdout
                     sys.stderr = original_stderr
             print(f'rename_ioc: Success. IOC project name changed from "{old_name}" to "{new_name}".')
@@ -180,7 +180,7 @@ def rename_ioc(old_name, new_name, verbose):
 def get_all_ioc(dir_path=None, from_list=None, verbose=False):
     ioc_list = []
     if not dir_path:
-        dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR)
+        dir_path = REPOSITORY_PATH
     items = os.listdir(dir_path)
     if from_list:
         temp_items = []
@@ -324,7 +324,7 @@ def execute_ioc(args):
     elif args.run_check:
         if args.name:
             for name in args.name:
-                dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+                dir_path = os.path.join(REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
                     ioc_temp = IOC(dir_path, args.verbose)
                     ioc_temp.project_check(print_info=True)
@@ -339,7 +339,7 @@ def execute_ioc(args):
             print(f'execute_ioc: No IOC project specified.')
         else:
             for name in args.name:
-                dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+                dir_path = os.path.join(REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
                     if args.verbose:
                         print(f'execute_ioc: dealing with IOC "{name}".')
@@ -841,7 +841,7 @@ def update_ioc(args):
 # Edit settings file for an IOC project using vi command.
 def edit_ioc(args):
     name = args.name
-    dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
+    dir_path = os.path.join(REPOSITORY_PATH, name)
     file_path = os.path.join(dir_path, IOC_CONFIG_FILE)
     if args.verbose:
         print(f'edit_ioc: Edit file path: "{file_path}".')
