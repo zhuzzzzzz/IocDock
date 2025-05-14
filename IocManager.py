@@ -8,9 +8,9 @@ import datetime
 import tarfile
 from collections.abc import Iterable
 from tabulate import tabulate
-from imtools.IMFuncs import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
-                             relative_and_absolute_path_to_abs, operation_log, )
-from imtools.IMConsts import *
+from imtools.IMFunc import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
+                            relative_and_absolute_path_to_abs, operation_log, )
+from imtools.IMConfig import *
 from imtools.IocClass import IOC
 from imtools.SwarmClass import SwarmManager, SwarmService
 
@@ -26,7 +26,7 @@ def create_ioc(name, args, config=None, verbose=False):
                 return
         #
         dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-        if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+        if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
             print(f'create_ioc: Failed. IOC "{name}" already exists.')
         else:
             # Create an IOC and do initialization by given configparser.ConfigParser() object.
@@ -73,7 +73,7 @@ def create_ioc(name, args, config=None, verbose=False):
 def set_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
         dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-        if not os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+        if not os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
             print(f'set_ioc: Failed. IOC "{name}" is not exist.')
         else:
             # Initialize an existing IOC, edit ioc.ini by given configparser.ConfigParser() object.
@@ -125,7 +125,7 @@ def set_ioc(name, args, config=None, verbose=False):
 # Remove IOC projects. just remove generated files or remove all files.
 def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
     dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-    if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+    if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
         if not force_removal:
             if remove_all:
                 print(f'remove_ioc: IOC "{name}" will be removed completely.', end='')
@@ -146,7 +146,7 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
                 print(f'remove_ioc: Success. IOC "{name}" removed completely.')
             else:
                 print(f'remove_ioc: Success. IOC "{name}" removed, '
-                      f'but directory "src/" and file "{CONFIG_FILE_NAME}" are preserved.')
+                      f'but directory "src/" and file "{IOC_CONFIG_FILE}" are preserved.')
     else:
         print(f'remove_ioc: Failed. IOC "{name}" not found.')
 
@@ -154,7 +154,7 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
 # do not accept iterable for input
 def rename_ioc(old_name, new_name, verbose):
     dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, old_name)
-    if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+    if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
         try:
             os.rename(dir_path, os.path.join(get_manager_path(), REPOSITORY_DIR, new_name))
         except Exception as e:
@@ -192,7 +192,7 @@ def get_all_ioc(dir_path=None, from_list=None, verbose=False):
     items.sort()  # sort according to name string.
     for ioc_name in items:
         subdir_path = os.path.join(dir_path, ioc_name)
-        # if os.path.isdir(subdir_path) and CONFIG_FILE_NAME in os.listdir(subdir_path):
+        # if os.path.isdir(subdir_path) and IOC_CONFIG_FILE in os.listdir(subdir_path):
         if os.path.isdir(subdir_path):
             ioc_temp = IOC(subdir_path, verbose)
             ioc_list.append(ioc_temp)
@@ -325,7 +325,7 @@ def execute_ioc(args):
         if args.name:
             for name in args.name:
                 dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-                if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+                if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
                     ioc_temp = IOC(dir_path, args.verbose)
                     ioc_temp.project_check(print_info=True)
                 else:
@@ -340,7 +340,7 @@ def execute_ioc(args):
         else:
             for name in args.name:
                 dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-                if os.path.exists(os.path.join(dir_path, CONFIG_FILE_NAME)):
+                if os.path.exists(os.path.join(dir_path, IOC_CONFIG_FILE)):
                     if args.verbose:
                         print(f'execute_ioc: dealing with IOC "{name}".')
                     ioc_temp = IOC(dir_path, args.verbose)
@@ -481,7 +481,7 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
         # get valid IOC projects
         ioc_list = []
         for ioc_dir in os.listdir(host_path):
-            ioc_path = os.path.join(host_path, ioc_dir, CONFIG_FILE_NAME)
+            ioc_path = os.path.join(host_path, ioc_dir, IOC_CONFIG_FILE)
             if not os.path.exists(ioc_path):
                 continue
             # read ioc.ini and get image setting.
@@ -616,7 +616,7 @@ def gen_swarm_files(mount_dir, iocs, verbose):
         service_path = os.path.join(top_path, service_dir)
         # get valid IOC projects
         ioc_list = []
-        ioc_path = os.path.join(service_path, CONFIG_FILE_NAME)
+        ioc_path = os.path.join(service_path, IOC_CONFIG_FILE)
         if not os.path.exists(ioc_path):
             continue
         # read ioc.ini and get image setting.
@@ -727,7 +727,7 @@ def repository_backup(backup_mode, backup_dir, verbose):
             ioc_tar_dir = os.path.join(tar_dir, ioc_item.name)
             try_makedirs(ioc_tar_dir, verbose)
             # copy entire repository file into tar directory.
-            file_copy(ioc_item.config_file_path, os.path.join(ioc_tar_dir, CONFIG_FILE_NAME), mode='rw',
+            file_copy(ioc_item.config_file_path, os.path.join(ioc_tar_dir, IOC_CONFIG_FILE), mode='rw',
                       verbose=verbose)
             dir_copy(ioc_item.src_path, os.path.join(ioc_tar_dir, 'src'), verbose=verbose)
             if backup_mode == 'all':
@@ -780,7 +780,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
             ioc_dir = os.path.join(temp_in_dir, ioc_item)
             current_path = os.path.join(get_manager_path(), REPOSITORY_DIR, ioc_item)
             restore_flag = False
-            if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, CONFIG_FILE_NAME)):
+            if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, IOC_CONFIG_FILE)):
                 if ioc_item not in ioc_existed:
                     print(f'restore_backup: Restoring IOC project "{ioc_item}".')
                     dir_copy(ioc_dir, current_path, verbose=verbose)
@@ -842,7 +842,7 @@ def update_ioc(args):
 def edit_ioc(args):
     name = args.name
     dir_path = os.path.join(get_manager_path(), REPOSITORY_DIR, name)
-    file_path = os.path.join(dir_path, CONFIG_FILE_NAME)
+    file_path = os.path.join(dir_path, IOC_CONFIG_FILE)
     if args.verbose:
         print(f'edit_ioc: Edit file path: "{file_path}".')
     if os.path.exists(file_path):
@@ -868,13 +868,13 @@ if __name__ == '__main__':
                                           formatter_class=argparse.RawTextHelpFormatter)
     parser_create.add_argument('name', type=str, nargs='+', help='name for IOC project, name list is supported.')
     parser_create.add_argument('-o', '--options', type=str, nargs='+',
-                               help=f'manually specify attributes in {CONFIG_FILE_NAME} file, format: "key=value".\n'
+                               help=f'manually specify attributes in {IOC_CONFIG_FILE} file, format: "key=value".\n'
                                     f'attributes set by this option will override other options if conflicts.')
     parser_create.add_argument('-s', '--section', type=str, default='IOC',
                                help='specify section used for manually specified attributes.'
                                     '\ndefault: "IOC" ')
     parser_create.add_argument('-f', '--ini-file', type=str,
-                               help=f'copy settings from specified {CONFIG_FILE_NAME} files.\n'
+                               help=f'copy settings from specified {IOC_CONFIG_FILE} files.\n'
                                     f'attributes set by this option may be override by other options.')
     parser_create.add_argument('--caputlog', action="store_true", help='add caPutLog module.')
     parser_create.add_argument('--status-ioc', action="store_true",
@@ -894,13 +894,13 @@ if __name__ == '__main__':
                                        formatter_class=argparse.RawTextHelpFormatter)
     parser_set.add_argument('name', type=str, nargs='+', help='name for IOC project, name list is supported.')
     parser_set.add_argument('-o', '--options', type=str, nargs='+',
-                            help=f'manually specify attributes in {CONFIG_FILE_NAME} file, format: "key=value".\n'
+                            help=f'manually specify attributes in {IOC_CONFIG_FILE} file, format: "key=value".\n'
                                  f'attributes set by this option will override other options if conflicts.')
     parser_set.add_argument('-s', '--section', type=str, default='IOC',
                             help='specify section used for manually specified attributes. '
                                  '\ndefault: "IOC" ')
     parser_set.add_argument('-f', '--ini-file', type=str,
-                            help=f'copy settings from specified {CONFIG_FILE_NAME} files.\n'
+                            help=f'copy settings from specified {IOC_CONFIG_FILE} files.\n'
                                  f'attributes set by this option may be override by other options.')
     parser_set.add_argument('--caputlog', action="store_true", help='add caPutLog module.')
     parser_set.add_argument('--status-ioc', action="store_true",
@@ -1107,7 +1107,7 @@ if __name__ == '__main__':
             if conf_temp.read(args.ini_file):
                 print(f'Read configuration from file "{args.ini_file}".')
             else:
-                print(f'Read configuration failed, invalid {CONFIG_FILE_NAME} file "{args.ini_file}", skipped.')
+                print(f'Read configuration failed, invalid {IOC_CONFIG_FILE} file "{args.ini_file}", skipped.')
         #
         module_installed = ''
         if args.autosave:

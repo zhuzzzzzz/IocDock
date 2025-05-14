@@ -4,10 +4,10 @@ import subprocess
 import docker
 from tabulate import tabulate
 
-from imtools.IMConsts import (LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
+from imtools.IMConfig import (LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
                               PREFIX_STACK_NAME, REPOSITORY_DIR, SWARM_BACKUP_DIR, COMPOSE_SERVICE_FILE_DIR,
                               TEMPLATE_PATH, )
-from imtools.IMFuncs import relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, file_copy
+from imtools.IMFunc import relative_and_absolute_path_to_abs, try_makedirs, get_manager_path, file_copy
 from imtools.ServiceDefinition import GlobalServicesList, CustomServicesList, LocalServicesList
 
 

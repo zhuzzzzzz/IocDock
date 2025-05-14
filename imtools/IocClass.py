@@ -2,9 +2,9 @@ import os
 import filecmp
 import configparser
 
-from .IMFuncs import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, condition_parse, multi_line_parse, \
+from .IMFunc import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, condition_parse, multi_line_parse, \
     format_normalize, relative_and_absolute_path_to_abs, dir_compare
-from .IMConsts import *
+from .IMConfig import *
 from .IMError import IMValueError
 
 STATE_NORMAL = 'normal'
@@ -50,7 +50,7 @@ class IOC:
         self.dir_path = os.path.normpath(dir_path)
         self.src_path = os.path.join(self.dir_path, 'src')
         self.template_path = TEMPLATE_PATH
-        self.config_file_path = os.path.join(self.dir_path, CONFIG_FILE_NAME)
+        self.config_file_path = os.path.join(self.dir_path, IOC_CONFIG_FILE)
         self.project_path = os.path.join(dir_path, 'project')
         self.settings_path = os.path.join(self.project_path, 'settings')
         self.log_path = os.path.join(self.project_path, 'log')
@@ -77,12 +77,12 @@ class IOC:
                       f'IOC name has been automatically set in config file to follow that change.')
 
         self.snapshot_path = os.path.join(SNAPSHOT_PATH, self.name)
-        self.config_snapshot_file = os.path.join(self.snapshot_path, CONFIG_FILE_NAME)
+        self.config_snapshot_file = os.path.join(self.snapshot_path, IOC_CONFIG_FILE)
         self.src_snapshot_path = os.path.join(self.snapshot_path, 'src')
 
         self.dir_path_for_mount = os.path.normpath(
             os.path.join(MOUNT_PATH, self.get_config('host'), self.get_config('name')))
-        self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, CONFIG_FILE_NAME)
+        self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, IOC_CONFIG_FILE)
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
@@ -432,7 +432,7 @@ class IOC:
                     prompt = f'in "{load_line}".'
                     self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad load string '
-                          f'"{load_line}" defined in {CONFIG_FILE_NAME}. You may need to check and set the attributes correctly.')
+                          f'"{load_line}" defined in {IOC_CONFIG_FILE}. You may need to check and set the attributes correctly.')
                     return False
             else:
                 ks = ks.strip(', ')
@@ -804,7 +804,7 @@ class IOC:
 
         top_path = os.path.join(mount_path, MOUNT_DIR, host_name, container_name)
         if not os.path.isdir(top_path):
-            file_to_copy = (CONFIG_FILE_NAME,)
+            file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('settings', 'log', 'startup',)
             for item_file in file_to_copy:
                 file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
@@ -820,7 +820,7 @@ class IOC:
             else:
                 print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" created in {top_path}.')
         elif os.path.isdir(top_path) and force_overwrite:
-            file_to_copy = (CONFIG_FILE_NAME,)
+            file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('settings', 'log', 'startup',)
             for item_file in file_to_copy:
                 file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
@@ -836,7 +836,7 @@ class IOC:
             else:
                 print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" overwrite in {top_path}.')
         elif os.path.isdir(top_path) and not force_overwrite:
-            file_to_copy = (CONFIG_FILE_NAME,)
+            file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('startup',)
             for item_file in file_to_copy:
                 file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),

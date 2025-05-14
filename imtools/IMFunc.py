@@ -7,7 +7,7 @@ import filecmp
 import logging
 from logging.handlers import RotatingFileHandler
 
-from .IMConsts import get_manager_path, TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE
+from .IMConfig import get_manager_path, TOOLS_DIR, OPERATION_LOG_PATH, OPERATION_LOG_FILE
 
 
 def try_makedirs(d, verbose=False):
