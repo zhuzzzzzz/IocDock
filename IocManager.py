@@ -8,11 +8,11 @@ import datetime
 import tarfile
 from collections.abc import Iterable
 from tabulate import tabulate
-from imtools.IMFunc import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
+from imutils.IMFunc import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
                             relative_and_absolute_path_to_abs, operation_log, )
-from imtools.IMConfig import *
-from imtools.IocClass import IOC
-from imtools.SwarmClass import SwarmManager, SwarmService
+from imutils.IMConfig import *
+from imutils.IocClass import IOC
+from imutils.SwarmClass import SwarmManager, SwarmService
 
 
 # accepts iterable for input

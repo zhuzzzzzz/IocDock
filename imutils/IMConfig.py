@@ -50,19 +50,19 @@ REPOSITORY_PATH = os.path.normpath(os.path.join(get_manager_path(), REPOSITORY_D
 
 MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(get_manager_path(), '..', MOUNT_DIR)))
 
-SNAPSHOT_PATH = os.path.join(get_manager_path(), TOOLS_DIR, 'ioc-snapshot')
+SNAPSHOT_PATH = os.path.join(get_manager_path(), 'ioc-snapshot')
 
-TEMPLATE_PATH = os.path.join(get_manager_path(), TOOLS_DIR, 'template')
+TEMPLATE_PATH = os.path.join(get_manager_path(), 'templates')
 if not os.path.exists(TEMPLATE_PATH):
-    raise IMInitError(f"Can't find directory \"template\".")
+    raise IMInitError(f"Can't find directory \"templates\".")
 
 COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'compose')
 if not os.path.exists(COMPOSE_TEMPLATE_PATH):
-    raise IMInitError(f"Can't find directory \"template/compose\".")
+    raise IMInitError(f"Can't find directory \"templates/compose\".")
 
 DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
 if not os.path.exists(DB_TEMPLATE_PATH):
-    raise IMInitError(f"Can't find directory \"template/db\".")
+    raise IMInitError(f"Can't find directory \"templates/db\".")
 
 OPERATION_LOG_PATH = os.path.join(get_manager_path(), TOOLS_DIR)
 

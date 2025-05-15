@@ -590,7 +590,7 @@ class IOC:
             # caPutLog .acf file
             # try_makedirs(self.settings_path, self.verbose)  # shutil.copy不会递归创建不存在的文件夹
             file_path = os.path.join(self.settings_path, f'{self.name}.acf')
-            template_file_path = os.path.join(TEMPLATE_PATH, 'template.acf')
+            template_file_path = os.path.join(TEMPLATE_PATH, 'caputlog.acf')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
         # status-ioc configurations.
