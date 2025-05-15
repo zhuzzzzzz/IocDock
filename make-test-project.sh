@@ -33,9 +33,9 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				echo 
 				echo "####### $create_prefix$i #######" 
 				# create IOC project
-				./IocManager.py create "$create_prefix$i" -f "./imtools/template/test/ioc.ini" $verbose
+				./IocManager.py create "$create_prefix$i" -f "./templates/test/ioc.ini" $verbose
 				# add source files
-				./IocManager.py exec "$create_prefix$i" --add-src-file ./imtools/template/test $verbose
+				./IocManager.py exec "$create_prefix$i" --add-src-file ./templates/test $verbose
 				# set options
 				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i" $verbose
 				./IocManager.py set "$create_prefix$i" -o " host = swarm" $verbose
@@ -65,9 +65,9 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				echo 
 				echo "####### $create_prefix$i #######" 
 				# create IOC project
-				./IocManager.py create "$create_prefix$i" -f "./imtools/template/test/ioc.ini" $verbose
+				./IocManager.py create "$create_prefix$i" -f "./templates/test/ioc.ini" $verbose
 				# add source files
-				./IocManager.py exec "$create_prefix$i" --add-src-file ./imtools/template/test $verbose
+				./IocManager.py exec "$create_prefix$i" --add-src-file ./templates/test $verbose
 				# set options
 				./IocManager.py set "$create_prefix$i" -s db -o "load = ramper.db, name=$create_prefix$i" $verbose
 				./IocManager.py set "$create_prefix$i" -o " host = $item " $verbose

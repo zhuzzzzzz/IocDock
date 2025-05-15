@@ -11,6 +11,7 @@
 
 
 #
+current_user="${SUDO_USER:-$USER}"
 script_abs=$(readlink -f "$0")
 script_dir=$(dirname $script_abs)
 
@@ -29,6 +30,11 @@ repository_path=$(./IocManager.py config REPOSITORY_PATH)
 if [ $? -ne 0 ]; then
     echo "Failed. Failed to get \"REPOSITORY_PATH\" in configuration file." >&2
     exit 1 
+fi
+mkdir $repository_path > /dev/null
+if [ $? -eq 0 ]; then
+    chown $current_user:$current_user $repository_path
+    chmod g+w $repository_path
 fi
 mount_path=$(./IocManager.py config MOUNT_PATH)
 if [ $? -ne 0 ]; then

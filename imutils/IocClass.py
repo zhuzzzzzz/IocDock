@@ -268,7 +268,7 @@ class IOC:
                                  f'asynSetOption("L0", -1, "clocal", "Y")\n'
                                  f'asynSetOption("L0", -1, "crtscts", "Y")\n')
             cmd_at_dbload = f'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n'
-            copy_str = f'template/db/asynRecord.db:src/asynRecord.db:wr'
+            copy_str = f'templates/db/asynRecord.db:src/asynRecord.db:wr'
             self.set_config('cmd_before_dbload', cmd_before_dbload, section='RAW')
             self.set_config('cmd_at_dbload', cmd_at_dbload, section='RAW')
             self.set_config('file_copy', copy_str, section='RAW')
@@ -693,13 +693,13 @@ class IOC:
                     return
                 if src.startswith('src/'):
                     src = os.path.join(self.src_path, src)
-                elif src.startswith('template/'):
+                elif src.startswith('templates/'):
                     src = os.path.join(self.template_path, src)
                 else:
                     print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid source directory "{src}" specified '
                           f'for file copy, exit.')
                     state_info = 'bad "file_copy" definition.'
-                    prompt = f'in "{item}". only "src/" or "template/" directory is supported.'
+                    prompt = f'in "{item}". only "src/" or "templates/" directory is supported.'
                     self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     return
                 dest = os.path.join(self.project_path, dest)
