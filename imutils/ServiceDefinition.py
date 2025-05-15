@@ -7,8 +7,6 @@ GlobalServicesList = [
     "iocLogServer",
     "cAdvisor",
     "nodeExporter",
-    "portainerServer",
-    "portainerAgent",
 ]
 
 #
@@ -16,6 +14,8 @@ LocalServicesList = [
     # 'name',
     "registry",
     "prometheus",
+    "portainerServer",
+    "portainerAgent",
 ]
 
 #

@@ -1,0 +1,17 @@
+services:
+  srv-prometheus:
+    image: m.daocloud.io/docker.io/prom/prometheus:v3.3.1
+    ports:
+    - target: 9090
+      published: 9090
+      mode: host # bypass the routing mesh
+    labels:
+      prometheus-job: prometheus
+    deploy:
+      mode: global
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.role==manager
+        - node.labels.prometheus==true
+

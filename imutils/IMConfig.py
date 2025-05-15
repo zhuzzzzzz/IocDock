@@ -1,4 +1,4 @@
-import os
+import os.path
 from .IMError import IMInitError
 
 
