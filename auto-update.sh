@@ -24,12 +24,21 @@ cd $script_dir
 
 # set environment variables. 
 echo setting environment variables...
-repository_path=$script_dir/ioc-repository/
-mount_path=$script_dir/../ioc-for-docker/
+export MANAGER_PATH=$script_dir
+repository_path=$(./IocManager.py config REPOSITORY_PATH)
+if [ $? -ne 0 ]; then
+    echo "Failed. Failed to get \"REPOSITORY_PATH\" in configuration file." >&2
+    exit 1 
+fi
+mount_path=$(./IocManager.py config MOUNT_PATH)
+if [ $? -ne 0 ]; then
+    echo "Failed. Failed to get \"MOUNT_PATH\" in configuration file." >&2
+    exit 1 
+fi
 file_path=/etc/profile.d/IocManagerInstaller.sh
 echo "export MANAGER_PATH=$script_dir" > $file_path
-echo "export REPOSITORY_PATH=$repository_path" >> $file_path # $REPOSITORY_PATH for finding IOC projects.
-echo "export MOUNT_PATH=$mount_path" >> $file_path # $MOUNT_PATH for finding hosts.
+echo "export REPOSITORY_PATH=$repository_path" >> $file_path
+echo "export MOUNT_PATH=$mount_path" >> $file_path
 
 
 # add command soft link.

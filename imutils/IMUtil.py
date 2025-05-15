@@ -857,6 +857,21 @@ def edit_ioc(args):
 
 def execute_config(args):
     if args.set_value:
-        pass
+        print(f'execute_config: Failed, not implemented yet.')
     else:
-        pass
+        if hasattr(IMConfig, args.name):
+            print(getattr(IMConfig, args.name))
+        else:
+            exit(10)
+
+
+if __name__ == '__main__':
+    class TESTV: pass
+
+
+    argtest = TESTV()
+    argtest.set_value = None
+    argtest.name = 'REPOSITORY_PATH'
+    execute_config(argtest)
+    argtest.name = 'REPOSITORY_PATH1'
+    execute_config(argtest)
