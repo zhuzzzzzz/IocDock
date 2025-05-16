@@ -64,7 +64,7 @@ DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
 if not os.path.exists(DB_TEMPLATE_PATH):
     raise IMInitError(f"Can't find directory \"templates/db\".")
 
-OPERATION_LOG_PATH = os.path.join(get_manager_path(), TOOLS_DIR)
+OPERATION_LOG_PATH = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_FILE)
 
 ## others
 #########################################################################

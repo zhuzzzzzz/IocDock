@@ -233,9 +233,10 @@ def operation_log():
     log_str = '\t'.join([log_time, log_id, log_command]) + '\n'  # 自带换行符
 
     # 获取日志文件路径
-    file_path = os.path.join(OPERATION_LOG_PATH, OPERATION_LOG_FILE)
+    file_path = OPERATION_LOG_PATH
     if not os.path.isfile(file_path):
-        os.system(f'touch {file_path}')
+        with open(file_path, 'w'):
+            pass
 
     # 配置日志记录器
     logger = logging.getLogger('operation_logger')

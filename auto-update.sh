@@ -31,7 +31,7 @@ if [ $? -ne 0 ]; then
     echo "Failed. Failed to get \"REPOSITORY_PATH\" in configuration file." >&2
     exit 1 
 fi
-mkdir $repository_path > /dev/null
+mkdir $repository_path > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     chown $current_user:$current_user $repository_path
     chmod g+w $repository_path
@@ -46,6 +46,13 @@ echo "export MANAGER_PATH=$script_dir" > $file_path
 echo "export REPOSITORY_PATH=$repository_path" >> $file_path
 echo "export MOUNT_PATH=$mount_path" >> $file_path
 
+
+# set log file permission.
+file_path=$(./IocManager.py config OPERATION_LOG_PATH)
+if [ $? -eq 0 ]; then
+    chown $current_user:$current_user $file_path
+    chmod g+w $file_path
+fi
 
 # add command soft link.
 echo making file soft link for command...

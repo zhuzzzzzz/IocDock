@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s 
+  evaluation_interval: 15s 
+
+scrape_configs:
+
+  - job_name: "scrape-prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          app: "prometheus"
+  
+  - job_name: 'scrape-swarm-node'
+    dns_sd_configs:
+      - names: 
+          - tasks.dals_srv-nodeExporter

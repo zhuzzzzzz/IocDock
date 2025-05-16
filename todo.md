@@ -4,3 +4,4 @@
 4. 文件夹名称，目录名称规范定义，在IMConsts.py文件通过设置类型分块定义(done)
 5. 工具名称，文件夹名称重命名
 6. 取消工具在命令行中传递项目路径的方式，改为统一在config文件中进行配置
+7. 处理base镜像及ioc镜像的Dockerfile中ENTRYPOINT CMD与compose文件中ENTRYPOINT CMD设置项
