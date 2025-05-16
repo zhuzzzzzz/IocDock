@@ -1,6 +1,6 @@
 services:
   srv-prometheus:
-    image: m.daocloud.io/docker.io/prom/prometheus:v3.3.0
+    image: m.daocloud.io/docker.io/prom/prometheus:v3.3.1
     ports:
     - target: 9090
       published: 9090
@@ -15,6 +15,10 @@ services:
         - node.role==manager
         - node.labels.prometheus==true
     volumes:
+    - source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      type: bind
+      read_only: true
     - source: ../../imtools/prometheus/scrape-config.yaml
       target: /etc/prometheus/prometheus.yaml
       type: bind
@@ -28,3 +32,4 @@ services:
       read_only: true
     command:
     - "--config.file=/etc/prometheus/prometheus.yaml"
+    - "--storage.tsdb.path=/prometheus"

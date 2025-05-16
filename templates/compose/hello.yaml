@@ -7,5 +7,5 @@ services:
     - "echo hello; sleep infinity"
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 3
 

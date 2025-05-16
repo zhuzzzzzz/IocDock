@@ -11,6 +11,50 @@ scrape_configs:
           app: "prometheus"
   
   - job_name: 'scrape-swarm-node'
-    dns_sd_configs:
-      - names: 
-          - tasks.dals_srv-nodeExporter
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: nodes
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: $1:9323
+      - source_labels: [__meta_dockerswarm_node_hostname]
+        target_label: instance
+        replacement: $1
+
+  - job_name: 'scrape-cadvisor'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: tasks
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_node_hostname]
+        target_label: instance
+        replacement: $1
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: $1:8080
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        regex: cadvisor
+        action: keep
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        target_label: job
+        replacement: $1-swarm
+
+  - job_name: 'scrape-node-exporter'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: tasks
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_node_hostname]
+        target_label: instance
+        replacement: $1
+      - source_labels: [__meta_dockerswarm_node_address]
+        target_label: __address__
+        replacement: $1:9100
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        regex: node_exporter
+        action: keep
+      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+        target_label: job
+        replacement: node-exporter
+

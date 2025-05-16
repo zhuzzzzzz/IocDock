@@ -1,6 +1,6 @@
 services:
   srv-cAdvisor:
-    image: m.daocloud.io/gcr.io/cadvisor/cadvisor
+    image: m.daocloud.io/gcr.io/cadvisor/cadvisor:v0.52.1
     ports:
     - target: 8080
       published: 8080
