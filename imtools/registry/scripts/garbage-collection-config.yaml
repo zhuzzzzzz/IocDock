@@ -1,0 +1,12 @@
+version: 0.1
+log:
+  level: debug
+  fields:
+    service: registry
+    environment: development
+storage:
+  delete:
+    enabled: true
+  filesystem:
+    rootdirectory: /var/lib/registry
+

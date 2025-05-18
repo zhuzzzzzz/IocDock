@@ -1,0 +1,26 @@
+services:
+  srv-registry:
+    image: m.daocloud.io/docker.io/registry:3
+    labels:
+      prometheus-job: registry
+    deploy:
+      mode: global
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.labels.registry==true
+    ports:
+    - target: 5000
+      published: 443
+    - target: 5001
+      published: 5001
+      mode: host # bypass the routing mesh
+    environment:
+      OTEL_TRACES_EXPORTER: none
+    volumes:    
+#    - ../../../registry-data:/var/lib/registry # for test in templates dir.
+    - ../../../registry-data:/var/lib/registry
+    - ./certs:/certs
+    - ./auth:/auth
+    - ./registry-config.yaml:/etc/distribution/config.yml
+    - /etc/localtime:/etc/localtime:ro

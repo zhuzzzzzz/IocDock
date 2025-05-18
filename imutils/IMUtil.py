@@ -398,8 +398,9 @@ def execute_ioc(args):
 
 
 def execute_swarm(args):
-    if args.gen_compose_file:
-        SwarmManager.gen_compose_file(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
+    if args.gen_built_in_services:
+        SwarmManager.gen_global_services(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
+        SwarmManager.gen_local_services(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
     elif args.deploy_global_services:
         SwarmManager().deploy_global_services()
     elif args.deploy_all_iocs:

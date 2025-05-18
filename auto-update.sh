@@ -59,6 +59,13 @@ echo making file soft link for command...
 ln -sf $script_dir/IocManager.py /usr/bin/IocManager
 
 
+# set nfs mounting.
+# /etc/exports
+# /home/ubuntu/nfs-dir/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
+# mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
+# /etc/fstab
+# server:/srv/nfs  /mnt/nfs_share  nfs  rw,_netdev,vers=4  0  0
+
 # finished.
 echo "Update finished. To make some settings to take effect, you may need to re-open the shell or to reboot the system."
 # 

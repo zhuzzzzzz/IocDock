@@ -30,7 +30,7 @@ _mycommand_completion() {
 	#
 	rename_prompt=""
 	#
-	swarm_prompt="--gen-compose-file --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-compose --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services"
+	swarm_prompt="--gen-built-in-services --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-compose --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services"
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
 	
@@ -343,7 +343,7 @@ _mycommand_completion() {
 		# options completion for "swarm".
 		if [ ${COMP_WORDS[1]} == "swarm" ]; then 
 			case "$3" in
-				"--gen-compose-file")
+				"--gen-built-in-services")
 				;;
 				"--deploy-global-services")
 				;;

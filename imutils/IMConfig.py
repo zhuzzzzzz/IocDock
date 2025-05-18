@@ -1,5 +1,5 @@
 import os.path
-from .IMError import IMInitError
+from imutils.IMError import IMInitError
 
 
 def get_manager_path() -> str:
@@ -28,7 +28,7 @@ MOUNT_DIR = 'ioc-for-docker'  # directory for docker mounting
 
 SWARM_DIR = 'swarm'
 
-COMPOSE_SERVICE_FILE_DIR = 'compose-swarm'
+COMPOSE_SERVICE_FILE_DIR = 'compose-global'
 
 LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 
@@ -46,13 +46,17 @@ OPERATION_LOG_FILE = 'OperationLog'
 
 ## paths
 #########################################################################
-REPOSITORY_PATH = os.path.normpath(os.path.join(get_manager_path(), REPOSITORY_DIR))
+MANAGER_PATH = os.path.normpath(get_manager_path())
 
-MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(get_manager_path(), '..', MOUNT_DIR)))
+REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
 
-SNAPSHOT_PATH = os.path.join(get_manager_path(), 'ioc-snapshot')
+MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
 
-TEMPLATE_PATH = os.path.join(get_manager_path(), 'templates')
+TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
+
+SNAPSHOT_PATH = os.path.join(MANAGER_PATH, 'ioc-snapshot')
+
+TEMPLATE_PATH = os.path.join(MANAGER_PATH, 'templates')
 if not os.path.exists(TEMPLATE_PATH):
     raise IMInitError(f"Can't find directory \"templates\".")
 
@@ -64,7 +68,7 @@ DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
 if not os.path.exists(DB_TEMPLATE_PATH):
     raise IMInitError(f"Can't find directory \"templates/db\".")
 
-OPERATION_LOG_PATH = os.path.join(get_manager_path(), TOOLS_DIR, OPERATION_LOG_FILE)
+OPERATION_LOG_PATH = os.path.join(TOOLS_PATH, OPERATION_LOG_FILE)
 
 ## others
 #########################################################################
@@ -101,3 +105,7 @@ CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
 # Deploy settings
 #######################################################################################################################
 PREFIX_STACK_NAME = 'dals'  # stack name in swarm
+
+# REGISTRY_COMMON_NAME = 'registry.{PREFIX_STACK_NAME}'
+REGISTRY_COMMON_NAME = f'image.{PREFIX_STACK_NAME}'  # common name for registry https server
+REGISTRY_PORT = 443  # port for registry https server

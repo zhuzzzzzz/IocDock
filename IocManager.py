@@ -161,8 +161,8 @@ if __name__ == '__main__':
     #
     parser_swarm = subparsers.add_parser('swarm', help='Functions for managing swarm system.',
                                          formatter_class=argparse.RawTextHelpFormatter)
-    parser_swarm.add_argument('--gen-compose-file', action="store_true",
-                              help='generate global compose file for swarm deploying.')
+    parser_swarm.add_argument('--gen-built-in-services', action="store_true",
+                              help='generate swarm deployment files of global and local services.')
     parser_swarm.add_argument('--deploy-global-services', action="store_true",
                               help='deploy all global services into running.')
     parser_swarm.add_argument('--deploy-all-iocs', action="store_true",

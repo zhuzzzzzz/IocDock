@@ -4,12 +4,11 @@ import subprocess
 import docker
 from tabulate import tabulate
 
-from .IMConfig import (LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
-                       PREFIX_STACK_NAME, REPOSITORY_DIR, SWARM_BACKUP_DIR, COMPOSE_SERVICE_FILE_DIR,
-                       TEMPLATE_PATH,
-                       get_manager_path)
-from .IMFunc import relative_and_absolute_path_to_abs, try_makedirs, file_copy
-from .ServiceDefinition import GlobalServicesList, CustomServicesList, LocalServicesList
+from imutils.IMConfig import (LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
+                              PREFIX_STACK_NAME, REPOSITORY_DIR, SWARM_BACKUP_DIR, COMPOSE_SERVICE_FILE_DIR,
+                              get_manager_path, COMPOSE_TEMPLATE_PATH, TOOLS_PATH)
+from imutils.IMFunc import relative_and_absolute_path_to_abs, try_makedirs, file_copy, dir_copy
+from imutils.ServiceDefinition import GlobalServicesList, CustomServicesList, LocalServicesList
 
 
 class SwarmManager:
@@ -154,23 +153,39 @@ class SwarmManager:
 
     # copy compose file to swarm dir from template dir for global and local services.
     @staticmethod
-    def gen_compose_file(mount_dir):
+    def gen_global_services(mount_dir):
         #
         mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
         top_path = os.path.join(mount_path, MOUNT_DIR, 'swarm')
         # make directory for iocLogServer
         try_makedirs(os.path.join(top_path, LOG_FILE_DIR))
         #
-        template_dir = os.path.join(TEMPLATE_PATH, 'compose')
-        for item in GlobalServicesList + LocalServicesList:
+        #
+        template_dir = COMPOSE_TEMPLATE_PATH
+        for item in GlobalServicesList:
             if f'{item}.yaml' in os.listdir(template_dir):
                 # copy yaml file
                 template_path = os.path.join(template_dir, f'{item}.yaml')
                 file_path = os.path.join(top_path, COMPOSE_SERVICE_FILE_DIR, f'{item}.yaml')
                 file_copy(template_path, file_path)
-                print(f'SwarmManager: Create compose file for "{item}".')
+                print(f'SwarmManager: Create deployment file for "{item}".')
             else:
-                print(f'SwarmManager: Failed to create compose file for "{item}" as its template file dose not exist.')
+                print(
+                    f'SwarmManager: Failed to create deployment file for "{item}" as its template file dose not exist.')
+
+    # copy configuration file to swarm dir from template dir for given services.
+    @staticmethod
+    def gen_local_services(mount_dir):
+        #
+        mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
+        top_path = os.path.join(mount_path, MOUNT_DIR, 'swarm')
+
+        # 目前使用硬编码方式，后续可通过 LocalServicesList 变量实现动态添加
+        # copy registry
+        src_path = os.path.join(TOOLS_PATH, 'registry')
+        dest_path = os.path.join(top_path, 'registry')
+        dir_copy(src_path, dest_path)
+        print(f'SwarmManager: Create deployment files for "registry".')
 
     @staticmethod
     def get_deployed_swarm_services():
@@ -312,10 +327,15 @@ class SwarmService:
             self.service_type = 'ioc'
             self.dir_path = os.path.abspath(os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, self.name))
             self.service_file = IOC_SERVICE_FILE
-        elif service_type == 'global' or service_type == 'local':
-            self.service_type = service_type
+        elif service_type == 'global':
+            self.service_type = 'global'
             self.dir_path = os.path.abspath(
                 os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, COMPOSE_SERVICE_FILE_DIR))
+            self.service_file = f'{self.name}.yaml'
+        elif service_type == 'local':
+            self.service_type = 'local'
+            self.dir_path = os.path.abspath(
+                os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, self.name))
             self.service_file = f'{self.name}.yaml'
         else:
             self.service_type = 'custom'

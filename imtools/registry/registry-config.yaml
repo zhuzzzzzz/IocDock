@@ -1,0 +1,44 @@
+version: 0.1
+log:
+  level: info
+  fields:
+    service: registry
+    environment: development
+storage:
+  delete:
+    enabled: true
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+  tag:
+    concurrencylimit: 5
+  maintenance:
+    uploadpurging:
+      enabled: true
+      age: 168h
+      interval: 24h
+      dryrun: false
+    readonly:
+      enabled: false
+auth:
+  htpasswd:
+    realm: Registry Realm
+    path: /auth/htpasswd
+http:
+  addr: :5000
+  secret: asecretforlocaldevelopment
+  debug:
+    addr: :5001
+    prometheus:
+      enabled: true
+      path: /metrics
+  tls:
+    certificate: /certs/registry.crt
+    key: /certs/registry.key
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+
