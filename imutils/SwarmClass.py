@@ -182,10 +182,24 @@ class SwarmManager:
 
         # 目前使用硬编码方式，后续可通过 LocalServicesList 变量实现动态添加
         # copy registry
-        src_path = os.path.join(TOOLS_PATH, 'registry')
-        dest_path = os.path.join(top_path, 'registry')
-        dir_copy(src_path, dest_path)
-        print(f'SwarmManager: Create deployment files for "registry".')
+        temp_service = SwarmService('registry', service_type='local')
+        if temp_service.is_deployed:  # check whether the directory being mounted.
+            print(f'SwarmManager: Failed to create deployment directory for "registry" as it is running.')
+        else:
+            src_path = os.path.join(TOOLS_PATH, 'registry')
+            dest_path = os.path.join(top_path, 'registry')
+            dir_copy(src_path, dest_path)
+            print(f'SwarmManager: Create deployment directory for "registry".')
+
+        # copy prometheus
+        temp_service = SwarmService('prometheus', service_type='local')
+        if temp_service.is_deployed:  # check whether the directory being mounted.
+            print(f'SwarmManager: Failed to create deployment directory for "prometheus" as it is running.')
+        else:
+            src_path = os.path.join(TOOLS_PATH, 'prometheus')
+            dest_path = os.path.join(top_path, 'prometheus')
+            dir_copy(src_path, dest_path)
+            print(f'SwarmManager: Create deployment directory for "prometheus".')
 
     @staticmethod
     def get_deployed_swarm_services():
@@ -415,7 +429,6 @@ class SwarmService:
             print(f'SwarmService("{self.name}").deploy_service: Failed to deploy, service is not available.')
 
     def remove(self, remove_file=False):
-        print(self)
         if self.is_deployed:
             print(f'SwarmService("{self.name}").remove_service: Removing this service.')
             os.system(f'docker service rm {self.service_name}')

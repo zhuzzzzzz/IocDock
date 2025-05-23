@@ -10,6 +10,7 @@ services:
     deploy:
       mode: global
     volumes:
+    - /etc/localtime:/etc/localtime:ro
     - /:/host:ro,rslave
     - /sys:/host/sys:ro
     - /proc:/host/proc:ro

@@ -8,4 +8,5 @@ services:
     deploy:
       mode: replicated
       replicas: 3
-
+    volumes:
+    - /etc/localtime:/etc/localtime:ro

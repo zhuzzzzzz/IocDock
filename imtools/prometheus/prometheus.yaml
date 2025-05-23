@@ -1,60 +1,36 @@
-global:
-  scrape_interval: 15s 
-  evaluation_interval: 15s 
-
-scrape_configs:
-
-  - job_name: "scrape-prometheus"
-    static_configs:
-      - targets: ["localhost:9090"]
-        labels:
-          app: "prometheus"
-  
-  - job_name: 'scrape-swarm-node'
-    dockerswarm_sd_configs:
-      - host: unix:///var/run/docker.sock
-        role: nodes
-    relabel_configs:
-      - source_labels: [__meta_dockerswarm_node_address]
-        target_label: __address__
-        replacement: $1:9323
-      - source_labels: [__meta_dockerswarm_node_hostname]
-        target_label: instance
-        replacement: $1
-
-  - job_name: 'scrape-cadvisor'
-    dockerswarm_sd_configs:
-      - host: unix:///var/run/docker.sock
-        role: tasks
-    relabel_configs:
-      - source_labels: [__meta_dockerswarm_node_hostname]
-        target_label: instance
-        replacement: $1
-      - source_labels: [__meta_dockerswarm_node_address]
-        target_label: __address__
-        replacement: $1:8080
-      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
-        regex: cadvisor
-        action: keep
-      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
-        target_label: job
-        replacement: $1-swarm
-
-  - job_name: 'scrape-node-exporter'
-    dockerswarm_sd_configs:
-      - host: unix:///var/run/docker.sock
-        role: tasks
-    relabel_configs:
-      - source_labels: [__meta_dockerswarm_node_hostname]
-        target_label: instance
-        replacement: $1
-      - source_labels: [__meta_dockerswarm_node_address]
-        target_label: __address__
-        replacement: $1:9100
-      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
-        regex: node_exporter
-        action: keep
-      - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
-        target_label: job
-        replacement: node-exporter
-
+networks:
+  hostnet:
+    external: true
+    name: host
+services:
+  srv-prometheus:
+    image: m.daocloud.io/docker.io/prom/prometheus:v3.3.1
+    networks:
+    - hostnet
+    labels:
+      prometheus-job: prometheus
+    deploy:
+      mode: global
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.labels.prometheus==true
+    volumes:
+#    - source: /var/run/docker.sock
+#      target: /var/run/docker.sock
+#      type: bind
+#      read_only: true
+    - source: ./config/scrape-config.yaml
+      target: /etc/prometheus/prometheus.yaml
+      type: bind
+      read_only: true
+    - source: ~/prometheus-data
+      target: /prometheus
+      type: bind
+    - source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+      read_only: true
+    command:
+    - "--config.file=/etc/prometheus/prometheus.yaml"
+    - "--storage.tsdb.path=/prometheus"
