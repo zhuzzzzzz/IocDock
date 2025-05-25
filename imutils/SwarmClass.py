@@ -397,10 +397,12 @@ class SwarmService:
                  '{{.CurrentState}}',
                  self.service_name],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if not result.stdout.splitlines():
+                return 'Unknown'
             return result.stdout.splitlines()[0]
         else:
             if self.is_available:
-                return 'Available but not deployed'
+                return 'Available. Not deployed'
             else:
                 return 'Not Available'
 

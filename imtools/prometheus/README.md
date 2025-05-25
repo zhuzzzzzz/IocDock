@@ -3,7 +3,7 @@
 ```
 # daemon.json
 {
-    "metrics-addr": "127.0.0.10:9323",
+    "metrics-addr": "0.0.0.0:9323",
 }
 ```
 
@@ -22,7 +22,7 @@
 systemctl edit docker.service
 # [Service]
 # ExecStart=
-# ExecStart=/usr/bin/dockerd -H fd:// -H tcp://127.0.0.1:2375 
+# ExecStart=/usr/bin/dockerd -H fd:// -H tcp://127.0.0.10:2375 
 systemctl daemon-reload
 systemctl restart docker.service
 ```
