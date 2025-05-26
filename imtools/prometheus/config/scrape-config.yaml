@@ -1,6 +1,9 @@
 global:
   scrape_interval: 15s 
+  scrape_timeout: 10s
   evaluation_interval: 15s 
+  external_labels:
+    deployment: 1-${HOSTNAME}
 
 scrape_configs:
 
