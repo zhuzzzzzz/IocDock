@@ -1,0 +1,26 @@
+networks:
+  hostnet:
+    external: true
+    name: host
+services:
+  srv-grafana:
+    image: m.daocloud.io/docker.io/grafana/grafana:12.0.1-ubuntu
+    networks:
+    - hostnet
+    labels:
+      prometheus-job: grafana
+    deploy:
+      mode: global
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.labels.grafana==true
+    volumes:
+    - source: ~/grafana-data
+      target: /var/lib/grafana
+      type: bind
+    - source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+      read_only: true
+

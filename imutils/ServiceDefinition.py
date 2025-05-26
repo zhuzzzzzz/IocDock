@@ -14,6 +14,7 @@ LocalServicesList = [
     # 'name',
     "registry",
     "prometheus",
+    "grafana",
     "portainerServer",
     "portainerAgent",
 ]
