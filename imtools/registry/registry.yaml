@@ -5,6 +5,10 @@ services:
       prometheus-job: registry
     deploy:
       mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
       placement:
         constraints:
         - node.platform.os==linux

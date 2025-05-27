@@ -8,5 +8,9 @@ services:
     deploy:
       mode: replicated
       replicas: 3
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
     volumes:
     - /etc/localtime:/etc/localtime:ro

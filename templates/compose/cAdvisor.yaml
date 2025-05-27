@@ -9,6 +9,10 @@ services:
       prometheus-job: cadvisor
     deploy:
       mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G      
     volumes:
     - /etc/localtime:/etc/localtime:ro
     - /var/run/docker.sock:/var/run/docker.sock:ro

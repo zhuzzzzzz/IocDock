@@ -5,6 +5,10 @@ services:
       published: 7004
       mode: host # bypass the routing mesh
     deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
       mode: global
       restart_policy:
         window: 10s

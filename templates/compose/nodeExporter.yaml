@@ -9,6 +9,10 @@ services:
       prometheus-job: node_exporter
     deploy:
       mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
     volumes:
     - /etc/localtime:/etc/localtime:ro
     - /:/host:ro,rslave
