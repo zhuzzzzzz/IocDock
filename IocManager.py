@@ -180,9 +180,10 @@ if __name__ == '__main__':
     parser_swarm.add_argument('--show-services', action="store_true",
                               help='show all service deployed in swarm. '
                                    '\nset "--detail" to show details.')
-    parser_swarm.add_argument('--detail', action="store_true",
-                              help='show all service deployed in swarm for "--show-services".')
-    parser_swarm.add_argument('--show-nodes', action="store_true", help='show all nodes joined in swarm.')
+    parser_swarm.add_argument('--detail', action="store_true")
+    parser_swarm.add_argument('--show-nodes', action="store_true",
+                              help='show all nodes joined in swarm.'
+                                   '\nset "--detail" to show details, such as node labels.')
     parser_swarm.add_argument('--show-tokens', action="store_true", help='show how to join into swarm for other nodes.')
     parser_swarm.add_argument('-b', '--backup-swarm', action="store_true",
                               help='generate backup file of current swarm.'

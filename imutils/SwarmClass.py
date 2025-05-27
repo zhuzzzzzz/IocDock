@@ -221,19 +221,34 @@ class SwarmManager:
 
     @staticmethod
     def show_deployed_services():
-        os.system(f'docker stack ps -f "desired-state=running" -f "desired-state=ready" {PREFIX_STACK_NAME}')
+        os.system('docker stack ps -f "desired-state=running" -f "desired-state=ready" -f "desired-state=accepted" '
+                  '--format "table {{.Name}}\t{{.Node}}\t{{.DesiredState}}\t{{.CurrentState}}\t{{.Error}}\t{{.Ports}}" '
+                  + f' {PREFIX_STACK_NAME} ')
 
     @staticmethod
     def show_deployed_services_detail():
-        os.system(f'docker stack ps {PREFIX_STACK_NAME}')
+        os.system('docker stack ps '
+                  '--format "table {{.Name}}\t{{.Node}}\t{{.DesiredState}}\t{{.CurrentState}}\t{{.Error}}\t{{.Ports}}" '
+                  '--no-trunc '
+                  + f' {PREFIX_STACK_NAME} ')
 
     @staticmethod
     def show_compose_services():
         os.system(f'docker compose ls')
 
     @staticmethod
-    def show_deployed_machines():
-        os.system('docker node ls')
+    def show_deployed_machines(show_detail=False):
+        os.system('docker node ls --format "table {{if .Self}}*{{end}}{{.Hostname}}{{if .Self}}*{{end}}\t'
+                  '{{.Status}}\t{{.Availability}}\t{{.ManagerStatus}}\t{{.TLSStatus}}\t{{.EngineVersion}}"')
+        if show_detail:
+            os.system("echo ;"
+                      "echo '------------';"
+                      "echo 'Node Labels:';"
+                      "echo '------------';"
+                      "docker node inspect --format "
+                      "'{{.Description.Hostname}}:\t{{range $k, $v := .Spec.Labels}}{{$k}}={{$v}} {{else}}{{end}}'"
+                      " $(docker node ls -q) ;"
+                      "echo ;")
 
     @staticmethod
     def show_join_tokens():

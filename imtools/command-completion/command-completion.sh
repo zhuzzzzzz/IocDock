@@ -365,6 +365,7 @@ _mycommand_completion() {
 				"--detail")
 				;;
 				"--show-nodes")
+				prompt="--detail"
 				;;
 				"--show-tokens")
 				;;
