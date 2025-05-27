@@ -1,0 +1,17 @@
+groups:
+  - name: container-monitoring
+    rules:
+      - record: name_service_instance:cpu_core_usage:avg5m
+        expr: |
+          sum(rate(container_cpu_usage_seconds_total{id!='/'}[5m])) 
+          by (name, container_label_com_docker_swarm_service_name, instance)
+          
+      - record: name_service_instance:cpu_usage_percent:avg5m
+        expr: |
+          name_service_instance:cpu_core_usage:avg5m
+        
+      - record: name_service_instance:memory_usage_percent
+        expr: |2
+            (container_memory_usage_bytes{container_label_com_docker_compose_service!=""} 
+          /  
+            container_spec_memory_limit_bytes{container_label_com_docker_compose_service!=""}) * 100

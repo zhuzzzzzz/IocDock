@@ -11,6 +11,10 @@ services:
       prometheus-job: prometheus
     deploy:
       mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
       placement:
         constraints:
         - node.platform.os==linux
@@ -20,8 +24,8 @@ services:
 #      target: /var/run/docker.sock
 #      type: bind
 #      read_only: true
-    - source: ./config/scrape-config.yaml
-      target: /etc/prometheus/prometheus.yaml
+    - source: ./config
+      target: /etc/prometheus
       type: bind
       read_only: true
     - source: ~/prometheus-data
@@ -32,5 +36,5 @@ services:
       type: bind
       read_only: true
     command:
-    - "--config.file=/etc/prometheus/prometheus.yaml"
+    - "--config.file=/etc/prometheus/prometheus-config.yaml"
     - "--storage.tsdb.path=/prometheus"
