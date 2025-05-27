@@ -1,17 +1,40 @@
 groups:
   - name: container-monitoring
     rules:
-      - record: name_service_instance:cpu_core_usage:avg5m
+      
+      #
+      - record: name_service_instance:container_cpu_core_usage:avg5m
         expr: |
           sum(rate(container_cpu_usage_seconds_total{id!='/'}[5m])) 
           by (name, container_label_com_docker_swarm_service_name, instance)
           
-      - record: name_service_instance:cpu_usage_percent:avg5m
-        expr: |
-          name_service_instance:cpu_core_usage:avg5m
-        
-      - record: name_service_instance:memory_usage_percent
+      - alert: HighContainerCpuCoreUsage
+        expr: name_service_instance:container_cpu_core_usage:avg5m > 0.8
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+        annotations:
+          summary: "HighContainerCpuCoreUsage for container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} running on {{ $labels.instance }} has used {{ $value }}% of its cpu limit."
+      
+      #    
+      - record: name_service_instance:container_memory_usage_percent
         expr: |2
-            (container_memory_usage_bytes{container_label_com_docker_compose_service!=""} 
-          /  
-            container_spec_memory_limit_bytes{container_label_com_docker_compose_service!=""}) * 100
+            (container_memory_usage_bytes{id!="/"}  
+          / on(name, container_label_com_docker_swarm_service_name, instance) 
+            container_spec_memory_limit_bytes{id!="/"}) * 100
+
+      - alert: HighContainerMemoryUsagePercent
+        expr: name_service_instance:container_memory_usage_percent > 80
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+        annotations:
+          summary: "HighContainerMemoryUsagePercent for container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} running on {{ $labels.instance }} has used {{ $value }}% of its memory limit."
+       
+      #
