@@ -14,72 +14,48 @@ def get_manager_path() -> str:
 
 
 #
-#
-# Tool settings
+#################
+# Tool settings #
 #######################################################################################################################
 
-## directory names
-#########################################################################
+## directory, file and path.
+## =================================================================== ##
+
 REPOSITORY_DIR = 'ioc-repository'
-
+TEMPLATES_DIR = 'templates'
 TOOLS_DIR = 'imtools'
+SERVICES_DIR = 'imsrvs'
+GLOBAL_SERVICE_FILE_DIR = 'global-services'
+SNAPSHOT_DIR = 'ioc-snapshot'
 
-MOUNT_DIR = 'ioc-for-docker'  # directory for docker mounting
-
-SWARM_DIR = 'swarm'
-
-COMPOSE_SERVICE_FILE_DIR = 'compose-global'
-
-LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
-
-IOC_BACKUP_DIR = 'ioc-backup'  # backup directory for IOC project files
-
-SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
-
-## file names
-#########################################################################
 IOC_CONFIG_FILE = 'ioc.ini'
-
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
-
 OPERATION_LOG_FILE = 'OperationLog'
 
-## paths
-#########################################################################
 MANAGER_PATH = os.path.normpath(get_manager_path())
-
 REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
-
-MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
-
 TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
-
-SNAPSHOT_PATH = os.path.join(MANAGER_PATH, 'ioc-snapshot')
-
-TEMPLATE_PATH = os.path.join(MANAGER_PATH, 'templates')
-if not os.path.exists(TEMPLATE_PATH):
-    raise IMInitError(f"Can't find directory \"templates\".")
-
+SERVICES_PATH = os.path.join(MANAGER_PATH, SERVICES_DIR)
+GLOBAL_SERVICES_PATH = os.path.join(SERVICES_PATH, GLOBAL_SERVICE_FILE_DIR)
+SNAPSHOT_PATH = os.path.join(MANAGER_PATH, SNAPSHOT_DIR)
+TEMPLATE_PATH = os.path.join(MANAGER_PATH, TEMPLATES_DIR)
 COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'compose')
-if not os.path.exists(COMPOSE_TEMPLATE_PATH):
-    raise IMInitError(f"Can't find directory \"templates/compose\".")
-
 DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
-if not os.path.exists(DB_TEMPLATE_PATH):
-    raise IMInitError(f"Can't find directory \"templates/db\".")
-
 OPERATION_LOG_PATH = os.path.join(TOOLS_PATH, OPERATION_LOG_FILE)
 
-## others
-#########################################################################
+## others.
+## =================================================================== ##
+
 OPERATION_LOG_NUM = 3000  # entry numbers of OperationLog
 
 #
-# IOC settings
+################
+# IOC settings #
 #######################################################################################################################
 
 ## IOC repository setting
-#########################################################################
+## =================================================================== ##
+
 STATE_NORMAL = 'normal'  # IOC state string
 STATE_WARNING = 'warning'
 STATE_ERROR = 'error'
@@ -94,7 +70,8 @@ MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc',
 DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for created IOC projects
 
 ## IOC container setting
-#########################################################################
+## =================================================================== ##
+
 DEFAULT_IOC = 'ST-IOC'  # default executable IOC in container
 
 CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')  # path definition in running container.
@@ -102,9 +79,33 @@ CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
 CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
 
 #
-# Deploy settings
+###################
+# Deploy settings #
 #######################################################################################################################
+
+## directory, file and path.
+## =================================================================== ##
+
+MOUNT_DIR = 'ioc-for-docker'  # directory for docker mounting
+SWARM_DIR = 'swarm'
+LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+IOC_BACKUP_DIR = 'ioc-backup'  # backup directory for IOC project files
+SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
+
+MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
+
+## others.
+## =================================================================== ##
+
 PREFIX_STACK_NAME = 'dals'  # stack name in swarm
+
+#
+###########################
+# Service deploy settings #
+#######################################################################################################################
+
+## registry
+## =================================================================== ##
 
 # REGISTRY_COMMON_NAME = 'registry.{PREFIX_STACK_NAME}'
 REGISTRY_COMMON_NAME = f'image.{PREFIX_STACK_NAME}'  # common name for registry https server

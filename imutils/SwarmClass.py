@@ -4,17 +4,17 @@ import subprocess
 import docker
 from tabulate import tabulate
 
-from imutils.IMConfig import (LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
-                              PREFIX_STACK_NAME, REPOSITORY_DIR, SWARM_BACKUP_DIR, COMPOSE_SERVICE_FILE_DIR,
-                              get_manager_path, COMPOSE_TEMPLATE_PATH, TOOLS_PATH)
+from imutils.IMConfig import (get_manager_path, LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
+                              PREFIX_STACK_NAME, SWARM_BACKUP_DIR, GLOBAL_SERVICE_FILE_DIR,
+                              GLOBAL_SERVICES_PATH, SERVICES_PATH, REPOSITORY_PATH)
 from imutils.IMFunc import relative_and_absolute_path_to_abs, try_makedirs, file_copy, dir_copy
-from imutils.ServiceDefinition import GlobalServicesList, CustomServicesList, LocalServicesList
+from imutils.ServiceDefinition import GlobalServicesList, LocalServicesList, CustomServicesList
 
 
 class SwarmManager:
     def __init__(self):
         self.services = {item: SwarmService(name=item, service_type='ioc') for item in
-                         os.listdir(os.path.join(get_manager_path(), REPOSITORY_DIR))}
+                         os.listdir(REPOSITORY_PATH)}
         for ss in GlobalServicesList:
             self.services[ss] = SwarmService(name=ss, service_type='global')
         for ss in LocalServicesList:
@@ -161,12 +161,12 @@ class SwarmManager:
         try_makedirs(os.path.join(top_path, LOG_FILE_DIR))
         #
         #
-        template_dir = COMPOSE_TEMPLATE_PATH
+
         for item in GlobalServicesList:
-            if f'{item}.yaml' in os.listdir(template_dir):
+            if f'{item}.yaml' in os.listdir(GLOBAL_SERVICES_PATH):
                 # copy yaml file
-                template_path = os.path.join(template_dir, f'{item}.yaml')
-                file_path = os.path.join(top_path, COMPOSE_SERVICE_FILE_DIR, f'{item}.yaml')
+                template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{item}.yaml')
+                file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
                 file_copy(template_path, file_path)
                 print(f'SwarmManager: Create deployment file for "{item}".')
             else:
@@ -186,7 +186,7 @@ class SwarmManager:
         if temp_service.is_deployed:  # check whether the directory being mounted.
             print(f'SwarmManager: Failed to create deployment directory for "registry" as it is running.')
         else:
-            src_path = os.path.join(TOOLS_PATH, 'registry')
+            src_path = os.path.join(SERVICES_PATH, 'registry')
             dest_path = os.path.join(top_path, 'registry')
             dir_copy(src_path, dest_path)
             print(f'SwarmManager: Create deployment directory for "registry".')
@@ -196,7 +196,7 @@ class SwarmManager:
         if temp_service.is_deployed:  # check whether the directory being mounted.
             print(f'SwarmManager: Failed to create deployment directory for "prometheus" as it is running.')
         else:
-            src_path = os.path.join(TOOLS_PATH, 'prometheus')
+            src_path = os.path.join(SERVICES_PATH, 'prometheus')
             dest_path = os.path.join(top_path, 'prometheus')
             dir_copy(src_path, dest_path)
             print(f'SwarmManager: Create deployment directory for "prometheus".')
@@ -344,7 +344,7 @@ class SwarmService:
         elif service_type == 'global':
             self.service_type = 'global'
             self.dir_path = os.path.abspath(
-                os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, COMPOSE_SERVICE_FILE_DIR))
+                os.path.join(get_manager_path(), '..', MOUNT_DIR, SWARM_DIR, GLOBAL_SERVICE_FILE_DIR))
             self.service_file = f'{self.name}.yaml'
         elif service_type == 'local':
             self.service_type = 'local'

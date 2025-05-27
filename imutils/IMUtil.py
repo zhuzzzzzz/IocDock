@@ -779,7 +779,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
         ioc_existed = [ioc_item.name for ioc_item in get_all_ioc()]
         for ioc_item in os.listdir(temp_in_dir):
             ioc_dir = os.path.join(temp_in_dir, ioc_item)
-            current_path = os.path.join(get_manager_path(), IMConfig.REPOSITORY_DIR, ioc_item)
+            current_path = os.path.join(IMConfig.REPOSITORY_PATH, ioc_item)
             restore_flag = False
             if os.path.isdir(ioc_dir) and os.path.exists(os.path.join(ioc_dir, IMConfig.IOC_CONFIG_FILE)):
                 if ioc_item not in ioc_existed:

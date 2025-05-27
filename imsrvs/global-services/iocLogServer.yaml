@@ -19,11 +19,13 @@ services:
     entrypoint:
     - bash
     - -c
-    - . ~/.bash_aliases; 
+    - export HOSTNAME=$$(cat /etc/hostname);
+      . ~/.bash_aliases; 
       date; 
       export EPICS_IOC_LOG_FILE_NAME=/opt/EPICS/RUN/iocLog/$$HOSTNAME.ioc.log; 
       echo export EPICS_IOC_LOG_FILE_NAME=$$EPICS_IOC_LOG_FILE_NAME; 
-      echo run iocLogServer...; iocLogServer
+      echo run iocLogServer...; 
+      iocLogServer;
     image: image.dals/base:beta-0.2.2
     tty: true
     volumes:
