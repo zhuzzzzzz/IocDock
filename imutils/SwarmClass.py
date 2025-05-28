@@ -14,11 +14,23 @@ class SwarmManager:
         self.services = {item: SwarmService(name=item, service_type='ioc') for item in
                          os.listdir(REPOSITORY_PATH)}
         for ss in GlobalServicesList:
+            if ss in self.services.keys():
+                print(f'SwarmManager: Warning! Service "{ss}" defined in GlobalServicesList '
+                      f'has the same name with existing services, skipped.')
+                continue
             self.services[ss] = SwarmService(name=ss, service_type='global')
         for ss in LocalServicesList:
+            if ss in self.services.keys():
+                print(f'SwarmManager: Warning! Service "{ss}" defined in LocalServicesList '
+                      f'has the same name with existing services, skipped.')
+                continue
             self.services[ss] = SwarmService(name=ss, service_type='local')
         for ss in CustomServicesList:
             name, compose_file = ss
+            if name in self.services.keys():
+                print(f'SwarmManager: Warning! Service "{ss}" defined in CustomServicesList '
+                      f'has the same name with existing services, skipped.')
+                continue
             self.services[ss] = SwarmService(name=name, service_type='custom', compose_file=compose_file)
         self.client = docker.from_env()
         self.running_services = self.get_services_from_docker()
@@ -247,10 +259,10 @@ class SwarmManager:
         if show_detail:
             os.system("echo ;"
                       "echo '------------';"
-                      "echo 'Node Labels:';"
+                      "echo 'Node Details:';"
                       "echo '------------';"
                       "docker node inspect --format "
-                      "'{{.Description.Hostname}}:\t{{range $k, $v := .Spec.Labels}}{{$k}}={{$v}} {{else}}{{end}}'"
+                      "'{{.Description.Hostname}}({{.Status.Addr}}):\t{{range $k, $v := .Spec.Labels}}{{$k}}={{$v}} {{else}}{{end}}'"
                       " $(docker node ls -q) ;"
                       "echo ;")
 
@@ -472,27 +484,17 @@ class SwarmService:
 
     def show_ps(self):
         if self.is_deployed:
-            os.system(f'docker service ps {self.service_name}')
+            os.system(f'docker service ps --no-trunc {self.service_name}')
         else:
             print(f'No information for "{self.name}" as it has not been deployed.')
 
-    def get_logs(self):
+    def show_logs(self):
+        print(self)
         if self.is_deployed:
-            #
-            result = subprocess.run(['docker', 'service', 'logs', self.service_name],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, text=True)
-            if not 'tty service logs only supported with --raw' in str(result.stderr):
-                ans = (f'Logs for "{self.name}": '
-                       f'\n######Start######\n\n{result.stdout}\n\n{result.stderr}\n#######End#######\n')
-                return ans
-            #
-            result = subprocess.run(['docker', 'service', 'logs', self.service_name, '--raw'],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, text=True)
-            ans = (f'Logs for "{self.name}": '
-                   f'\n######Start######\n\n{result.stdout}\n\n{result.stderr}\n#######End#######\n')
-            return ans
+            if self.service_type=='ioc' or 'iocLogServer' in self.service_name:
+                os.system(f'docker service logs --follow --tail=1000 --raw {self.service_name}')
+            else:
+                os.system(f'docker service logs --follow --tail=1000 {self.service_name}')
         else:
             print(f'No logs for "{self.name}" as it has not been deployed yet.')
 

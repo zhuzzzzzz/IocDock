@@ -437,8 +437,17 @@ def execute_service(args):
     if not args.name:
         print(f'execute_service: No IOC project specified.')
     else:
+        services_dict = SwarmManager().services
         for name in args.name:
-            temp_service = SwarmService(name, service_type=args.type)
+            # set service_type automatically
+            if not args.type:
+                if f'{IMConfig.PREFIX_STACK_NAME}_srv-{name}' in services_dict.keys():
+                    temp_service = SwarmService(name, service_type=services_dict[name].service_type)
+                else:
+                    temp_service = SwarmService(name, service_type='custom')
+            else:
+                temp_service = SwarmService(name, service_type=args.type)
+            #
             if args.deploy:
                 temp_service.deploy()
             elif args.remove:
@@ -448,7 +457,7 @@ def execute_service(args):
             elif args.show_info:
                 temp_service.show_ps()
             elif args.show_logs:
-                print(temp_service.get_logs())
+                temp_service.show_logs()
             elif args.update:
                 temp_service.update()
 

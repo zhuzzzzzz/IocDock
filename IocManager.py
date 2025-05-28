@@ -202,9 +202,9 @@ if __name__ == '__main__':
                                            formatter_class=argparse.RawTextHelpFormatter)
     parser_service.add_argument('name', type=str, nargs='+', help='name for IOC project, name list is supported.')
     parser_service.add_argument('--deploy', action="store_true", help='deploy service into running.')
-    parser_service.add_argument('--type', type=str, default='ioc',
-                                help='service type, one of "ioc", "global", "local".'
-                                     '\ndefault: "ioc" ')
+    parser_service.add_argument('--type', type=str, default='',
+                                help='service type, one of "ioc", "global", "local", "custom".'
+                                     '\ndefault: "", let tool decide the type.')
     parser_service.add_argument('--remove', action="store_true", help='remove running service.')
     parser_service.add_argument('--show-config', action="store_true", help='show configuration of running service.')
     parser_service.add_argument('--show-info', action="store_true", help='show information of running service.')
