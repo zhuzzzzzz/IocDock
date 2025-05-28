@@ -2,14 +2,14 @@ groups:
   - name: container-monitoring
     rules:
       
-      #
-      - record: name_service_instance:container_cpu_core_usage:avg5m
+      # cpu
+      - record: name_service_instance:container_cpu_core_usage_percent:avg5m
         expr: |2
-          sum(rate(container_cpu_usage_seconds_total{id!='/'}[5m])) 
-          by (name, container_label_com_docker_swarm_service_name, instance)
+          (sum(rate(container_cpu_usage_seconds_total{id!='/'}[5m])) 
+          by (name, container_label_com_docker_swarm_service_name, instance)) * 100
           
-      - alert: HighContainerCpuCoreUsage
-        expr: name_service_instance:container_cpu_core_usage:avg5m > 0.8
+      - alert: HighContainerCpuCoreUsagePercent
+        expr: name_service_instance:container_cpu_core_usage_percent:avg5m > 80
         for: 10m
         keep_firing_for: 60m
         labels:
@@ -17,9 +17,11 @@ groups:
           component: container
         annotations:
           summary: "HighContainerCpuCoreUsage for container {{ $labels.name }}"
-          description: "Container {{ $labels.name }} running on {{ $labels.instance }} has used {{ $value }}% of its cpu limit."
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            has used {{ $value }}% of one single cpu core."
       
-      #    
+      # memory
       - record: name_service_instance:container_memory_usage_percent
         expr: |2
             (container_memory_usage_bytes{id!="/"}  
@@ -35,6 +37,131 @@ groups:
           component: container
         annotations:
           summary: "HighContainerMemoryUsagePercent for container {{ $labels.name }}"
-          description: "Container {{ $labels.name }} running on {{ $labels.instance }} has used {{ $value }}% of its memory limit."
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            has used {{ $value }}% of its memory limit."
        
+      # blkio read
+      - record: name_service_instance_device:container_blkio_rate_read:avg5m
+        expr: |2
+          (sum(rate(container_blkio_device_usage_total{id!='/',operation='Read'}[5m]))
+          by (name, container_label_com_docker_swarm_service_name, instance, device)) / 1_000
+
+      - alert: HighContainerBlkioRateRead
+        expr: name_service_instance_device:container_blkio_rate_read:avg5m > 10_000
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+          unit: KB/s
+        annotations:
+          summary: "HighContainerBlkioRateRead for container {{ $labels.name }}"
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            experienced a Block I/O READ rate of {{ $value }} MB/s in past 5 minutes(threshold: 10 MB/s)."
+      
+      # blkio write
+      - record: name_service_instance_device:container_blkio_rate_write:avg5m
+        expr: |2
+          (sum(rate(container_blkio_device_usage_total{id!='/',operation='Write'}[5m]))
+          by (name, container_label_com_docker_swarm_service_name, instance, device)) / 1_000
+
+      - alert: HighContainerBlkioRateWrite
+        expr: name_service_instance_device:container_blkio_rate_write:avg5m > 10_000
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+          unit: KB/s
+        annotations:
+          summary: "HighContainerBlkioRateWrite for container {{ $labels.name }}"
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            experienced a Block I/O WRITE rate of {{ $value }} MB/s in past 5 minutes(threshold: 10 MB/s)."
+         
+      
+      # file system usage
+      - record: name_service_instance:container_fs_usage_percent
+        expr: |2
+            (container_fs_usage_bytes{id!='/'} 
+          / on(name, container_label_com_docker_swarm_service_name, instance) 
+            container_fs_limit_bytes{id!='/'}) * 100
+
+      - alert: HighContainerFileSystemUsagePercent
+        expr: name_service_instance:container_fs_usage_percent > 70
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+        annotations:
+          summary: "HighContainerFileSystemUsagePercent for container {{ $labels.name }}"
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            used {{ $value }}% of the file system limit (threshold: 70%)."
+      
+      
+      # file system read
+      - record: name_service_instance:container_fs_rate_read:avg5m
+        expr: |2
+          (sum(rate(container_fs_reads_bytes_total{id!='/'}[5m])) 
+          by (name, container_label_com_docker_swarm_service_name, instance)) / 1_000
+
+      - alert: HighContainerFileSystemRateRead
+        expr: name_service_instance:container_fs_rate_read:avg5m > 10_000
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+          unit: KB/s
+        annotations:
+          summary: "HighContainerFileSystemRateRead for container {{ $labels.name }}"
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            experienced a File System READ rate of {{ $value }} MB/s in past 5 minutes(threshold: 10 MB/s)."
+      
+      # file system write
+      - record: name_service_instance:container_fs_rate_write:avg5m
+        expr: |2
+          (sum(rate(container_fs_writes_bytes_total{id!='/'}[5m])) 
+          by (name, container_label_com_docker_swarm_service_name, instance)) / 1_000
+          
+      - alert: HighContainerFileSystemRateWrite
+        expr: name_service_instance:container_fs_rate_write:avg5m > 10_000
+        for: 10m
+        keep_firing_for: 60m
+        labels:
+          severity: warning
+          component: container
+          unit: KB/s
+        annotations:
+          summary: "HighContainerFileSystemRateWrite for container {{ $labels.name }}"
+          description: 
+            "Container {{ $labels.name }} running on {{ $labels.instance }} 
+            experienced a File System WRITE rate of {{ $value }} MB/s in past 5 minutes(threshold: 10 MB/s)."
+      
+      # container up
+      
+      
+      
       #
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      

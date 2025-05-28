@@ -38,3 +38,4 @@ services:
     command:
     - "--config.file=/etc/prometheus/prometheus-config.yaml"
     - "--storage.tsdb.path=/prometheus"
+    - "--web.enable-lifecycle"
