@@ -110,3 +110,5 @@ PREFIX_STACK_NAME = 'dals'  # stack name in swarm
 # REGISTRY_COMMON_NAME = 'registry.{PREFIX_STACK_NAME}'
 REGISTRY_COMMON_NAME = f'image.{PREFIX_STACK_NAME}'  # common name for registry https server
 REGISTRY_PORT = 443  # port for registry https server
+REGISTRY_CERT_DOCKER_DIR = REGISTRY_COMMON_NAME if REGISTRY_PORT == 443 else f'{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}'
+REGISTRY_SHELL_VAR_FILE = 'RegistryVar'

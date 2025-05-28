@@ -4,9 +4,7 @@ import subprocess
 import docker
 from tabulate import tabulate
 
-from imutils.IMConfig import (get_manager_path, LOG_FILE_DIR, MOUNT_DIR, SWARM_DIR, IOC_SERVICE_FILE,
-                              PREFIX_STACK_NAME, SWARM_BACKUP_DIR, GLOBAL_SERVICE_FILE_DIR,
-                              GLOBAL_SERVICES_PATH, SERVICES_PATH, REPOSITORY_PATH)
+from imutils.IMConfig import *
 from imutils.IMFunc import relative_and_absolute_path_to_abs, try_makedirs, file_copy, dir_copy
 from imutils.ServiceDefinition import GlobalServicesList, LocalServicesList, CustomServicesList
 
@@ -188,6 +186,12 @@ class SwarmManager:
         else:
             src_path = os.path.join(SERVICES_PATH, 'registry')
             dest_path = os.path.join(top_path, 'registry')
+            # write shell variable file
+            file_path = os.path.join(src_path, REGISTRY_SHELL_VAR_FILE)
+            with open(file_path, "w") as f:
+                f.write(f'REGISTRY_COMMON_NAME={REGISTRY_COMMON_NAME}\n')
+                f.write(f'REGISTRY_CERT_DOCKER_DIR={REGISTRY_CERT_DOCKER_DIR}\n')
+            # copy all deployment files
             dir_copy(src_path, dest_path)
             print(f'SwarmManager: Create deployment directory for "registry".')
 

@@ -4,7 +4,7 @@ groups:
       
       #
       - record: name_service_instance:container_cpu_core_usage:avg5m
-        expr: |
+        expr: |2
           sum(rate(container_cpu_usage_seconds_total{id!='/'}[5m])) 
           by (name, container_label_com_docker_swarm_service_name, instance)
           

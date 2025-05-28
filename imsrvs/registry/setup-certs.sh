@@ -5,10 +5,16 @@
 
 set -e
 
-common_name=`IocManager config REGISTRY_COMMON_NAME`
+shell_var_file=RegistryVar
+if [[ -f "./$shell_var_file" ]]; then
+    source ./$shell_var_file
+fi
 
-sudo mkdir -p /etc/docker/certs.d/${common_name}/
-sudo cp ./certs/registry.crt /etc/docker/certs.d/${common_name}/
+common_name=${REGISTRY_COMMON_NAME:-`IocManager config REGISTRY_COMMON_NAME`}
+cert_docker_dir=${REGISTRY_CERT_DOCKER_DIR-:`IocManager config REGISTRY_CERT_DOCKER_DIR`}
+
+sudo mkdir -p /etc/docker/certs.d/${cert_docker_dir}/
+sudo cp ./certs/registry.crt /etc/docker/certs.d/${cert_docker_dir}/
 
 
 if [[ "$1" != "os-level" ]];then
