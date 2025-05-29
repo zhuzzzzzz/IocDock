@@ -1,0 +1,143 @@
+groups:
+  - name: nodeExporter-monitoring
+    rules:
+    
+      # cpu
+      - record: node_cpu_average_usage_percent:avg5m
+        expr: (1- (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])))) * 100
+        
+      - alert: HighNodeCpuAverageUsagePercent
+        expr: node_cpu_average_usage_percent:avg5m > 50
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeCpuAverageUsagePercent for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has used {{ $value }}% over all its cpu cores(threshold: 50%)."
+            
+      # memory
+      - record: node_memory_usage_percent
+        expr: |2
+          ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
+        / on(instance) 
+          node_memory_MemTotal_bytes) * 100
+        
+      - alert: HighNodeMemoryUasgePercent
+        expr: node_memory_usage_percent > 70
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeMemoryUasgePercent for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has used {{ $value }}% of its max memory(threshold: 70%)."
+            
+      # file system usage
+      - record: node_file_system_usage_percent
+        expr: |2 
+          (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100
+          
+      - alert: HighNodeFileSystemUasgePercent
+        expr: node_file_system_usage_percent > 70
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeFileSystemUasgePercent for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has used {{ $value }}% of its max file system capacity(threshold: 70%)."
+            
+      # disk read kilobytes rate
+      - record: node_disk_read_kilobytes_rate:avg5m
+        expr: |2 
+          rate(node_disk_read_bytes_total[5m]) / 1_000
+          
+      - alert: HighNodeDiskReadKilobytesRate
+        expr: node_disk_read_kilobytes_rate:avg5m > 10_000
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeDiskReadKilobytesRate for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has experienced a File System READ rate of {{ $value }} MB/s 
+            on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
+       
+      # disk write kilobytes rate
+      - record: node_disk_write_kilobytes_rate:avg5m
+        expr: |2 
+          rate(node_disk_written_bytes_total[5m]) / 1_000 
+      
+      - alert: HighNodeDiskWriteKilobytesRate
+        expr: node_disk_write_kilobytes_rate:avg5m > 10_000
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeDiskWriteKilobytesRate for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has experienced a File System WRITE rate of {{ $value }} MB/s 
+            on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
+            
+      # network receive kilobytes rate
+      - record: node_network_receive_kilobytes_rate:avg5m
+        expr: |2
+          rate(node_network_receive_bytes_total[5m]) / 1_000 
+          
+      - alert: HighNodeNetworkReceiveKilobytesRate
+        expr: node_network_receive_kilobytes_rate:avg5m > 500_000
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeNetworkReceiveKilobytesRate for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has experienced a Network RECEIVE rate of {{ $value }} MB/s 
+            on {{ $labels.device }} in past 5 minutes(threshold: 500 MB/s)."
+      
+      # network transmit kilobytes rate
+      - record: node_network_transmit_kilobytes_rate:avg5m
+        expr: |2
+          rate(node_network_transmit_bytes_total[5m]) / 1_000 
+          
+      - alert: HighNodeNetworkTransmitKilobytesRate
+        expr: node_network_transmit_kilobytes_rate:avg5m > 500_000
+        for: 5m
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "HighNodeNetworkTransmitKilobytesRate for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has experienced a Network TRANSMIT rate of {{ $value }} MB/s 
+            on {{ $labels.device }} in past 5 minutes(threshold: 500 MB/s)."
+      
+      # node up time
+      - alert: NodeUptimeTooLong
+        expr: time() - node_boot_time_seconds > 86400 * 365
+        keep_firing_for: 1h
+        labels:
+          severity: warning
+          component: node
+        annotations:
+          summary: "NodeUptimeTooLong for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has been continuously running for more than 365 days."
+      
+      # 
+      
+      
