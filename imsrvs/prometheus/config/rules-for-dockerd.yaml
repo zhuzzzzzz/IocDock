@@ -1,0 +1,42 @@
+groups:
+  - name: dockerd-monitoring
+    rules:
+      
+      # log buffer
+      - alert: LogEntriesGreaterThanBuffer
+        expr: irate(logger_log_entries_size_greater_than_buffer_total[5m]) > 0
+        keep_firing_for: 5m
+        labels:
+          severity: info
+          component: dockerd
+        annotations:
+          summary: "LogEntriesGreaterThanBuffer for docker daemon on host {{ $labels.instance }}"
+          description: 
+            "Number of log entries which are larger than the log buffer."
+            
+      # log read
+      - alert: ContainerLogReadFailed
+        expr: irate(logger_log_read_operations_failed_total[5m]) > 0
+        keep_firing_for: 5m
+        labels:
+          severity: info
+          component: dockerd
+        annotations:
+          summary: "ContainerLogReadFailed for docker daemon on host {{ $labels.instance }}"
+          description: 
+            "Number of log reads from container stdio that failed."
+            
+      # log write
+      - alert: ContainerLogWriteFailed
+        expr: irate(logger_log_write_operations_failed_total[5m]) > 0
+        keep_firing_for: 5m
+        labels:
+          severity: info
+          component: dockerd
+        annotations:
+          summary: "ContainerLogWriteFailed for docker daemon on host {{ $labels.instance }}"
+          description: 
+            "Number of log write operations that failed."
+            
+      #
+      
