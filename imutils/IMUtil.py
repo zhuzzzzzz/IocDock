@@ -441,7 +441,7 @@ def execute_service(args):
         for name in args.name:
             # set service_type automatically
             if not args.type:
-                if f'{IMConfig.PREFIX_STACK_NAME}_srv-{name}' in services_dict.keys():
+                if name in services_dict.keys():
                     temp_service = SwarmService(name, service_type=services_dict[name].service_type)
                 else:
                     temp_service = SwarmService(name, service_type='custom')

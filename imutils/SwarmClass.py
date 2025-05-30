@@ -10,7 +10,7 @@ from imutils.ServiceDefinition import GlobalServicesList, LocalServicesList, Cus
 
 
 class SwarmManager:
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.services = {item: SwarmService(name=item, service_type='ioc') for item in
                          os.listdir(REPOSITORY_PATH)}
         for ss in GlobalServicesList:
@@ -34,6 +34,9 @@ class SwarmManager:
             self.services[ss] = SwarmService(name=name, service_type='custom', compose_file=compose_file)
         self.client = docker.from_env()
         self.running_services = self.get_services_from_docker()
+
+        if verbose:
+            print(self.services)
 
     def get_services_from_docker(self):
         services = self.client.services.list(filters={'label': f'com.docker.stack.namespace={PREFIX_STACK_NAME}'})
