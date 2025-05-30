@@ -7,7 +7,7 @@ groups:
         expr: (1- (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])))) * 100
         
       - alert: HighNodeCpuAverageUsagePercent
-        expr: node_cpu_average_usage_percent:avg5m > 50
+        expr: node_cpu_average_usage_percent:avg5m > 70
         for: 5m
         keep_firing_for: 1h
         labels:
@@ -16,14 +16,14 @@ groups:
         annotations:
           summary: "HighNodeCpuAverageUsagePercent for node {{ $labels.instance }}"
           description: 
-            "Node {{ $labels.instance }} has used {{ $value }}% over all its cpu cores(threshold: 50%)."
+            "Node {{ $labels.instance }} has used {{ $value }}% over all its cpu cores(threshold: 70%)."
             
       # memory
       - record: node_memory_usage_percent
         expr: |2
-          ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
-        / on(instance) 
-          node_memory_MemTotal_bytes) * 100
+            ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
+          / on(instance) 
+            node_memory_MemTotal_bytes) * 100
         
       - alert: HighNodeMemoryUasgePercent
         expr: node_memory_usage_percent > 70
