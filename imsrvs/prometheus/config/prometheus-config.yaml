@@ -11,5 +11,20 @@ scrape_config_files:
 rule_files:
   - ./rules-for-*.yaml
 
+alerting:
+  alertmanagers:
+    - dockerswarm_sd_configs:
+      - host: tcp://127.0.0.10:2375
+        role: tasks
+      relabel_configs:
+        - source_labels: [__meta_dockerswarm_node_hostname]
+          target_label: instance
+          replacement: $1
+        - source_labels: [__meta_dockerswarm_node_address]
+          target_label: __address__
+          replacement: $1:9093
+        - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+          regex: alertmanager
+          action: keep
 
   
