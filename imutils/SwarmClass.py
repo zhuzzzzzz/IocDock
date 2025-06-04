@@ -220,6 +220,16 @@ class SwarmManager:
             dir_copy(src_path, dest_path)
             print(f'SwarmManager: Create deployment directory for "prometheus".')
 
+        # copy alertManager
+        temp_service = SwarmService('alertManager', service_type='local')
+        if temp_service.is_deployed:  # check whether the directory being mounted.
+            print(f'SwarmManager: Failed to create deployment directory for "alertManager" as it is running.')
+        else:
+            src_path = os.path.join(SERVICES_PATH, 'alertManager')
+            dest_path = os.path.join(top_path, 'alertManager')
+            dir_copy(src_path, dest_path)
+            print(f'SwarmManager: Create deployment directory for "alertManager".')
+
     @staticmethod
     def get_deployed_swarm_services():
         result = subprocess.run(
@@ -494,7 +504,7 @@ class SwarmService:
     def show_logs(self):
         print(self)
         if self.is_deployed:
-            if self.service_type=='ioc' or 'iocLogServer' in self.service_name:
+            if self.service_type == 'ioc' or 'iocLogServer' in self.service_name:
                 os.system(f'docker service logs --follow --tail=1000 --raw {self.service_name}')
             else:
                 os.system(f'docker service logs --follow --tail=1000 {self.service_name}')

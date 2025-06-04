@@ -104,6 +104,12 @@ PREFIX_STACK_NAME = 'dals'  # stack name in swarm
 # Service deploy settings #
 #######################################################################################################################
 
+## global
+## =================================================================== ##
+
+SWARM_DEPLOY_SHELL_SCRIPT = 'swarm-deploy.sh'
+SWARM_DEPLOY_VAR_FILE = 'SwarmDeployVar'
+
 ## registry
 ## =================================================================== ##
 
@@ -112,3 +118,8 @@ REGISTRY_COMMON_NAME = f'image.{PREFIX_STACK_NAME}'  # common name for registry 
 REGISTRY_PORT = 443  # port for registry https server
 REGISTRY_CERT_DOCKER_DIR = REGISTRY_COMMON_NAME if REGISTRY_PORT == 443 else f'{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}'
 REGISTRY_SHELL_VAR_FILE = 'RegistryVar'
+
+## alertManager
+## =================================================================== ##
+
+ALERT_MANAGER_MASTER_IP_PORT = '192.168.1.51:9094'

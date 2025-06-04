@@ -1,5 +1,5 @@
 import os.path
-from .IMConfig import COMPOSE_TEMPLATE_PATH
+from imutils.IMConfig import COMPOSE_TEMPLATE_PATH
 
 #
 GlobalServicesList = [
@@ -14,6 +14,7 @@ LocalServicesList = [
     # 'name',
     "registry",
     "prometheus",
+    "alertManager",
     "grafana",
     "portainerServer",
     "portainerAgent",

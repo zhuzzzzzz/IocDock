@@ -1,0 +1,55 @@
+networks:
+  hostnet:
+    external: true
+    name: host
+services:
+  srv-alertManager:
+    image: m.daocloud.io/docker.io/prom/alertmanager:v0.28.1
+    labels:
+      prometheus-job: alertmanager
+    networks:
+    - hostnet
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.labels.alertmanager==true
+        - node.labels.alertmanager-main==true
+    volumes:
+    - source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+      read_only: true
+    command:
+    - "--cluster.listen-address=192.168.1.51:9094"
+    - "--config.file=/etc/alertmanager/alertmanager.yml"
+  srv-alertManager-slave:
+    image: m.daocloud.io/docker.io/prom/alertmanager:v0.28.1
+    labels:
+      prometheus-job: alertmanager
+    networks:
+    - hostnet
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.labels.alertmanager==true
+        - node.labels.alertmanager-slave==true
+    volumes:
+    - source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+      read_only: true
+    command:
+    - "--cluster.peer=192.168.1.51:9094"
+    - "--config.file=/etc/alertmanager/alertmanager.yml"

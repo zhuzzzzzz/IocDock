@@ -1,12 +1,14 @@
+networks:
+  hostnet:
+    external: true
+    name: host
 services:
   srv-alertManager:
     image: m.daocloud.io/docker.io/prom/alertmanager:v0.28.1
     labels:
       prometheus-job: alertmanager
-    ports:
-    - target: 9093
-      published: 9093
-      mode: host # bypass the routing mesh
+    networks:
+    - hostnet
     deploy:
       mode: global
       resources:
