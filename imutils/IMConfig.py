@@ -19,7 +19,7 @@ def get_manager_path() -> str:
 #######################################################################################################################
 
 ## directory, file and path.
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 REPOSITORY_DIR = 'ioc-repository'
 TEMPLATES_DIR = 'templates'
@@ -44,7 +44,7 @@ DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
 OPERATION_LOG_PATH = os.path.join(TOOLS_PATH, OPERATION_LOG_FILE)
 
 ## others.
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 OPERATION_LOG_NUM = 3000  # entry numbers of OperationLog
 
@@ -54,7 +54,7 @@ OPERATION_LOG_NUM = 3000  # entry numbers of OperationLog
 #######################################################################################################################
 
 ## IOC repository setting
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 STATE_NORMAL = 'normal'  # IOC state string
 STATE_WARNING = 'warning'
@@ -70,7 +70,7 @@ MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc',
 DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for created IOC projects
 
 ## IOC container setting
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 DEFAULT_IOC = 'ST-IOC'  # default executable IOC in container
 
@@ -84,7 +84,7 @@ CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
 #######################################################################################################################
 
 ## directory, file and path.
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 MOUNT_DIR = 'ioc-for-docker'  # directory for docker mounting
 SWARM_DIR = 'swarm'
@@ -95,7 +95,7 @@ SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
 MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
 
 ## others.
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 PREFIX_STACK_NAME = 'dals'  # stack name in swarm
 
@@ -104,14 +104,8 @@ PREFIX_STACK_NAME = 'dals'  # stack name in swarm
 # Service deploy settings #
 #######################################################################################################################
 
-## global
-## =================================================================== ##
-
-SWARM_DEPLOY_SHELL_SCRIPT = 'swarm-deploy.sh'
-SWARM_DEPLOY_VAR_FILE = 'SwarmDeployVar'
-
 ## registry
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
 # REGISTRY_COMMON_NAME = 'registry.{PREFIX_STACK_NAME}'
 REGISTRY_COMMON_NAME = f'image.{PREFIX_STACK_NAME}'  # common name for registry https server
@@ -120,6 +114,8 @@ REGISTRY_CERT_DOCKER_DIR = REGISTRY_COMMON_NAME if REGISTRY_PORT == 443 else f'{
 REGISTRY_SHELL_VAR_FILE = 'RegistryVar'
 
 ## alertManager
-## =================================================================== ##
+## ------------------------------------------------------------------- ##
 
-ALERT_MANAGER_MASTER_IP_PORT = '192.168.1.51:9094'
+ALERT_MANAGER_MASTER_IP = '192.168.0.113'
+ALERT_MANAGER_MASTER_PORT = '9094'
+ALERT_MANAGER_SHELL_VAR_FILE = 'AlertManagerVar'

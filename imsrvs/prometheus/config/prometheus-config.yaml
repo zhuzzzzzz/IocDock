@@ -15,7 +15,7 @@ alerting:
   alertmanagers:
     - dockerswarm_sd_configs:
       - host: tcp://127.0.0.10:2375
-        role: tasks
+        role: nodes
       relabel_configs:
         - source_labels: [__meta_dockerswarm_node_hostname]
           target_label: instance
@@ -23,8 +23,8 @@ alerting:
         - source_labels: [__meta_dockerswarm_node_address]
           target_label: __address__
           replacement: $1:9093
-        - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
-          regex: alertmanager
+        - source_labels: [__meta_dockerswarm_node_label_alertmanager]
+          regex: true
           action: keep
 
   

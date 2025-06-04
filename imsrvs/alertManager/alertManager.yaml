@@ -5,6 +5,10 @@ networks:
 services:
   srv-alertManager:
     image: m.daocloud.io/docker.io/prom/alertmanager:v0.28.1
+    entrypoint: /scripts/start-alertmanager.sh
+    command:
+    - "--config.file=/etc/alertmanager/alertmanager.yml"
+    - "--storage.path=/alertmanager"
     labels:
       prometheus-job: alertmanager
     networks:
@@ -22,5 +26,13 @@ services:
     volumes:
     - source: /etc/localtime
       target: /etc/localtime
+      type: bind
+      read_only: true
+    - source: ./scripts
+      target: /scripts
+      type: bind
+      read_only: true
+    - source: /var/tmp/IocDock
+      target: /var/tmp/IocDock
       type: bind
       read_only: true

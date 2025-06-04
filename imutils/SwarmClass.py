@@ -227,6 +227,11 @@ class SwarmManager:
         else:
             src_path = os.path.join(SERVICES_PATH, 'alertManager')
             dest_path = os.path.join(top_path, 'alertManager')
+            # write shell variable file
+            file_path = os.path.join(src_path, 'scripts', ALERT_MANAGER_SHELL_VAR_FILE)
+            with open(file_path, "w") as f:
+                f.write(f'ALERT_MANAGER_MASTER_IP={ALERT_MANAGER_MASTER_IP}\n')
+                f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_PORT}\n')
             dir_copy(src_path, dest_path)
             print(f'SwarmManager: Create deployment directory for "alertManager".')
 
