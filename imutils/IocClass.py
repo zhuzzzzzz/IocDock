@@ -293,6 +293,8 @@ class IOC:
             self.set_config('file_copy', copy_str, section='RAW')
             self.write_config()
             return True
+        else:
+            return False
 
     def add_raw_cmd_template(self):
         sc = 'RAW'

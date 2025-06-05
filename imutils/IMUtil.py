@@ -424,6 +424,8 @@ def execute_swarm(args):
         SwarmManager.show_deployed_machines(show_detail=args.detail)
     elif args.show_tokens:
         SwarmManager.show_join_tokens()
+    elif args.list_managed_services:
+        print(SwarmManager().list_managed_services())
     elif args.backup_swarm:
         SwarmManager.backup_swarm()
     elif args.restore_swarm:

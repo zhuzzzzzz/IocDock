@@ -34,9 +34,7 @@ _mycommand_completion() {
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
 	
-	#
-	image_prefix="image.dals/"
-
+	
 
 	# sub-commands completion.( 2nd position )
 	if [ $COMP_CWORD -eq 1 ]; then  
@@ -50,6 +48,13 @@ _mycommand_completion() {
 	else
 		ioc_list="" 
 	fi	
+	
+	# get service list
+	if [ -f "/usr/bin/IocManager" ]; then
+		service_list=$(IocManager swarm --list-managed-services)
+	else
+		service_list=""
+	fi
 
 	# sub-command options completion( 3rd position ).
 	if [ $COMP_CWORD -eq 2 ]; then
@@ -82,7 +87,7 @@ _mycommand_completion() {
 			;;
 			"service")
 			prompt="" # "service" should specify an IOC project firstly.
-			prompt="$ioc_list $prompt"
+			prompt="$service_list $prompt"
 			;;
 			"edit")
 			prompt="" # "edit" should specify an IOC project firstly.
@@ -101,8 +106,9 @@ _mycommand_completion() {
 		# echo "${COMP_WORDS[@]}"
 		# echo  ${#COMP_WORDS[@]}
 
-		# check whether any option was set(before the current word).
+		# check whether any option was set(before the current word) and get the option at first.
 		ioc_list_temp=$ioc_list
+		service_list_temp=$service_list
 		exec_ioc_prompt_temp=$exec_ioc_prompt
 		_condition_type_prompt_temp=$_condition_type_prompt
 		service_prompt_temp=$service_prompt
@@ -111,6 +117,7 @@ _mycommand_completion() {
 				-*)
 				option_set_first=${COMP_WORDS[$i]} # get that first option.
 				ioc_list_temp="" # ioc projects will not be prompted when option has been set.
+				service_list_temp=""
 				exec_ioc_prompt_temp="" # commands for specified IOC projects will not be prompted, otherwise those should be prompt. for "exec". 
 				_condition_type_prompt_temp="" # conditions will not be prompted. for "list".
 				service_prompt_temp=""
@@ -119,7 +126,7 @@ _mycommand_completion() {
 			esac
 		done
 		
-		# get the option at last(right before the current word).
+		# get the option at last(before the current word).
 		for (( i=0; i<$((${#COMP_WORDS[@]}-1)); i++)); do
 			case ${COMP_WORDS[$i]} in
 				-*)
@@ -206,9 +213,6 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--base-image")
-				compopt -o nospace
-				COMPREPLY=( $(compgen -W $image_prefix -- $2) )
-				return 0
 				;;
 				"--gen-swarm-file")
 				COMPREPLY=( $(compgen -W "--mount-path" -- $2) )
@@ -289,13 +293,7 @@ _mycommand_completion() {
 				;;
 				"-i"|"--show-info")
 				;;
-				"-r"|"--raw-info")
-				;;
 				"-p"|"--prompt-info")
-				;;
-				"-v"|"--verbose")
-				;;
-				"-h"|"--help")
 				;;
 				*)
 				if [ "$option_set_last" == "--ioc-list" -o "$option_set_last" == "-l" ]; then 
@@ -317,10 +315,6 @@ _mycommand_completion() {
 				;;
 				"-f"|"--force")
 				;;				
-				"-v"|"--verbose")
-				;;
-				"-h"|"--help")
-				;;
 				*)
 				;;
 			esac
@@ -415,7 +409,7 @@ _mycommand_completion() {
 				;;
 			esac
 			prompt=$service_prompt_temp
-			prompt="$prompt $ioc_list_temp"
+			prompt="$prompt $service_list_temp"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 			
 		fi		

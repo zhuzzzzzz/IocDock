@@ -185,6 +185,8 @@ if __name__ == '__main__':
                               help='show all nodes joined in swarm.'
                                    '\nset "--detail" to show details, such as node labels.')
     parser_swarm.add_argument('--show-tokens', action="store_true", help='show how to join into swarm for other nodes.')
+    parser_swarm.add_argument('--list-managed-services', action="store_true",
+                              help='list all managed swarm services.')
     parser_swarm.add_argument('-b', '--backup-swarm', action="store_true",
                               help='generate backup file of current swarm.'
                                    '\ndocker daemon of current manager will be paused for backup operation.')

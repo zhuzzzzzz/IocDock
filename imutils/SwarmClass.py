@@ -31,7 +31,7 @@ class SwarmManager:
                 print(f'SwarmManager: Warning! Service "{ss}" defined in CustomServicesList '
                       f'has the same name with existing services, skipped.')
                 continue
-            self.services[ss] = SwarmService(name=name, service_type='custom', compose_file=compose_file)
+            self.services[name] = SwarmService(name=name, service_type='custom', compose_file=compose_file)
         self.client = docker.from_env()
         self.running_services = self.get_services_from_docker()
 
@@ -41,6 +41,12 @@ class SwarmManager:
     def get_services_from_docker(self):
         services = self.client.services.list(filters={'label': f'com.docker.stack.namespace={PREFIX_STACK_NAME}'})
         return [item for item in services]
+
+    def list_managed_services(self):
+        res = ''
+        for item in self.services.keys():
+            res += f'{item} '
+        return res.rstrip()
 
     def list_running_services(self):
         temp_list = [item.name for item in self.running_services]
@@ -544,3 +550,4 @@ if __name__ == '__main__':
     # SwarmManager.backup_swarm()
     print(SwarmManager.get_deployed_compose_services())
     print(SwarmManager.get_deployed_swarm_services())
+    print(SwarmManager(verbose=True).list_managed_services())
