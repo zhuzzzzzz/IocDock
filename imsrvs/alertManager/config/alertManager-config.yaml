@@ -1,0 +1,18 @@
+global:
+  smtp_from: zhujunhua@mail.iasf.ac.cn
+  smtp_smarthost: smtp.qiye.aliyun.com:465
+  smtp_auth_username: zhujunhua@mail.iasf.ac.cn
+  smtp_auth_password_file: smtp_password
+  smtp_require_tls: false
+  
+route:
+  receiver: test-mail
+  group_by: ['component', 'severity']
+  
+receivers:
+  - name: test-mail
+    email_configs: 
+    - to: 1728831951@qq.com
+      
+
+  

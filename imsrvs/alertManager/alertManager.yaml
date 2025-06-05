@@ -7,8 +7,9 @@ services:
     image: m.daocloud.io/docker.io/prom/alertmanager:v0.28.1
     entrypoint: /scripts/start-alertmanager.sh
     command:
-    - "--config.file=/etc/alertmanager/alertmanager.yml"
+    - "--config.file=/etc/alertmanager/alertManager-config.yaml"
     - "--storage.path=/alertmanager"
+    - "--enable-feature=utf8-strict-mode"
     labels:
       prometheus-job: alertmanager
     networks:
@@ -34,5 +35,9 @@ services:
       read_only: true
     - source: /var/tmp/IocDock
       target: /var/tmp/IocDock
+      type: bind
+      read_only: true
+    - source: ./config
+      target: /etc/alertmanager
       type: bind
       read_only: true
