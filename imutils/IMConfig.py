@@ -116,6 +116,6 @@ REGISTRY_SHELL_VAR_FILE = 'RegistryVar'
 ## alertManager
 ## ------------------------------------------------------------------- ##
 
-ALERT_MANAGER_MASTER_IP = '192.168.0.113'
+ALERT_MANAGER_MASTER_IP = '192.168.1.51'
 ALERT_MANAGER_MASTER_PORT = '9094'
 ALERT_MANAGER_SHELL_VAR_FILE = 'AlertManagerVar'

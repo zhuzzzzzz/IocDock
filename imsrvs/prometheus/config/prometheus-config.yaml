@@ -26,5 +26,8 @@ alerting:
         - source_labels: [__meta_dockerswarm_node_label_alertmanager]
           regex: true
           action: keep
+        - source_labels: [__meta_dockerswarm_node_platform_os]
+          regex: linux
+          action: keep
 
   
