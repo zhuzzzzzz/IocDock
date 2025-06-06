@@ -12,6 +12,6 @@ else
     set -- /bin/alertmanager --cluster.peer=$ALERT_MANAGER_MASTER_IP_PORT "$@" 
 fi
 
-echo "$@"
-sleep 3
+set -x
+
 exec "$@"
