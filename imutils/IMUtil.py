@@ -9,10 +9,11 @@ from collections.abc import Iterable
 
 import imutils.IMConfig as IMConfig
 from imutils.IMConfig import get_manager_path
+from imutils.IMError import IMIOCError
 from imutils.IocClass import IOC
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
-                            relative_and_absolute_path_to_abs, )
+                            relative_and_absolute_path_to_abs, file_remove, )
 
 
 # accepts iterable for input
@@ -31,7 +32,7 @@ def create_ioc(name, args, config=None, verbose=False):
         else:
             # Create an IOC and do initialization by given configparser.ConfigParser() object.
             try_makedirs(dir_path, verbose)
-            ioc_temp = IOC(dir_path, verbose=verbose, create=True)
+            ioc_temp = IOC(dir_path=dir_path, verbose=verbose, create=True)
             if hasattr(args, 'add_asyn') and args.add_asyn:
                 ioc_temp.add_module_template('asyn')
                 if verbose:
@@ -77,7 +78,7 @@ def set_ioc(name, args, config=None, verbose=False):
             print(f'set_ioc: Failed. IOC "{name}" is not exist.')
         else:
             # Initialize an existing IOC, edit ioc.ini by given configparser.ConfigParser() object.
-            ioc_temp = IOC(dir_path, verbose)
+            ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
             modify_flag = False
             if args.add_asyn:
                 if ioc_temp.add_module_template('asyn'):
@@ -140,7 +141,7 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
             else:
                 print(f'remove_ioc: Failed. Invalid input, remove canceled.')
         if force_removal:
-            ioc_temp = IOC(dir_path, verbose)
+            ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
             ioc_temp.remove(remove_all)
             if remove_all:
                 print(f'remove_ioc: Success. IOC "{name}" removed completely.')
@@ -161,14 +162,14 @@ def rename_ioc(old_name, new_name, verbose):
             print(f'rename_ioc: Failed. Changing directory name failed, "{e}".')
         else:
             if verbose:
-                IOC(os.path.join(IMConfig.REPOSITORY_PATH, new_name), verbose=verbose)
+                IOC(dir_path=os.path.join(IMConfig.REPOSITORY_PATH, new_name), verbose=verbose)
             else:
                 with open(os.devnull, 'w') as devnull:
                     original_stdout = sys.stdout
                     original_stderr = sys.stderr
                     sys.stdout = devnull
                     sys.stderr = devnull
-                    IOC(os.path.join(IMConfig.REPOSITORY_PATH, new_name), verbose=verbose)
+                    IOC(dir_path=os.path.join(IMConfig.REPOSITORY_PATH, new_name), verbose=verbose)
                     sys.stdout = original_stdout
                     sys.stderr = original_stderr
             print(f'rename_ioc: Success. IOC project name changed from "{old_name}" to "{new_name}".')
@@ -194,7 +195,7 @@ def get_all_ioc(dir_path=None, from_list=None, verbose=False):
         subdir_path = os.path.join(dir_path, ioc_name)
         # if os.path.isdir(subdir_path) and IOC_CONFIG_FILE in os.listdir(subdir_path):
         if os.path.isdir(subdir_path):
-            ioc_temp = IOC(subdir_path, verbose)
+            ioc_temp = IOC(dir_path=subdir_path, verbose=verbose)
             ioc_list.append(ioc_temp)
     return ioc_list
 
@@ -326,7 +327,7 @@ def execute_ioc(args):
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
-                    ioc_temp = IOC(dir_path, args.verbose)
+                    ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     ioc_temp.project_check(print_info=True)
                 else:
                     print(f'execute_ioc: Failed. IOC "{name}" not found.')
@@ -343,7 +344,7 @@ def execute_ioc(args):
                 if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
                     if args.verbose:
                         print(f'execute_ioc: dealing with IOC "{name}".')
-                    ioc_temp = IOC(dir_path, args.verbose)
+                    ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     if isinstance(args.add_src_file, str):
                         if args.verbose:
                             print(f'execute_ioc: adding source file.')
@@ -602,16 +603,19 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
                     print(f'gen_compose_files: No host was specified to generate compose file!')
 
 
-# Generate Docker Compose file of IOC projects in given path for swarm deploying.
-# mount_dir: top dir for MOUNT_DIR.
-# iocs: IOC projects specified to generate compose file.
 def gen_swarm_files(mount_dir, iocs, verbose):
+    """
+    Generate Docker Compose file for swarm deploying at swarm data dir for specified IOC projects.
+
+    :param iocs: IOC projects specified to generate compose file.
+    :param verbose:
+    """
+
     if not iocs:
         print(f'gen_swarm_files: Failed. No IOC project specified.')
         return
 
-    mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
-    top_path = os.path.join(mount_path, IMConfig.MOUNT_DIR, IMConfig.SWARM_DIR)
+    top_path = os.path.join(IMConfig.MOUNT_PATH, IMConfig.SWARM_DIR)
     if not os.path.isdir(top_path):
         print(f'gen_swarm_files: Failed. Working directory {top_path} is not exist!')
         return
@@ -621,94 +625,129 @@ def gen_swarm_files(mount_dir, iocs, verbose):
 
     processed_dir = []
     for service_dir in os.listdir(top_path):
-        if iocs == ['alliocs'] or service_dir in iocs:
-            pass
-        else:
+        if not (iocs == ['alliocs'] or service_dir in iocs):
             continue
         service_path = os.path.join(top_path, service_dir)
-        # get valid IOC projects
-        ioc_list = []
-        ioc_path = os.path.join(service_path, IMConfig.IOC_CONFIG_FILE)
-        if not os.path.exists(ioc_path):
+
+        # read ioc.ini and get deployment setting.
+        ioc_settings = {'service_dir': service_dir}
+        ioc_ini_path = os.path.join(service_path, IMConfig.IOC_CONFIG_FILE)
+        if not os.path.exists(ioc_ini_path):
+            if verbose:
+                print(f'gen_swarm_files: Skip directory "{service_dir}" as there is no valid IOC config file.')
             continue
-        # read ioc.ini and get image setting.
-        conf = configparser.ConfigParser()
-        if conf.read(ioc_path):
-            if not conf.get('IOC', 'image'):
-                print(f'gen_swarm_files: Warning. Can\'t get image setting of IOC project "{service_dir}".')
+        try:
+            temp_ioc = IOC(dir_path=service_path, read_mode=True, verbose=verbose)
+            if not temp_ioc.get_config(section='IOC', option='image'):
+                print(f'gen_swarm_files: Warning. No image defined in settings of IOC "{service_dir}", skipped.')
                 continue
             else:
-                ioc_list.append((service_dir, conf.get('IOC', 'image')))
-        else:
-            print(f'gen_swarm_files: Warning. Path "{ioc_path}" is not a valid configuration file.')
+                ioc_settings['image'] = temp_ioc.get_config(section='IOC', option='image')
+            if not temp_ioc.get_config(section='DEPLOY', option='cpu-reserve'):
+                ioc_settings['cpu-reserve'] = ''
+            else:
+                ioc_settings['cpu-reserve'] = temp_ioc.get_config(section='DEPLOY', option='cpu-reserve')
+            if not temp_ioc.get_config(section='DEPLOY', option='memory-reserve'):
+                ioc_settings['memory-reserve'] = ''
+            else:
+                ioc_settings['memory-reserve'] = temp_ioc.get_config(section='DEPLOY', option='memory-reserve')
+            if not temp_ioc.get_config(section='DEPLOY', option='cpu-limit'):
+                ioc_settings['cpu-limit'] = IMConfig.RESOURCE_IOC_CPU_LIMIT
+            else:
+                ioc_settings['cpu-limit'] = temp_ioc.get_config(section='DEPLOY', option='cpu-limit')
+            if not temp_ioc.get_config(section='DEPLOY', option='memory-limit'):
+                ioc_settings['memory-limit'] = IMConfig.RESOURCE_IOC_MEMORY_LIMIT
+            else:
+                ioc_settings['memory-limit'] = temp_ioc.get_config(section='DEPLOY', option='memory-limit')
+            #
+            reservations_dict = {}
+            if ioc_settings['cpu-reserve']:
+                reservations_dict['cpu-reserve'] = ioc_settings['cpu-reserve']
+            if ioc_settings['memory-reserve']:
+                reservations_dict['memory-reserve'] = ioc_settings['memory-reserve']
+
+        except IMIOCError as e:
+            print(f'gen_swarm_files: Warning. Path "{ioc_ini_path}" is not a valid configuration file, skipped.')
             continue
 
-        if not ioc_list:
-            print(f'gen_swarm_files: Warning. No IOC project found in service directory "{service_dir}".')
-        else:
-            # yaml file title, name of Compose Project must match pattern '^[a-z0-9][a-z0-9_-]*$'
-            yaml_data = {
-                'services': {},
-                'networks': {},
-            }
-            for ioc_data in ioc_list:
-                # add services according to IOC projects.
-                temp_yaml = {
-                    'image': ioc_data[1],  # image
-                    'tty': True,
-                    'networks': ['hostnet'],
-                    'volumes': [
-                        {
-                            'type': 'bind',
-                            'source': f'../{ioc_data[0]}',
-                            'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, ioc_data[0])}',
+        # yaml file title, name of Compose Project must match pattern '^[a-z0-9][a-z0-9_-]*$'
+        yaml_data = {
+            'services': {},
+            'networks': {},
+        }
+        # add services according to IOC projects.
+        temp_yaml = {
+            'image': ioc_settings['image'],
+            'entrypoint': [
+                'bash',
+                '-c',
+                f'cd RUN/{ioc_settings["service_dir"]}/startup/iocBoot; ./st.cmd;'
+            ],
+            'tty': True,
+            'networks': ['hostnet'],
+            'volumes': [
+                {
+                    'type': 'bind',
+                    'source': f'../{ioc_settings["service_dir"]}',
+                    'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, ioc_settings["service_dir"])}',
+                },
+                {
+                    'type': 'bind',
+                    'source': f'.',
+                    'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, IMConfig.LOG_FILE_DIR)}',
+                },
+                {
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True
+                },  # set correct timezone for linux kernel
+            ],
+            'deploy': {
+                'labels':
+                    {
+                        'service-type': 'ioc',
+                    },
+                'replicas': 1,
+                'update_config':
+                    {
+                        'parallelism': 1,
+                        'delay': '10s',
+                        'failure_action': 'rollback',
+                    },
+                'resources':
+                    {
+                        'limits': {
+                            'cpus': ioc_settings['cpu-limit'],
+                            'memory': ioc_settings['memory-limit'],
                         },
-                        {
-                            'type': 'bind',
-                            'source': f'.',
-                            'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, IMConfig.LOG_FILE_DIR)}',
-                        },
-                        {
-                            'type': 'bind',
-                            'source': '/etc/localtime',
-                            'target': '/etc/localtime',
-                            'read_only': True
-                        },  # set correct timezone for linux kernel
-                    ],
-                    'entrypoint': [
-                        'bash',
-                        '-c',
-                        f'cd RUN/{ioc_data[0]}/startup/iocBoot; ./st.cmd;'
-                    ],
-                    'deploy': {
-                        'replicas': 1,
-                        'restart_policy':
-                            {
-                                'window': '10s',
-                            },
-                        'update_config':
-                            {
-                                'parallelism': 1,
-                                'delay': '10s',
-                                'failure_action': 'rollback',
-                            }
                     }
-                }
-                yaml_data['services'].update({f'srv-{ioc_data[0]}': temp_yaml})
-            else:
-                # add network for each stack.
-                temp_yaml = {
-                    'external': True,
-                    'name': 'host',
-                }
-                yaml_data['networks'].update({f'hostnet': temp_yaml})
+            }
+        }
+        # reservations dict.
+        if reservations_dict:
+            temp_yaml['deploy']['resources']['reservations'] = reservations_dict
+        #
+        yaml_data['services'].update({f'srv-{ioc_settings["service_dir"]}': temp_yaml})
+        # add network for each stack.
+        temp_yaml = {
+            'external': True,
+            'name': 'host',
+        }
+        yaml_data['networks'].update({f'hostnet': temp_yaml})
+        # write yaml file
+        file_path = os.path.join(top_path, service_dir, IMConfig.IOC_SERVICE_FILE)
+        if os.path.exists(file_path):
+            if verbose:
+                print(f'gen_swarm_files: File "{file_path}" exists, firstly remove it before writing a new one.')
+            file_remove(file_path, verbose)
+        with open(file_path, 'w') as file:
+            yaml.dump(yaml_data, file, default_flow_style=False)
+        # set readonly permission.
+        os.chmod(file_path, 0o444)
 
-            # write yaml file
-            file_path = os.path.join(top_path, service_dir, IMConfig.IOC_SERVICE_FILE)
-            with open(file_path, 'w') as file:
-                yaml.dump(yaml_data, file, default_flow_style=False)
-            processed_dir.append(service_dir)
-            print(f'gen_swarm_files: Create swarm file for service "{service_dir}".')
+        processed_dir.append(service_dir)
+        print(f'gen_swarm_files: Create swarm file for service "{service_dir}".')
     else:
         if iocs == ['alliocs']:
             print(f'gen_swarm_files: Creating swarm files for all IOC projects finished.')
@@ -823,7 +862,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
                     print(f'restore_backup: Skip invalid directory "{ioc_item}".')
             if restore_flag:
                 print(f'restore_backup: Restoring IOC project "{ioc_item}" finished.')
-                temp_ioc = IOC(current_path, verbose=verbose)
+                temp_ioc = IOC(dir_path=current_path, verbose=verbose)
                 # set status for restored IOC.
                 temp_ioc.set_config('status', 'restored')
                 temp_ioc.write_config()

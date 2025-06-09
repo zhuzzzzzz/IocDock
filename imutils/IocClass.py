@@ -5,15 +5,16 @@ import configparser
 from .IMFunc import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, condition_parse, multi_line_parse, \
     format_normalize, relative_and_absolute_path_to_abs, dir_compare
 from .IMConfig import *
-from .IMError import IMValueError
+from .IMError import IMValueError, IMIOCError
 
 
 class IOC:
-    def __init__(self, dir_path=None, verbose=False, **kwargs):
+    def __init__(self, dir_path=None, read_mode=False, verbose=False, **kwargs):
         """
         Initialize an IOC project for a given path.
 
         :param dir_path: path to project directory.
+        :param read_mode: init by read-only mode.
         :param verbose: whether to show details about program processing.
         :param kwargs: extra arguments.
         """
@@ -37,9 +38,12 @@ class IOC:
         # self.log_path_in_docker
         # self.startup_path_in_docker
 
-        if verbose:
+        if verbose and read_mode:
+            print(f'\nIOC.__init__: Initializing at "{dir_path}" by read-only mode.')
+        if verbose and not read_mode:
             print(f'\nIOC.__init__: Initializing at "{dir_path}".')
 
+        self.read_mode = read_mode
         self.verbose = verbose
         if not dir_path or not os.path.isdir(dir_path):
             raise IMValueError(f'Incorrect initialization parameters: IOC(dir_path={dir_path}).')
@@ -57,12 +61,15 @@ class IOC:
         self.conf = None
         self.state = ''
         self.state_info = ''
-        self.read_config(create=kwargs.get('create', False))
+        if not self.read_mode:
+            self.read_config(create=kwargs.get('create', False))
+        else:
+            self.read_config(create=False)
         self.state = self.get_config('state')
         self.state_info += self.get_config('state_info')
 
         self.name = self.get_config('name')
-        if self.name != os.path.basename(self.dir_path):
+        if self.name != os.path.basename(self.dir_path) and not self.read_mode:
             old_name = self.name
             self.name = os.path.basename(self.dir_path)
             self.set_config('name', self.name)
@@ -84,18 +91,19 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
-        # get currently managed source files.
-        self.get_src_file()
-        # normalize settings format.
-        self.normalize_config()
-        #
-        if not self.check_config('state', 'normal'):
-            if self.verbose:
-                print(f'IOC.__init__: Try repairing IOC "{self.name}".')
-            self.try_repair()
+        if not self.read_mode:
+            # update currently managed source files.
+            self.get_src_file()
+            # normalize settings format.
+            self.normalize_config()
+            #
+            if not self.check_config('state', 'normal'):
+                if self.verbose:
+                    print(f'IOC.__init__: Try repairing IOC "{self.name}".')
+                self.try_repair()
 
         if self.verbose:
-            print(f'IOC.__init__: Finished initializing for IOC "{self.name}".')
+            print(f'IOC.__init__: Initializing finished for IOC "{self.name}".')
 
     def create_new(self):
         self.make_directory_structure()
@@ -216,6 +224,8 @@ class IOC:
             self.check_snapshot_files()
 
     def set_state_info(self, state, state_info, prompt=''):
+        if self.read_mode and (state == STATE_ERROR or state == STATE_WARNING):
+            raise IMIOCError(state_info)
         if self.state_info:
             prefix_newline = '\n'
         else:
@@ -254,6 +264,7 @@ class IOC:
         self.set_config('protocol_file', '', section='SRC')
         self.set_config('others_file', '', section='SRC')
         self.set_config('load', '', section='DB')
+        self.set_config('labels', '', section='DEPLOY')
 
     def add_module_template(self, template_type):
         if template_type.lower() == 'asyn':
