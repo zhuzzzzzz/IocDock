@@ -13,7 +13,7 @@ from imutils.IMError import IMIOCError
 from imutils.IocClass import IOC
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
-                            relative_and_absolute_path_to_abs, file_remove, )
+                            relative_and_absolute_path_to_abs, file_remove, multi_line_parse, )
 
 
 # accepts iterable for input
@@ -610,6 +610,8 @@ def gen_swarm_files(mount_dir, iocs, verbose):
     :param iocs: IOC projects specified to generate compose file.
     :param verbose:
     """
+    if verbose:
+        print(f'gen_swarm_files: Processing with iocs="{iocs}", verbosity="{verbose}".')
 
     if not iocs:
         print(f'gen_swarm_files: Failed. No IOC project specified.')
@@ -659,15 +661,23 @@ def gen_swarm_files(mount_dir, iocs, verbose):
                 ioc_settings['memory-limit'] = IMConfig.RESOURCE_IOC_MEMORY_LIMIT
             else:
                 ioc_settings['memory-limit'] = temp_ioc.get_config(section='DEPLOY', option='memory-limit')
-            #
+            # resources reservations
             reservations_dict = {}
             if ioc_settings['cpu-reserve']:
-                reservations_dict['cpu-reserve'] = ioc_settings['cpu-reserve']
+                reservations_dict['cpus'] = ioc_settings['cpu-reserve']
             if ioc_settings['memory-reserve']:
-                reservations_dict['memory-reserve'] = ioc_settings['memory-reserve']
-
+                reservations_dict['memory'] = ioc_settings['memory-reserve']
+            # labels
+            labels_to_add = {}
+            for label_line in multi_line_parse(temp_ioc.get_config(section='DEPLOY', option='labels')):
+                k, v = condition_parse(label_line)
+                if k:
+                    labels_to_add[k] = v
+                else:
+                    print(f'gen_swarm_files: Warning. '
+                          f'Invalid label definition "{label_line}" for IOC "{service_dir}", skipped.')
         except IMIOCError as e:
-            print(f'gen_swarm_files: Warning. Path "{ioc_ini_path}" is not a valid configuration file, skipped.')
+            print(f'gen_swarm_files: Warning. Exception raised "{e}" while Parsing "{ioc_ini_path}", skipped.')
             continue
 
         # yaml file title, name of Compose Project must match pattern '^[a-z0-9][a-z0-9_-]*$'
@@ -727,6 +737,9 @@ def gen_swarm_files(mount_dir, iocs, verbose):
         # reservations dict.
         if reservations_dict:
             temp_yaml['deploy']['resources']['reservations'] = reservations_dict
+        # labels dict
+        if labels_to_add:
+            temp_yaml['deploy']['labels'].update(labels_to_add)
         #
         yaml_data['services'].update({f'srv-{ioc_settings["service_dir"]}': temp_yaml})
         # add network for each stack.
@@ -750,12 +763,12 @@ def gen_swarm_files(mount_dir, iocs, verbose):
         print(f'gen_swarm_files: Create swarm file for service "{service_dir}".')
     else:
         if iocs == ['alliocs']:
-            print(f'gen_swarm_files: Creating swarm files for all IOC projects finished.')
+            print(f'gen_swarm_files: Finished creating swarm files for all IOC projects.')
         else:
             for item in iocs:
                 if item not in processed_dir:
-                    print(f'gen_swarm_files: Creating swarm files for IOC project "{item}" failed, '
-                          f'may be it is not set in swarm mode.')
+                    print(f'gen_swarm_files: Failed to create swarm files for IOC project "{item}", '
+                          f'may be it is not correctly set.')
             else:
                 if not iocs:
                     print(f'gen_swarm_files: No IOC project was specified to generate compose file!')

@@ -265,6 +265,11 @@ class IOC:
         self.set_config('others_file', '', section='SRC')
         self.set_config('load', '', section='DB')
         self.set_config('labels', '', section='DEPLOY')
+        self.set_config('cpu-limit', '', section='DEPLOY')
+        self.set_config('memory-limit', '', section='DEPLOY')
+        self.set_config('cpu-reserve', '', section='DEPLOY')
+        self.set_config('memory-reserve', '', section='DEPLOY')
+        self.set_config('constraints', '', section='DEPLOY')
 
     def add_module_template(self, template_type):
         if template_type.lower() == 'asyn':
