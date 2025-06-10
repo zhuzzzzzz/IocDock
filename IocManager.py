@@ -84,8 +84,7 @@ if __name__ == '__main__':
                                      '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
                                      'conflicts with the those in repository. ')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=True,
-                                help='force overwrite if files in the IOC project already exists.'
-                                     '\ndefault: True')
+                                help='force overwrite if files in the IOC project already exists.')
     parser_execute.add_argument('--generate-and-export', action="store_true",
                                 help='generate startup files and then export them into mount dir. '
                                      '\nset "--force-overwrite" to enable overwrite exporting when IOC in mount dir '
@@ -220,7 +219,7 @@ if __name__ == '__main__':
     parser_update.set_defaults(func='parse_update')
 
     #
-    parser_edit = subparsers.add_parser('edit', help='Edit settings file for an IOC project.',
+    parser_edit = subparsers.add_parser('edit', help='Edit configuration file of an IOC project using vi.',
                                         formatter_class=argparse.RawTextHelpFormatter)
     parser_edit.add_argument('name', type=str, help='name of the IOC project.')
     parser_edit.add_argument('-v', '--verbose', action="store_true", help='show processing details.')

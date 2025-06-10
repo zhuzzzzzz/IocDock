@@ -3,7 +3,6 @@ import sys
 import yaml
 import tarfile
 import datetime
-import configparser
 from tabulate import tabulate
 from collections.abc import Iterable
 
@@ -736,21 +735,18 @@ def update_ioc(args):
     print(f'Finished updating IOC projects.')
 
 
-# Edit settings file for an IOC project using vi command.
+# Edit configuration file of an IOC project using vi.
 def edit_ioc(args):
-    name = args.name
-    dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
-    file_path = os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)
+    file_path = os.path.join(IMConfig.REPOSITORY_PATH, args.name, IMConfig.IOC_CONFIG_FILE)
     if args.verbose:
-        print(f'edit_ioc: Edit file path: "{file_path}".')
+        print(f'edit_ioc: Edit file "{file_path}".')
     if os.path.exists(file_path):
         try:
             os.system(f'vi {file_path}')
         except Exception as e:
-            if args.verbose:
-                print(f'edit_ioc: Failed to edit, "{e}".')
+            print(f'edit_ioc: Failed, "{e}".')
     else:
-        print(f'edit_ioc: Failed. IOC "{name}" not found.')
+        print(f'edit_ioc: Failed, IOC "{args.name}" not found.')
 
 
 def execute_config(args):

@@ -805,11 +805,6 @@ class IOC:
             self.set_state_info(state=STATE_WARNING, state_info=state_info)
             return
 
-        mount_path = relative_and_absolute_path_to_abs(mount_dir, '..')
-        if not os.path.isdir(mount_path):
-            print(f'IOC("{self.name}").export_for_mount: Failed. Path for mounting "{mount_path}" not exists.')
-            return
-
         self.set_config('status', 'exported')
         self.set_config('is_exported', 'true')
         self.write_config()
