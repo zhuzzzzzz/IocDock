@@ -35,15 +35,15 @@ def create_ioc(name, args, config=None, verbose=False):
             if hasattr(args, 'add_asyn') and args.add_asyn:
                 ioc_temp.add_module_template('asyn')
                 if verbose:
-                    print(f'create_ioc: add asyn template for IOC "{name}".')
+                    print(f'create_ioc: add asyn template to IOC "{name}".')
             if hasattr(args, 'add_stream') and args.add_stream:
                 ioc_temp.add_module_template('stream')
                 if verbose:
-                    print(f'create_ioc: add stream template for IOC "{name}".')
+                    print(f'create_ioc: add stream template to IOC "{name}".')
             if hasattr(args, 'add_raw') and args.add_raw:
                 ioc_temp.add_raw_cmd_template()
                 if verbose:
-                    print(f'create_ioc: add raw command template for IOC "{name}".')
+                    print(f'create_ioc: add raw command template to IOC "{name}".')
             if config:
                 for section in config.sections():
                     if section == 'SRC':  # src files are automatically detected.
@@ -55,8 +55,6 @@ def create_ioc(name, args, config=None, verbose=False):
                             continue
                         if section == 'IOC' and option == 'snapshot':  # snapshot should not be directly copied.
                             continue
-                        if section == 'DB' and option == 'file':  # deprecated option, for IOC updating.
-                            continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
                 else:
@@ -66,7 +64,7 @@ def create_ioc(name, args, config=None, verbose=False):
         for n in name:
             create_ioc(n, args, config=config, verbose=verbose)
     else:
-        print(f'create_ioc: Failed. Invalid input args: "{name}".')
+        raise IMValueError(f'Invalid parameter name="{name}".')
 
 
 # accept iterable for input
@@ -83,17 +81,17 @@ def set_ioc(name, args, config=None, verbose=False):
                 if ioc_temp.add_module_template('asyn'):
                     modify_flag = True
                     if verbose:
-                        print(f'set_ioc: add asyn template for IOC "{name}".')
+                        print(f'set_ioc: add asyn template to IOC "{name}".')
             if args.add_stream:
                 if ioc_temp.add_module_template('stream'):
                     modify_flag = True
                     if verbose:
-                        print(f'set_ioc: add stream template for IOC "{name}".')
+                        print(f'set_ioc: add stream template to IOC "{name}".')
             if args.add_raw:
                 if ioc_temp.add_raw_cmd_template():
                     modify_flag = True
                     if verbose:
-                        print(f'set_ioc: add raw command template for IOC "{name}".')
+                        print(f'set_ioc: add raw command template to IOC "{name}".')
             if any(config.options(section) for section in config.sections()):
                 for section in config.sections():
                     if section == 'SRC':  # src files are automatically detected.
@@ -107,18 +105,18 @@ def set_ioc(name, args, config=None, verbose=False):
                             continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
-                modify_flag = True
+                        modify_flag = True
             if modify_flag:
                 ioc_temp.write_config()
                 print(f'set_ioc: Success. IOC "{name}" modified by given settings.')
             else:
                 if verbose:
-                    print(f'set_ioc: No setting was given for IOC "{name}".')
+                    print(f'set_ioc: No applicable setting given to IOC "{name}".')
     elif isinstance(name, Iterable):
         for n in name:
             set_ioc(n, args, config=config, verbose=verbose)
     else:
-        print(f'set_ioc: Failed. Invalid input args "{name}".')
+        raise IMValueError(f'Invalid parameter name="{name}".')
 
 
 # do not accept iterable for input
@@ -141,12 +139,7 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
                 print(f'remove_ioc: Failed. Invalid input, remove canceled.')
         if force_removal:
             ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
-            ioc_temp.remove(remove_all)
-            if remove_all:
-                print(f'remove_ioc: Success. IOC "{name}" removed completely.')
-            else:
-                print(f'remove_ioc: Success. IOC "{name}" removed, '
-                      f'but directory "src/" and file "{IMConfig.IOC_CONFIG_FILE}" are preserved.')
+            ioc_temp.remove(all_remove=remove_all)
     else:
         print(f'remove_ioc: Failed. IOC "{name}" not found.')
 

@@ -215,6 +215,7 @@ class IOC:
             self.delete_snapshot_files()
             # remove entire project
             dir_remove(self.dir_path, self.verbose)
+            print(f'Success. IOC "{self.name}" removed completely.')
         else:
             # delete auto-generated part
             for item in (self.project_path,):
@@ -222,6 +223,7 @@ class IOC:
             self.set_config('status', 'removed')
             self.write_config()
             self.check_snapshot_files()
+            print(f'Success. IOC "{self.name}" removed, but "src" dir and config file preserved.')
 
     def set_state_info(self, state, state_info, prompt=''):
         if self.read_mode and (state == STATE_ERROR or state == STATE_WARNING):
