@@ -786,9 +786,8 @@ class IOC:
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
 
     # Copy IOC startup files to mount dir for running in container.
-    # mount_dir: a top path for MOUNT_DIR.
     # force_overwrite: "True" will overwrite all files, "False" only files that are not generated during running.
-    def export_for_mount(self, mount_dir=None, force_overwrite=False):
+    def export_for_mount(self, force_overwrite=False):
         if not self.check_config('state', 'normal'):
             print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
                   f'exporting operation must under "normal" state.')
@@ -816,7 +815,7 @@ class IOC:
         self.write_config()
         self.add_snapshot_files()
 
-        top_path = os.path.join(mount_path, MOUNT_DIR, host_name, container_name)
+        top_path = os.path.join(MOUNT_PATH, host_name, container_name)
         if not os.path.isdir(top_path):
             file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('settings', 'log', 'startup',)

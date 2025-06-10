@@ -4,7 +4,7 @@ import os.path
 import argparse
 import configparser
 
-from imutils.IMConfig import IOC_CONFIG_FILE, get_manager_path, MOUNT_DIR, IOC_BACKUP_DIR
+from imutils.IMConfig import get_manager_path, IOC_CONFIG_FILE, IOC_BACKUP_DIR
 from imutils.IMFunc import operation_log, condition_parse
 from imutils.IMUtil import create_ioc, set_ioc, get_filtered_ioc, remove_ioc, execute_ioc, rename_ioc, update_ioc, \
     execute_swarm, execute_service, edit_ioc, execute_config
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     #
     parser_create = subparsers.add_parser('create', help='Create IOC projects by given settings.',
                                           formatter_class=argparse.RawTextHelpFormatter)
-    parser_create.add_argument('name', type=str, nargs='+', help='name for IOC project, name list is supported.')
+    parser_create.add_argument('name', type=str, nargs='+', help='name for IOC project, a list of name is supported.')
     parser_create.add_argument('-o', '--options', type=str, nargs='+',
                                help=f'manually specify attributes in {IOC_CONFIG_FILE} file, format: "key=value".\n'
                                     f'attributes set by this option will override other options if conflicts.')
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     #
     parser_set = subparsers.add_parser('set', help='Set attributes for IOC projects.',
                                        formatter_class=argparse.RawTextHelpFormatter)
-    parser_set.add_argument('name', type=str, nargs='+', help='name for IOC project, name list is supported.')
+    parser_set.add_argument('name', type=str, nargs='+', help='name for IOC project, a list of name is supported.')
     parser_set.add_argument('-o', '--options', type=str, nargs='+',
                             help=f'manually specify attributes in {IOC_CONFIG_FILE} file, format: "key=value".\n'
                                  f'attributes set by this option will override other options if conflicts.')
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     #
     parser_execute = subparsers.add_parser('exec', help='Execute functions for IOC projects.',
                                            formatter_class=argparse.RawTextHelpFormatter)
-    parser_execute.add_argument('name', type=str, nargs='*', help='name for IOC project, a name list is supported.')
+    parser_execute.add_argument('name', type=str, nargs='*', help='name for IOC project, a list of name is supported.')
     # Sort by operation procedure.
     parser_execute.add_argument('--add-src-file', metavar="DIR_PATH", type=str, nargs='?', const='', default=None,
                                 help='add source files from given path and update settings automatically. '
@@ -81,35 +81,27 @@ if __name__ == '__main__':
                                 help='generate st.cmd file and other startup files. ')
     parser_execute.add_argument('--export-for-mount', action="store_true",
                                 help='export generated runtime files into mount dir. '
-                                     '\nset "--mount-path" to choose a top path for mount dir. '
                                      '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
                                      'conflicts with the those in repository. ')
-    parser_execute.add_argument('--mount-path', type=str, default=f'{os.path.join(get_manager_path(), "..")}',
-                                help=f'the top path for mount dir, "{MOUNT_DIR}" directory will be created there. '
-                                     f'\ndefault: the parent directory of the manager tool, "$MANAGER_PATH/../" ')
     parser_execute.add_argument('--force-overwrite', action="store_true", default=True,
                                 help='force overwrite if files in the IOC project already exists.'
                                      '\ndefault: True')
     parser_execute.add_argument('--generate-and-export', action="store_true",
                                 help='generate startup files and then export them into mount dir. '
-                                     '\nset "--mount-path" to choose a top path for mount dir to export. '
                                      '\nset "--force-overwrite" to enable overwrite exporting when IOC in mount dir '
                                      'conflicts with the one in repository. ')
     parser_execute.add_argument('--gen-compose-file', metavar="HOST", type=str, nargs='+',
                                 help='generate docker compose file of IOC projects in mount directory '
                                      'with the host as smallest unit. '
-                                     '\nset "--mount-path" to select a top path to find mount dir. '
                                      '\nset "--base-image" to choose a base image used for running iocLogserver.')
     parser_execute.add_argument('--base-image', type=str, default='base:dev',
                                 help='base image used for running iocLogserver. '
                                      '\ndefault: "base:beta-0.2.2" ')
     parser_execute.add_argument('--gen-swarm-file', action="store_true",
-                                help='generate docker compose file of IOC projects for swarm deploying. '
-                                     '\nset "--mount-path" to select a top path to find mount dir. ')
+                                help='generate docker compose file of IOC projects for swarm deploying. ')
     # new
     parser_execute.add_argument('--deploy', action="store_true",
                                 help='generate and export startup files, then generate compose file for docker running.'
-                                     '\nset "--mount-path" to select a top path to find mount dir. '
                                      '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
                                      'conflicts with the those in repository. '
                                      '\nset "--base-image" to choose a base image used for running iocLogserver'

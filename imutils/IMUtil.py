@@ -177,8 +177,16 @@ def rename_ioc(old_name, new_name, verbose):
         print(f'rename_ioc: Failed. IOC "{old_name}" not found.')
 
 
-# Get IOC projects in given name list for given path. return object list of all IOC projects, if name list not given.
-def get_all_ioc(dir_path=None, from_list=None, verbose=False):
+def get_all_ioc(dir_path=None, from_list=None, read_mode=False, verbose=False):
+    """
+    Get IOC projects at given path from given name list. Return all IOC projects if name list not given.
+
+    :param dir_path: top path to find all ioc projects
+    :param from_list: return ioc projects from given list
+    :param read_mode: whether to initialize an IOC in read-only mode
+    :param verbose: verbosity
+    :return: a list of IOC class objects.
+    """
     ioc_list = []
     if not dir_path:
         dir_path = IMConfig.REPOSITORY_PATH
@@ -193,9 +201,8 @@ def get_all_ioc(dir_path=None, from_list=None, verbose=False):
     items.sort()  # sort according to name string.
     for ioc_name in items:
         subdir_path = os.path.join(dir_path, ioc_name)
-        # if os.path.isdir(subdir_path) and IOC_CONFIG_FILE in os.listdir(subdir_path):
         if os.path.isdir(subdir_path):
-            ioc_temp = IOC(dir_path=subdir_path, verbose=verbose)
+            ioc_temp = IOC(dir_path=subdir_path, read_mode=read_mode, verbose=verbose)
             ioc_list.append(ioc_temp)
     return ioc_list
 
@@ -284,21 +291,14 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
     running_iocs = []
     if show_panel:
         running_iocs = SwarmManager.get_deployed_swarm_services()
-        running_iocs.extend(SwarmManager.get_deployed_compose_services())
     for i in index_to_preserve:
         if show_info:
             ioc_list[i].show_config()
         elif show_panel:
-            if ioc_list[i].check_config('host', 'swarm'):
-                if f'{IMConfig.PREFIX_STACK_NAME}_srv-{ioc_list[i].name}' in running_iocs:
-                    temp = 'running'
-                else:
-                    temp = 'not running'
+            if f'{IMConfig.PREFIX_STACK_NAME}_srv-{ioc_list[i].name}' in running_iocs:
+                temp = 'running'
             else:
-                if f'ioc-{ioc_list[i].get_config("host")}' in running_iocs:
-                    temp = 'running in compose'
-                else:
-                    temp = 'not running'
+                temp = 'not running'
             panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("state"),
                                 ioc_list[i].get_config("status"), temp,
                                 ioc_list[i].check_consistency(print_info=False)[1]])
@@ -313,10 +313,9 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
 def execute_ioc(args):
     # operation outside IOC projects.
     if args.gen_compose_file:
-        gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path, hosts=args.gen_compose_file,
-                          verbose=args.verbose)
+        gen_compose_files(base_image=args.base_image, hosts=args.gen_compose_file, verbose=args.verbose)
     elif args.gen_swarm_file:
-        gen_swarm_files(mount_dir=args.mount_path, iocs=args.name, verbose=args.verbose)
+        gen_swarm_files(iocs=args.name, verbose=args.verbose)
     elif args.gen_backup_file:
         repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
     elif args.restore_backup_file:
@@ -355,7 +354,7 @@ def execute_ioc(args):
                         ioc_temp.generate_startup_files()
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
-                        ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
+                        ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                     elif args.gen_startup_file:
                         if args.verbose:
                             print(f'execute_ioc: generating startup files.')
@@ -363,7 +362,7 @@ def execute_ioc(args):
                     elif args.export_for_mount:
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
-                        ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
+                        ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                     elif args.restore_snapshot_file:
                         if args.verbose:
                             print(f'execute_ioc: restoring snapshot file.')
@@ -375,17 +374,15 @@ def execute_ioc(args):
                         ioc_temp.generate_startup_files()
                         if args.verbose:
                             print(f'execute_ioc: exporting startup files.')
-                        ioc_temp.export_for_mount(mount_dir=args.mount_path, force_overwrite=args.force_overwrite)
+                        ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                         if ioc_temp.check_config('host', 'swarm'):
                             if args.verbose:
                                 print(f'execute_ioc: generating swarm file.')
-                            gen_swarm_files(mount_dir=args.mount_path, iocs=list([ioc_temp.name, ]),
-                                            verbose=args.verbose)
+                            gen_swarm_files(iocs=list([ioc_temp.name, ]), verbose=args.verbose)
                         else:
                             if args.verbose:
                                 print(f'execute_ioc: generating compose file.')
-                            gen_compose_files(base_image=args.base_image, mount_dir=args.mount_path,
-                                              hosts=list([ioc_temp.get_config('host'), ]),
+                            gen_compose_files(base_image=args.base_image, hosts=list([ioc_temp.get_config('host'), ]),
                                               verbose=args.verbose)
                     else:
                         if args.verbose:
@@ -465,13 +462,14 @@ def execute_service(args):
                 temp_service.update()
 
 
-# Generate Docker Compose file for IOC projects and IOC logserver in given host path.
-# base_image: image with epics base for iocLogServer.
-# mount_dir: top dir for MOUNT_DIR.
-# hosts: host for IOC projects to run in.
-def gen_compose_files(base_image, mount_dir, hosts, verbose):
-    mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
-    top_path = os.path.join(mount_path, IMConfig.MOUNT_DIR)
+def gen_compose_files(base_image, hosts, verbose):
+    """
+    Generate Docker Compose file for compose deploying at given host path.
+
+    :param base_image: image that contains iocLogServer.
+    :param hosts: host to generate compose file for IOC projects to run in.
+    """
+    top_path = IMConfig.MOUNT_PATH
     if not os.path.isdir(top_path):
         print(f'gen_compose_files: Failed. Working directory {top_path} is not exist!')
         return
@@ -603,7 +601,7 @@ def gen_compose_files(base_image, mount_dir, hosts, verbose):
                     print(f'gen_compose_files: No host was specified to generate compose file!')
 
 
-def gen_swarm_files(mount_dir, iocs, verbose):
+def gen_swarm_files(iocs, verbose):
     """
     Generate Docker Compose file for swarm deploying at swarm data dir for specified IOC projects.
 
