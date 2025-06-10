@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser_create.add_argument('--add-stream', action="store_true", help='add StreamDevice template.\n')
     parser_create.add_argument('--add-raw', action="store_true",
                                help=f'add raw command template, so to add customized commands.')
-    parser_create.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_create.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_create.set_defaults(func='parse_create')
 
     #
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser_set.add_argument('--add-stream', action="store_true", help='add StreamDevice template.\n')
     parser_set.add_argument('--add-raw', action="store_true",
                             help=f'add raw command template, so to add customized commands.')
-    parser_set.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_set.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_set.set_defaults(func='parse_set')
 
     #
@@ -122,7 +122,7 @@ if __name__ == '__main__':
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--run-check', action="store_true",
                                 help='check IOC projects.')
-    parser_execute.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_execute.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_execute.set_defaults(func='parse_execute')
 
     #
@@ -133,11 +133,11 @@ if __name__ == '__main__':
                                   '\nlist all IOC projects if no condition provided.')
     parser_list.add_argument('-s', '--section', type=str, default='IOC',
                              help='specify a section applied for condition filtering. default section: "IOC".')
-    parser_list.add_argument('-l', '--ioc-list', type=str, nargs='*',
+    parser_list.add_argument('-l', '--list-from', type=str, nargs='*',
                              help='filter IOC projects by given conditions from given IOC list.')
     parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC settings.')
     parser_list.add_argument('-p', '--show-panel', action="store_true", help='show panel of IOC information.')
-    parser_list.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_list.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_list.set_defaults(func='parse_list')
 
     #
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     parser_swarm.add_argument('--backup-file', type=str, default='', help='tgz backup file for swarm.')
     parser_swarm.add_argument('--update-deployed-services', action="store_true",
                               help='update all services deployed in swarm to force load balance.')
-    parser_swarm.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_swarm.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_swarm.set_defaults(func='parse_swarm')
 
     #
@@ -192,7 +192,7 @@ if __name__ == '__main__':
     parser_service.add_argument('--show-info', action="store_true", help='show information of running service.')
     parser_service.add_argument('--show-logs', action="store_true", help='show logs of running service.')
     parser_service.add_argument('--update', action="store_true", help='restart running service.')
-    parser_service.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_service.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_service.set_defaults(func='parse_service')
 
     #
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     parser_remove.add_argument('-r', '--remove-all', action="store_true",
                                help='enable this option will delete the entire IOC project!')
     parser_remove.add_argument('-f', '--force', action="store_true", help='force removal, do not ask.')
-    parser_remove.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_remove.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_remove.set_defaults(func='parse_remove')
 
     #
@@ -210,20 +210,20 @@ if __name__ == '__main__':
                                           formatter_class=argparse.RawTextHelpFormatter)
     parser_rename.add_argument('name', type=str, nargs=2,
                                help='only accept 2 arguments, old name and new name of the IOC project.')
-    parser_rename.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_rename.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_rename.set_defaults(func='parse_rename')
 
     #
     parser_update = subparsers.add_parser('update', help='Update IOC project to the form of newer version.',
                                           formatter_class=argparse.RawTextHelpFormatter)
-    parser_update.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_update.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_update.set_defaults(func='parse_update')
 
     #
     parser_edit = subparsers.add_parser('edit', help='Edit settings file for an IOC project.',
                                         formatter_class=argparse.RawTextHelpFormatter)
     parser_edit.add_argument('name', type=str, help='name of the IOC project.')
-    parser_edit.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_edit.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_edit.set_defaults(func='parse_edit')
 
     #
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     parser_config.add_argument('-s', '--set-value', type=str,
                                help='values to set for given configuration.'
                                     '\nget operation implied when not specifying this option.')
-    parser_config.add_argument('-v', '--verbose', action="store_true", help='show program running details.')
+    parser_config.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_config.set_defaults(func='parse_config')
 
     args = parser.parse_args()
@@ -246,6 +246,7 @@ if __name__ == '__main__':
     # print(f'{args}')
     if args.verbose:
         print(args)
+        print()
     if args.func == 'parse_create' or args.func == 'parse_set':
         # ./iocManager.py create or ./iocManager.py set
         conf_temp = configparser.ConfigParser()
@@ -300,7 +301,7 @@ if __name__ == '__main__':
             set_ioc(args.name, args, config=conf_temp, verbose=args.verbose)
     if args.func == 'parse_list':
         # ./iocManager.py list
-        get_filtered_ioc(args.condition, section=args.section, from_list=args.ioc_list, show_info=args.show_info,
+        get_filtered_ioc(args.condition, section=args.section, from_list=args.list_from, show_info=args.show_info,
                          show_panel=args.show_panel, verbose=args.verbose)
     if args.func == 'parse_remove':
         # ./iocManager.py remove

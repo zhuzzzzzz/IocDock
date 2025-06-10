@@ -39,9 +39,9 @@ class IOC:
         # self.startup_path_in_docker
 
         if verbose and read_mode:
-            print(f'\nIOC.__init__: Initializing at "{dir_path}" by read-only mode.')
+            print(f'IOC.__init__: Initializing at "{dir_path}" with read-only mode.')
         if verbose and not read_mode:
-            print(f'\nIOC.__init__: Initializing at "{dir_path}".')
+            print(f'IOC.__init__: Initializing at "{dir_path}".')
 
         self.read_mode = read_mode
         self.verbose = verbose
@@ -103,7 +103,7 @@ class IOC:
                 self.try_repair()
 
         if self.verbose:
-            print(f'IOC.__init__: Initializing finished for IOC "{self.name}".')
+            print(f'IOC.__init__: Initializing finished for IOC "{self.name}".\n')
 
     def create_new(self):
         self.make_directory_structure()
@@ -125,7 +125,7 @@ class IOC:
             if conf.read(self.config_file_path):
                 self.conf = conf
                 if self.verbose:
-                    print(f'IOC.read_config: Initialize IOC from config file "{self.config_file_path}".')
+                    print(f'IOC.read_config: Read config file "{self.config_file_path}".')
                 return
             else:
                 self.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')

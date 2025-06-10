@@ -9,7 +9,7 @@ from collections.abc import Iterable
 
 import imutils.IMConfig as IMConfig
 from imutils.IMConfig import get_manager_path
-from imutils.IMError import IMIOCError
+from imutils.IMError import IMIOCError, IMValueError
 from imutils.IocClass import IOC
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import (try_makedirs, dir_copy, file_copy, condition_parse, dir_remove,
@@ -207,45 +207,31 @@ def get_all_ioc(dir_path=None, from_list=None, read_mode=False, verbose=False):
     return ioc_list
 
 
-# Show IOC projects that meeting the specified conditions and section, AND logic is implied to each condition.
-def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_info=False, show_panel=False,
+def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=False, show_panel=False,
                      verbose=False):
-    section = section.upper()  # to support case-insensitive filter for section.
+    """
+    Filter and List IOC projects by specified conditions and section. Logic "AND" is used between each condition.
 
-    ioc_list = get_all_ioc(from_list=from_list, verbose=verbose)
-    if from_list is not None:
-        print(f'List IOC projects from "{from_list}":')
+    :param condition: filter conditions such as ["a=b", "c=d"]
+    :param section: filter on given section in config file
+    :param from_list: filter from given IOC list
+    :param show_info: show IOC configurations
+    :param show_panel: show IOC management pannel
+    :param verbose:
+    :return:
+    """
+    section = section.upper()  # to support case-insensitive filter for section.
+    ioc_list = get_all_ioc(read_mode=True, from_list=from_list, verbose=verbose)
+
+    if verbose and from_list is not None:
+        print(f'List IOC projects from "{from_list}".')
 
     index_to_remove = []
     if not condition:
-        # Filter IOC projects by section when no condition specified.
-        # Default will return all IOC projects, because all IOC projects have section "IOC".
-        for i in range(0, len(ioc_list)):
-            if not ioc_list[i].conf.has_section(section=section):
-                index_to_remove.append(i)
+        # Return all IOC projects when no condition specified.
         if verbose:
-            print(f'No condition specified, list IOC projects that has section "{section}":')
-    elif isinstance(condition, str):
-        key, value = condition_parse(condition)
-        if key:
-            if key.lower() != 'name':
-                for i in range(0, len(ioc_list)):
-                    if not ioc_list[i].check_config(key, value, section):
-                        index_to_remove.append(i)
-                if verbose:
-                    print(f'Results for section "{section}", condition "{condition}":')
-            else:
-                for i in range(0, len(ioc_list)):
-                    if value not in ioc_list[i].name:
-                        index_to_remove.append(i)
-                if verbose:
-                    print(f'Results for name matching:')
-        else:
-            # Do not return any result when wrong condition parsed.
-            index_to_remove = [i for i in range(0, len(ioc_list))]
-            if verbose:
-                print(f'No result. Invalid condition specified: "{condition}".')
-    elif isinstance(condition, Iterable):
+            print(f'No condition specified, list all IOC projects.')
+    elif isinstance(condition, list):
         valid_flag = False  # flag to check whether any valid condition has been given.
         valid_condition = []
         for c in condition:
@@ -254,60 +240,55 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
             if key:
                 valid_flag = True
                 valid_condition.append(c)
-                if key.lower() != 'name':
-                    for i in range(0, len(ioc_list)):
-                        if not ioc_list[i].check_config(key, value, section):
-                            index_to_remove.append(i)
-                else:
+                if key.lower() == 'name':
                     for i in range(0, len(ioc_list)):
                         if value not in ioc_list[i].name:
                             index_to_remove.append(i)
+                else:
+                    for i in range(0, len(ioc_list)):
+                        if not ioc_list[i].check_config(key, value, section):
+                            index_to_remove.append(i)
             else:
                 if verbose:
-                    print(f'Skipped invalid condition "{c}".')
+                    print(f'Skip invalid condition "{c}".')
         if valid_flag:
             if verbose:
-                print(f'Results for section "{section}", condition "{valid_condition}":')
+                print(f'Results for filter with parameter: section="{section}", condition="{valid_condition}".')
         else:
-            # Do not return any result, if there is no valid condition given.
+            # Do not return any result if no valid condition given.
             index_to_remove = [i for i in range(0, len(ioc_list))]
             if verbose:
-                print(f'No result. No valid condition specified: "{condition}".')
+                print(f'No result. No valid condition given.')
     else:
-        index_to_remove = [i for i in range(0, len(ioc_list))]  # remove all
-        if verbose:
-            print(f'No result. Invalid condition: "{condition}".')
+        raise IMValueError(f'Invalid filter parameter: condition="{condition}".')
 
     # get index to print.
-    index_to_preserve = []
+    index_reserved = []
     for i in range(0, len(ioc_list)):
         if i in index_to_remove:
             continue
         else:
-            index_to_preserve.append(i)
+            index_reserved.append(i)
     # print results.
     ioc_print = []
-    panel_print = [["IOC", "Host", "State", "Status", "RunningStatus", "ExportConsistency"], ]
-    running_iocs = []
-    if show_panel:
-        running_iocs = SwarmManager.get_deployed_swarm_services()
-    for i in index_to_preserve:
+    panel_print = [["IOC", "Host", "State", "Status", "DeployStatus", "ExportConsistency"], ]
+    for i in index_reserved:
         if show_info:
             ioc_list[i].show_config()
         elif show_panel:
-            if f'{IMConfig.PREFIX_STACK_NAME}_srv-{ioc_list[i].name}' in running_iocs:
-                temp = 'running'
-            else:
-                temp = 'not running'
+            temp_service = SwarmService(name=ioc_list[i].name, service_type='ioc')
             panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("state"),
-                                ioc_list[i].get_config("status"), temp,
+                                ioc_list[i].get_config("status"), temp_service.current_state,
                                 ioc_list[i].check_consistency(print_info=False)[1]])
         else:
             ioc_print.append(ioc_list[i].name)
     else:
-        if show_panel:
+        if show_info:
+            pass
+        elif show_panel:
             print(tabulate(panel_print, headers="firstrow", tablefmt='plain'))
-        print(' '.join(ioc_print))
+        else:
+            print(' '.join(ioc_print))
 
 
 def execute_ioc(args):

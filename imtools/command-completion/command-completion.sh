@@ -23,7 +23,7 @@ _mycommand_completion() {
 	exec_prompt="" # general prompt for all exec commands.
 	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file --gen-swarm-file --deploy" # exec commands for specified IOC projects.
 	#
-	list_prompt="--section --ioc-list --show-info --show-panel"
+	list_prompt="--section --list-from --show-info --show-panel"
 	_condition_type_prompt="name= host= state= status= snapshot= is_exported= "
 	#
 	remove_prompt="--remove-all --force"
@@ -72,6 +72,7 @@ _mycommand_completion() {
 			prompt="$ioc_list $prompt"
 			;;
 			"list")
+			compopt -o nospace
 			prompt="$list_prompt $_condition_type_prompt"
 			;;
 			"remove")
@@ -261,12 +262,13 @@ _mycommand_completion() {
 		fi
 		# options completion for "list".
 		if [ ${COMP_WORDS[1]} == "list" ]; then 
+			compopt -o nospace
 			case "$3" in
 				"-s"|"--section")
-				COMPREPLY=( $(compgen -W "IOC SETTING" -- $2) )
+				COMPREPLY=( $(compgen -W "IOC SETTING DEPLOY" -- $2) )
 				return 0
 				;;
-				"-l"|"--ioc-list")
+				"-l"|"--list-from")
 				COMPREPLY=( $(compgen -W "${ioc_list}" -- $2) )
 				return 0
 				;;
@@ -275,7 +277,7 @@ _mycommand_completion() {
 				"-p"|"--prompt-info")
 				;;
 				*)
-				if [ "$option_set_last" == "--ioc-list" -o "$option_set_last" == "-l" ]; then 
+				if [ "$option_set_last" == "--list-from" -o "$option_set_last" == "-l" ]; then 
 					prompt="--section --show-info --show-panel $ioc_list"
 					COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 					return 0

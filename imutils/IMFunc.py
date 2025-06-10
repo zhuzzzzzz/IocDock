@@ -134,7 +134,7 @@ def relative_and_absolute_path_to_abs(input_path, default_path=None):
     return output_path
 
 
-def condition_parse(condition: str, split_once=None):
+def condition_parse(condition: str, split_once: bool = False):
     # set max_split to control how many parts to split the condition.
     if split_once:
         # if set, split once at most.
