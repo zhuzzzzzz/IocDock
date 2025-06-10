@@ -90,23 +90,13 @@ if __name__ == '__main__':
                                 help='generate startup files and then export them into mount dir. '
                                      '\nset "--force-overwrite" to enable overwrite exporting when IOC in mount dir '
                                      'conflicts with the one in repository. ')
-    parser_execute.add_argument('--gen-compose-file', metavar="HOST", type=str, nargs='+',
-                                help='generate docker compose file of IOC projects in mount directory '
-                                     'with the host as smallest unit. '
-                                     '\nset "--base-image" to choose a base image used for running iocLogserver.')
-    parser_execute.add_argument('--base-image', type=str, default='base:dev',
-                                help='base image used for running iocLogserver. '
-                                     '\ndefault: "base:beta-0.2.2" ')
     parser_execute.add_argument('--gen-swarm-file', action="store_true",
                                 help='generate docker compose file of IOC projects for swarm deploying. ')
     # new
     parser_execute.add_argument('--deploy', action="store_true",
                                 help='generate and export startup files, then generate compose file for docker running.'
                                      '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
-                                     'conflicts with the those in repository. '
-                                     '\nset "--base-image" to choose a base image used for running iocLogserver'
-                                     '(only in compose deploy mode).'
-                                )
+                                     'conflicts with the those in repository. ')
     parser_execute.add_argument('-b', '--gen-backup-file', action="store_true",
                                 help='generate backup file, all IOC projects currently '
                                      'in the repository will be packed and compressed into a tgz file. '
@@ -167,8 +157,6 @@ if __name__ == '__main__':
                               help='remove all deployed services including global services.')
     parser_swarm.add_argument('--show-digest', action="store_true",
                               help='show digest information of current swarm deploying.')
-    parser_swarm.add_argument('--show-compose', action="store_true",
-                              help='show all deployed compose projects. ')
     parser_swarm.add_argument('--show-services', action="store_true",
                               help='show all service deployed in swarm. '
                                    '\nset "--detail" to show details.')

@@ -30,7 +30,7 @@ _mycommand_completion() {
 	#
 	rename_prompt=""
 	#
-	swarm_prompt="--gen-built-in-services --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-compose --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services"
+	swarm_prompt="--gen-built-in-services --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services"
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
 	
@@ -68,7 +68,7 @@ _mycommand_completion() {
 			prompt="$ioc_list $prompt"
 			;;
 			"exec") # "exec" may specify an IOC project firstly or specify the commands that are applied to all IOC projects.
-			prompt="--gen-compose-file --gen-backup-file --restore-backup-file --run-check"
+			prompt="--gen-backup-file --restore-backup-file --run-check"
 			prompt="$ioc_list $prompt"
 			;;
 			"list")
@@ -190,36 +190,22 @@ _mycommand_completion() {
 				"--gen-startup-file")
 				return 0
 				;;
-				"-e"|"--export-for-mount")
-				COMPREPLY=( $(compgen -W "--mount-path --force-overwrite" -- $2) )
-				return 0
-				;;
-				"--mount-path")
-				compopt -o nospace
-				directory_list=$(compgen -d -- $2) # Variable Type!!!
-				for dir in $directory_list; do
-					COMPREPLY+=( "${dir}/" )
-				done
+				"--export-for-mount")
+				COMPREPLY=( $(compgen -W "--force-overwrite" -- $2) )
 				return 0
 				;;
 				"--force-overwrite")
+				return 0
 				;;
 				"--generate-and-export")
-				COMPREPLY=( $(compgen -W "--mount-path --force-overwrite" -- $2) )
+				COMPREPLY=( $(compgen -W "--force-overwrite" -- $2) )
 				return 0
-				;;
-				"--gen-compose-file")
-				COMPREPLY=( $(compgen -W "$(ls $MOUNT_PATH)" -- $2) )
-				return 0
-				;;
-				"--base-image")
 				;;
 				"--gen-swarm-file")
-				COMPREPLY=( $(compgen -W "--mount-path" -- $2) )
 				return 0
 				;;
 				"--deploy")
-				COMPREPLY=( $(compgen -W "--mount-path --force-overwrite --base-image" -- $2) )
+				COMPREPLY=( $(compgen -W "--force-overwrite" -- $2) )
 				return 0
 				;;
 				"-b"|"--gen-backup-file")
@@ -255,19 +241,12 @@ _mycommand_completion() {
 				return 0
 				;;
 				"--run-check")
+				return 0
 				;;
 				*)
 				;;
 			esac
-			if [[ "$option_set_first" == "--export-for-mount" ]]; then 
-				prompt="--mount-path --force-overwrite"
-			elif [ "$option_set_first" == "--generate-and-export" ]; then 
-				prompt="--mount-path --force-overwrite"
-			elif [ "$option_set_first" == "--gen-compose-file" ]; then 
-				prompt="--mount-path --base-image"
-			elif [ "$option_set_first" == "--deploy" ]; then 
-				prompt="--mount-path --force-overwrite --base-image"
-			elif [ "$option_set_first" == "--gen-backup-file" ]; then 
+			if [ "$option_set_first" == "--gen-backup-file" ]; then 
 				prompt="--backup-path --backup-mode"
 			elif [ "$option_set_first" == "--restore-backup-file" ]; then 
 				prompt="--force-overwrite"
@@ -350,8 +329,6 @@ _mycommand_completion() {
 				"--remove-all-services")
 				;;
 				"--show-digest")
-				;;
-				"--show-compose")
 				;;
 				"--show-services")
 				prompt="--detail"

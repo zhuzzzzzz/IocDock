@@ -312,9 +312,7 @@ def get_filtered_ioc(condition: Iterable, section='IOC', from_list=None, show_in
 
 def execute_ioc(args):
     # operation outside IOC projects.
-    if args.gen_compose_file:
-        gen_compose_files(base_image=args.base_image, hosts=args.gen_compose_file, verbose=args.verbose)
-    elif args.gen_swarm_file:
+    if args.gen_swarm_file:
         gen_swarm_files(iocs=args.name, verbose=args.verbose)
     elif args.gen_backup_file:
         repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
@@ -382,8 +380,6 @@ def execute_ioc(args):
                         else:
                             if args.verbose:
                                 print(f'execute_ioc: generating compose file.')
-                            gen_compose_files(base_image=args.base_image, hosts=list([ioc_temp.get_config('host'), ]),
-                                              verbose=args.verbose)
                     else:
                         if args.verbose:
                             print(f'execute_ioc: No "exec" operation specified.')
@@ -411,8 +407,6 @@ def execute_swarm(args):
         SwarmManager().remove_all_services()
     elif args.show_digest:
         SwarmManager().show_info()
-    elif args.show_compose:
-        SwarmManager.show_compose_services()
     elif args.show_services:
         if args.detail:
             SwarmManager.show_deployed_services_detail()
@@ -460,145 +454,6 @@ def execute_service(args):
                 temp_service.show_logs()
             elif args.update:
                 temp_service.update()
-
-
-def gen_compose_files(base_image, hosts, verbose):
-    """
-    Generate Docker Compose file for compose deploying at given host path.
-
-    :param base_image: image that contains iocLogServer.
-    :param hosts: host to generate compose file for IOC projects to run in.
-    """
-    top_path = IMConfig.MOUNT_PATH
-    if not os.path.isdir(top_path):
-        print(f'gen_compose_files: Failed. Working directory {top_path} is not exist!')
-        return
-    else:
-        if verbose:
-            print(f'gen_compose_files: Working at {top_path}.')
-
-    processed_dir = []
-    for host_dir in os.listdir(top_path):
-        if hosts == ['allprojects'] or host_dir in hosts:
-            pass
-        else:
-            continue
-        if host_dir == IMConfig.SWARM_DIR:
-            continue
-        host_path = os.path.join(top_path, host_dir)
-        if not os.path.isdir(host_path):
-            continue
-
-        # get valid IOC projects
-        ioc_list = []
-        for ioc_dir in os.listdir(host_path):
-            ioc_path = os.path.join(host_path, ioc_dir, IMConfig.IOC_CONFIG_FILE)
-            if not os.path.exists(ioc_path):
-                continue
-            # read ioc.ini and get image setting.
-            conf = configparser.ConfigParser()
-            if conf.read(ioc_path):
-                if not conf.get('IOC', 'image'):
-                    print(f'gen_compose_files: Warning. Can\'t get image setting of IOC project "{ioc_dir}".')
-                    continue
-                else:
-                    ioc_list.append((ioc_dir, conf.get('IOC', 'image')))
-            else:
-                print(f'gen_compose_files: Warning. Path "{ioc_path}" is not a valid configuration file.')
-                continue
-
-        if not ioc_list:
-            print(f'gen_compose_files: Warning. No valid IOC project found in host directory "{host_dir}".')
-        else:
-            # yaml file title, name of Compose Project must match pattern '^[a-z0-9][a-z0-9_-]*$'
-            yaml_data = {'name': f'ioc-{host_dir}'.lower(), 'services': {}}
-            for ioc_data in ioc_list:
-                # add services according to IOC projects.
-                temp_yaml = {
-                    'container_name': ioc_data[0],  # name
-                    'image': ioc_data[1],  # image
-                    'tty': True,
-                    'restart': 'always',
-                    'network_mode': 'host',
-                    'depends_on': [f'srv-log-{host_dir}', ],
-                    'volumes': [
-                        {
-                            'type': 'bind',
-                            'source': f'./{ioc_data[0]}',
-                            'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, ioc_data[0])}',
-                        },
-                        {
-                            'type': 'bind',
-                            'source': f'./{IMConfig.LOG_FILE_DIR}',
-                            'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, IMConfig.LOG_FILE_DIR)}',
-                        },
-                        {
-                            'type': 'bind',
-                            'source': '/etc/localtime',
-                            'target': '/etc/localtime',
-                            'read_only': True
-                        },  # set correct timezone for linux kernel
-                    ],
-                    'entrypoint': [
-                        'bash',
-                        '-c',
-                        f'cd RUN/{ioc_data[0]}/startup/iocBoot; ./st.cmd;'
-                    ]
-
-                }
-                yaml_data['services'].update({f'srv-{ioc_data[0]}': temp_yaml})
-            else:
-                # add iocLogServer service for host.
-                temp_yaml = {
-                    'container_name': f'log-{host_dir}',
-                    'image': base_image,
-                    'tty': True,
-                    'restart': 'always',
-                    'network_mode': 'host',
-                    'volumes': [
-                        {
-                            'type': 'bind',
-                            'source': f'./{os.path.join(IMConfig.LOG_FILE_DIR)}',
-                            'target': f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, IMConfig.LOG_FILE_DIR)}',
-                        },
-                        {
-                            'type': 'bind',
-                            'source': '/etc/localtime',
-                            'target': '/etc/localtime',
-                            'read_only': True
-                        },  # set correct timezone for linux kernel
-                    ],
-                    'entrypoint': [
-                        'bash',
-                        '-c',
-                        f'. ~/.bash_aliases; date; echo run iocLogServer; iocLogServer'
-                    ],
-                    'environment': {
-                        'EPICS_IOC_LOG_FILE_NAME':
-                            f'{os.path.join(IMConfig.CONTAINER_IOC_RUN_PATH, IMConfig.LOG_FILE_DIR, f"{host_dir}.ioc.log")}',
-                    },
-                }
-                yaml_data['services'].update({f'srv-log-{host_dir}': temp_yaml})
-
-            # make directory for iocLogServer
-            try_makedirs(os.path.join(top_path, host_dir, IMConfig.LOG_FILE_DIR))
-
-            # write yaml file
-            file_path = os.path.join(top_path, host_dir, 'compose.yaml')
-            with open(file_path, 'w') as file:
-                yaml.dump(yaml_data, file, default_flow_style=False)
-            processed_dir.append(host_dir)
-            print(f'gen_compose_files: Create compose file for host "{host_dir}".')
-    else:
-        if hosts == ['allprojects']:
-            print(f'gen_compose_files: Creating compose files for all IOC projects finished.')
-        else:
-            for item in hosts:
-                if item not in processed_dir:
-                    print(f'gen_compose_files: Creating compose files for host "{item}" failed.')
-            else:
-                if not hosts:
-                    print(f'gen_compose_files: No host was specified to generate compose file!')
 
 
 def gen_swarm_files(iocs, verbose):

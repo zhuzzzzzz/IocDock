@@ -251,15 +251,6 @@ class SwarmManager:
         return output_list
 
     @staticmethod
-    def get_deployed_compose_services():
-        result = subprocess.run(
-            ['docker', 'compose', 'ls', ],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        output_list = result.stdout.splitlines()
-        temp_list = output_list[1:]
-        return [item.split(' ')[0] for item in temp_list]
-
-    @staticmethod
     def show_deployed_services():
         os.system('docker stack ps -f "desired-state=running" -f "desired-state=ready" -f "desired-state=accepted" '
                   '--format "table {{.Name}}\t{{.Node}}\t{{.DesiredState}}\t{{.CurrentState}}\t{{.Error}}\t{{.Ports}}" '
@@ -271,10 +262,6 @@ class SwarmManager:
                   '--format "table {{.Name}}\t{{.Node}}\t{{.DesiredState}}\t{{.CurrentState}}\t{{.Error}}\t{{.Ports}}" '
                   '--no-trunc '
                   + f' {PREFIX_STACK_NAME} ')
-
-    @staticmethod
-    def show_compose_services():
-        os.system(f'docker compose ls')
 
     @staticmethod
     def show_deployed_machines(show_detail=False):
@@ -533,7 +520,6 @@ class SwarmService:
 
 
 if __name__ == '__main__':
-    # SwarmManager.gen_global_compose_file(base_image='base:beta-0.2.2', mount_dir='/home/zhu/docker/')
     # SwarmManager.show_deployed_services()
     # SwarmManager.show_join_tokens()
     # SwarmManager.show_deployed_info()
@@ -548,6 +534,5 @@ if __name__ == '__main__':
     # print(SwarmManager().get_services_from_docker())
     # SwarmManager().list_running_services()
     # SwarmManager.backup_swarm()
-    print(SwarmManager.get_deployed_compose_services())
     print(SwarmManager.get_deployed_swarm_services())
     print(SwarmManager(verbose=True).list_managed_services())
