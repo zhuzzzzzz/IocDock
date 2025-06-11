@@ -269,8 +269,10 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             ioc_list[i].show_config()
         elif show_panel:
             temp_service = SwarmService(name=ioc_list[i].name, service_type='ioc')
-            panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"), ioc_list[i].get_config("state"),
-                                ioc_list[i].get_config("status"), temp_service.current_state,
+            panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"),
+                                ioc_list[i].state_manager.get_config("state"),
+                                ioc_list[i].state_manager.get_config("status"),
+                                temp_service.current_state,
                                 ioc_list[i].check_consistency(print_info=False)[1]])
         else:
             ioc_print.append(ioc_list[i].name)
@@ -465,7 +467,8 @@ def gen_swarm_files(iocs, verbose):
                 print(f'gen_swarm_files: Skip directory "{service_dir}" as there is no valid IOC config file.')
             continue
         try:
-            temp_ioc = IOC(dir_path=service_path, read_mode=True, verbose=verbose)
+            temp_ioc = IOC(dir_path=service_path, read_mode=True, verbose=verbose,
+                           state_info_ini_dir=os.path.join(IMConfig.REPOSITORY_PATH, service_dir))
             if not temp_ioc.get_config(section='IOC', option='image'):
                 print(f'gen_swarm_files: Warning. No image defined in settings of IOC "{service_dir}", skipped.')
                 continue

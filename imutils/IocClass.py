@@ -33,6 +33,20 @@ class IocStateManager:
         self.state = self.get_config('state')
         self.state_info += self.get_config('state_info')
 
+        self.normalize_config()
+
+    def create_new(self):
+        self.conf = configparser.ConfigParser()
+        if self.verbose:
+            print(f'IocStateManager.read_config: Initialize a new state info file "{self.info_file_path}" '
+                  f'with default settings.')
+        self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
+        self.set_config('state_info', '')
+        self.set_config('status', 'created')
+        self.set_config('snapshot', 'untracked')  # untracked, tracked
+        self.set_config('is_exported', 'false')
+        self.write_config()
+
     def read_config(self, create):
         if os.path.exists(self.info_file_path):
             conf = configparser.ConfigParser()
@@ -40,26 +54,16 @@ class IocStateManager:
                 self.conf = conf
                 if self.verbose:
                     print(f'IocStateManager.read_config: Read state info file "{self.info_file_path}".')
-                return
             else:
-                self.set_state_info(state=STATE_ERROR, state_info='unrecognized state info file.')
-                return
+                if create:
+                    self.create_new()
+                else:
+                    raise IMIOCError(f'unrecognized state info file "{self.info_file_path}".')
         else:
             if create:
-                self.conf = configparser.ConfigParser()
-                if self.verbose:
-                    print(f'IocStateManager.read_config: Initialize a new state info file "{self.info_file_path}" '
-                          f'with default settings.')
-                self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
-                self.set_config('state_info', '')
-                self.set_config('status', 'created')
-                self.set_config('snapshot', 'untracked')  # untracked, tracked
-                self.set_config('is_exported', 'false')
-                self.write_config()
-                return
+                self.create_new()
             else:
-                self.set_state_info(state=STATE_ERROR, state_info='state info file lost.')
-                return
+                raise IMIOCError(f'state info "{self.info_file_path}" lost.')
 
     def write_config(self):
         with open(self.info_file_path, 'w') as f:
@@ -116,7 +120,7 @@ class IocStateManager:
             self.conf = temp_conf
             self.write_config()
 
-    def remove(self, all_remove=False):
+    def remove(self):
         file_remove(self.info_file_path, verbose=self.verbose)
 
     def set_state_info(self, state, state_info, prompt=''):
@@ -152,6 +156,7 @@ class IOC:
         :param read_mode: init by read-only mode.
         :param verbose: whether to show details about program processing.
         :param kwargs: extra arguments. "create" to indicate a creation operation.
+            "state_info_ini_dir" to indicate dir of state info file when reading config file not in repository dir.
         """
 
         # self.dir_path: directory for IOC project.
@@ -193,8 +198,8 @@ class IOC:
         self.db_path = os.path.join(self.startup_path, 'db')
         self.boot_path = os.path.join(self.startup_path, 'iocBoot')
 
-        self.state_manager = IocStateManager(dir_path=self.dir_path, verbose=self.verbose,
-                                             create=kwargs.get('create', False))
+        self.state_manager = IocStateManager(dir_path=kwargs.get('state_info_ini_dir', self.dir_path),
+                                             verbose=self.verbose, create=kwargs.get('create', False))
 
         self.conf = None
         if not self.read_mode:
@@ -240,7 +245,6 @@ class IOC:
     def create_new(self):
         self.make_directory_structure()
         self.add_default_settings()
-        self.write_config()
 
     def make_directory_structure(self):
         try_makedirs(self.src_path, self.verbose)
@@ -375,6 +379,7 @@ class IOC:
         self.set_config('cpu-reserve', '', section='DEPLOY')
         self.set_config('memory-reserve', '', section='DEPLOY')
         self.set_config('constraints', '', section='DEPLOY')
+        self.write_config()
 
     def add_module_template(self, template_type):
         if template_type.lower() == 'asyn':
@@ -1169,7 +1174,7 @@ class IOC:
     # Check differences between snapshot file and running settings file.
     # Check differences between project files and running files.
     def check_consistency(self, print_info=False):
-        if not self.check_config('is_exported', 'true'):
+        if not self.state_manager.check_config('is_exported', 'true'):
             if self.verbose:
                 print(f'IOC("{self.name}").check_consistency: '
                       f'Failed, can\'t check consistency as project is not in "exported" state.')
@@ -1236,3 +1241,4 @@ class IOC:
 
     def try_repair(self):
         self.make_directory_structure()
+        self.state_manager.read_config(create=True)
