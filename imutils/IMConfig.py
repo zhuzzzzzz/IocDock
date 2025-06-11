@@ -28,6 +28,7 @@ GLOBAL_SERVICE_FILE_DIR = 'global-services'
 SNAPSHOT_DIR = 'ioc-snapshot'
 
 IOC_CONFIG_FILE = 'ioc.ini'
+IOC_STATE_INFO_FILE = '.info.ini'
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
 OPERATION_LOG_FILE = 'OperationLog'
 

@@ -57,8 +57,19 @@ def dir_remove(dir_path, verbose=False):
 
 # be careful of that whether the input path is relative or absolute
 def file_copy(src, dest, mode='r', verbose=False):
+    """
+    copy the file src to the file or directory dst.
+    If dst specifies a directory, the file will be copied into dst using the base filename from src.
+    If dst specifies a file that already exists, it will be replaced.
+
+    :param src:
+    :param dest:
+    :param mode: a combination of "r", "w", "x" to set the file mode of current user
+    :param verbose:
+    :return: whether the execution was successful or not
+    """
     if not os.path.exists(src):
-        print(f'file_copy: failed, "{src}" source file not found.')
+        print(f'file_copy: failed, source file "{src}" not found.')
         return False
     # if destination file exists, remove it.
     if os.path.exists(dest):

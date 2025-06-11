@@ -8,15 +8,150 @@ from .IMConfig import *
 from .IMError import IMValueError, IMIOCError
 
 
+class IocStateManager:
+    def __init__(self, dir_path, verbose, **kwargs):
+        """
+        Initialize an IOC project state manager and read state information file from given path.
+
+        :param dir_path: path to project directory.
+        :param verbose: whether to show details about program processing.
+        """
+
+        # self.dir_path: directory for IOC project.
+        # self.info_file_path
+
+        if not dir_path or not os.path.isdir(dir_path):
+            raise IMValueError(f'Incorrect initialization parameters: IocStateManager(dir_path={dir_path}).')
+        self.dir_path = dir_path
+        self.verbose = verbose
+        self.info_file_path = os.path.join(self.dir_path, IOC_STATE_INFO_FILE)
+
+        self.conf = None
+        self.state = ''
+        self.state_info = ''
+        self.read_config(create=kwargs.get('create', False))
+        self.state = self.get_config('state')
+        self.state_info += self.get_config('state_info')
+
+    def read_config(self, create):
+        if os.path.exists(self.info_file_path):
+            conf = configparser.ConfigParser()
+            if conf.read(self.info_file_path):
+                self.conf = conf
+                if self.verbose:
+                    print(f'IocStateManager.read_config: Read state info file "{self.info_file_path}".')
+                return
+            else:
+                self.set_state_info(state=STATE_ERROR, state_info='unrecognized state info file.')
+                return
+        else:
+            if create:
+                self.conf = configparser.ConfigParser()
+                if self.verbose:
+                    print(f'IocStateManager.read_config: Initialize a new state info file "{self.info_file_path}" '
+                          f'with default settings.')
+                self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
+                self.set_config('state_info', '')
+                self.set_config('status', 'created')
+                self.set_config('snapshot', 'untracked')  # untracked, tracked
+                self.set_config('is_exported', 'false')
+                self.write_config()
+                return
+            else:
+                self.set_state_info(state=STATE_ERROR, state_info='state info file lost.')
+                return
+
+    def write_config(self):
+        with open(self.info_file_path, 'w') as f:
+            self.conf.write(f)
+
+    def set_config(self, option, value, section='STATE'):
+        section = section.upper()  # sections should only be uppercase.
+        if self.conf:
+            if section not in self.conf:
+                self.conf.add_section(section)
+        else:
+            self.conf = configparser.ConfigParser()
+            self.conf.add_section(section)
+        self.conf.set(section, option, value)
+
+    def get_config(self, option, section="STATE"):
+        value = ''  # undefined option will return ''.
+        if self.conf.has_option(section, option):
+            value = self.conf.get(section, option)
+        return value
+
+    def check_config(self, option, value, section='STATE'):
+        if self.conf:
+            if section in self.conf.sections():
+                # common check logic
+                for key, val in self.conf.items(section):
+                    if key == option and val == value:
+                        return True
+        return False
+
+    def show_config(self):
+        if self.conf:
+            for section in self.conf.sections():
+                print(f'[{section}]')
+                for key, value in self.conf.items(section):
+                    if len(multi_line_parse(value)) > 1:
+                        temp_value = f'\n{value.strip()}'
+                    else:
+                        temp_value = value.strip()
+                    temp_value = temp_value.replace('\n', '\n\t')
+                    print(f'{key}: {temp_value}')
+                else:
+                    print('')
+
+    def normalize_config(self):
+        temp_conf = configparser.ConfigParser()
+        for section in self.conf.sections():
+            if not temp_conf.has_section(section):
+                temp_conf.add_section(section.upper())
+            for option in self.conf.options(section):
+                temp = self.conf.get(section, option)
+                temp_conf.set(section.upper(), option, format_normalize(temp))
+        else:
+            self.conf = temp_conf
+            self.write_config()
+
+    def remove(self, all_remove=False):
+        file_remove(self.info_file_path, verbose=self.verbose)
+
+    def set_state_info(self, state, state_info, prompt=''):
+        if self.state_info:
+            prefix_newline = '\n'
+        else:
+            prefix_newline = ''
+        state_info = f'{prefix_newline}[{state}] {state_info}'
+        if prompt:
+            state_info = state_info + '\n' + '====>>>> ' + prompt + '\n'
+        if state == STATE_ERROR:
+            self.state = state
+            self.state_info += state_info
+        elif state == STATE_WARNING:
+            if not self.state == STATE_ERROR:
+                self.state = state
+            else:
+                self.state = STATE_ERROR
+            self.state_info += state_info
+        else:
+            return
+        self.set_config('state', self.state)
+        self.set_config('state_info', self.state_info)
+        self.write_config()
+
+
 class IOC:
     def __init__(self, dir_path=None, read_mode=False, verbose=False, **kwargs):
         """
-        Initialize an IOC project for a given path.
+        Initialize an IOC project manager and read config file from given path.
 
         :param dir_path: path to project directory.
         :param read_mode: init by read-only mode.
         :param verbose: whether to show details about program processing.
-        :param kwargs: extra arguments.
+        :param kwargs: extra arguments. "create" to indicate a creation operation.
         """
 
         # self.dir_path: directory for IOC project.
@@ -39,7 +174,7 @@ class IOC:
         # self.startup_path_in_docker
 
         if verbose and read_mode:
-            print(f'IOC.__init__: Initializing at "{dir_path}" with read-only mode.')
+            print(f'IOC.__init__: Initializing at "{dir_path}" in read-only mode.')
         if verbose and not read_mode:
             print(f'IOC.__init__: Initializing at "{dir_path}".')
 
@@ -58,15 +193,14 @@ class IOC:
         self.db_path = os.path.join(self.startup_path, 'db')
         self.boot_path = os.path.join(self.startup_path, 'iocBoot')
 
+        self.state_manager = IocStateManager(dir_path=self.dir_path, verbose=self.verbose,
+                                             create=kwargs.get('create', False))
+
         self.conf = None
-        self.state = ''
-        self.state_info = ''
         if not self.read_mode:
             self.read_config(create=kwargs.get('create', False))
         else:
             self.read_config(create=False)
-        self.state = self.get_config('state')
-        self.state_info += self.get_config('state_info')
 
         self.name = self.get_config('name')
         if self.name != os.path.basename(self.dir_path) and not self.read_mode:
@@ -74,17 +208,15 @@ class IOC:
             self.name = os.path.basename(self.dir_path)
             self.set_config('name', self.name)
             self.write_config()
-            if not self.check_config('state', STATE_ERROR):
-                print(f'IOC.__init__: Get wrong name "{old_name}" from config file "{self.config_file_path}", '
-                      f'directory name of IOC project may has been manually changed to "{self.name}". '
-                      f'IOC name has been automatically set in config file to follow that change.')
+            print(f'IOC.__init__: Get wrong name "{old_name}" from config file "{self.config_file_path}", '
+                  f'directory name of IOC project may has been manually changed to "{self.name}". '
+                  f'IOC name has been automatically set in config file to follow that change.')
 
         self.snapshot_path = os.path.join(SNAPSHOT_PATH, self.name)
         self.config_snapshot_file = os.path.join(self.snapshot_path, IOC_CONFIG_FILE)
         self.src_snapshot_path = os.path.join(self.snapshot_path, 'src')
 
-        self.dir_path_for_mount = os.path.normpath(
-            os.path.join(MOUNT_PATH, self.get_config('host'), self.get_config('name')))
+        self.dir_path_for_mount = os.path.join(MOUNT_PATH, self.get_config('host'), self.get_config('name'))
         self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, IOC_CONFIG_FILE)
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
@@ -97,7 +229,7 @@ class IOC:
             # normalize settings format.
             self.normalize_config()
             #
-            if not self.check_config('state', 'normal'):
+            if not self.state_manager.check_config('state', 'normal'):
                 if self.verbose:
                     print(f'IOC.__init__: Try repairing IOC "{self.name}".')
                 self.try_repair()
@@ -108,7 +240,6 @@ class IOC:
     def create_new(self):
         self.make_directory_structure()
         self.add_default_settings()
-        self.add_settings_template()
         self.write_config()
 
     def make_directory_structure(self):
@@ -126,10 +257,9 @@ class IOC:
                 self.conf = conf
                 if self.verbose:
                     print(f'IOC.read_config: Read config file "{self.config_file_path}".')
-                return
             else:
-                self.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')
-                return
+                self.state_manager.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')
+                raise IMIOCError(f'unrecognized config file "{self.config_file_path}".')
         else:
             if create:
                 self.conf = configparser.ConfigParser()
@@ -137,10 +267,9 @@ class IOC:
                     print(f'IOC.read_config: Initialize a new config file "{self.config_file_path}" '
                           f'with default settings.')
                 self.create_new()
-                return
             else:
-                self.set_state_info(state=STATE_ERROR, state_info='config file lost.')
-                return
+                self.state_manager.set_state_info(state=STATE_ERROR, state_info='config file lost.')
+                raise IMIOCError(f'config file "{self.config_file_path}" lost.')
 
     def write_config(self):
         with open(self.config_file_path, 'w') as f:
@@ -183,7 +312,8 @@ class IOC:
         return False
 
     def show_config(self):
-        print(f' settings of IOC "{self.name}" '.center(73, '='))
+        print(f' "{self.name}" '.center(70, '='))
+        self.state_manager.show_config()  # show state info
         if self.conf:
             for section in self.conf.sections():
                 print(f'[{section}]')
@@ -220,35 +350,10 @@ class IOC:
             # delete auto-generated part
             for item in (self.project_path,):
                 dir_remove(item, self.verbose)
-            self.set_config('status', 'removed')
-            self.write_config()
+            self.state_manager.set_config('status', 'removed')
+            self.state_manager.write_config()
             self.check_snapshot_files()
             print(f'Success. IOC "{self.name}" removed, but "src" dir and config file preserved.')
-
-    def set_state_info(self, state, state_info, prompt=''):
-        if self.read_mode and (state == STATE_ERROR or state == STATE_WARNING):
-            raise IMIOCError(state_info)
-        if self.state_info:
-            prefix_newline = '\n'
-        else:
-            prefix_newline = ''
-        state_info = f'{prefix_newline}[{state}] {state_info}'
-        if prompt:
-            state_info = state_info + '\n' + '====>>>> ' + prompt + '\n'
-        if state == STATE_ERROR:
-            self.state = state
-            self.state_info += state_info
-        elif state == STATE_WARNING:
-            if not self.state == STATE_ERROR:
-                self.state = state
-            else:
-                self.state = STATE_ERROR
-            self.state_info += state_info
-        else:
-            return
-        self.set_config('state', self.state)
-        self.set_config('state_info', self.state_info)
-        self.write_config()
 
     def add_default_settings(self):
         self.set_config('name', os.path.basename(self.dir_path))
@@ -257,15 +362,13 @@ class IOC:
         self.set_config('bin', DEFAULT_IOC)
         self.set_config('module', DEFAULT_MODULES)
         self.set_config('description', '')
-        self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
-        self.set_config('state_info', '')
-        self.set_config('status', 'created')
-        self.set_config('snapshot', 'untracked')  # untracked, tracked
-        self.set_config('is_exported', 'false')
         self.set_config('db_file', '', section='SRC')
         self.set_config('protocol_file', '', section='SRC')
         self.set_config('others_file', '', section='SRC')
         self.set_config('load', '', section='DB')
+        self.set_config('report_info', 'true', section='SETTING')
+        self.set_config('caputlog_json', 'false', section='SETTING')
+        self.set_config('epics_env', '', section='SETTING')
         self.set_config('labels', '', section='DEPLOY')
         self.set_config('cpu-limit', RESOURCE_IOC_CPU_LIMIT, section='DEPLOY')
         self.set_config('memory-limit', RESOURCE_IOC_MEMORY_LIMIT, section='DEPLOY')
@@ -325,28 +428,18 @@ class IOC:
         self.set_config('file_copy', '', sc)
         return True
 
-    def add_settings_template(self):
-        sc = 'SETTING'
-        if self.conf.has_section(sc):
-            print(f'IOC("{self.name}").add_settings_template: Failed. Section "{sc}" already exists.')
-            return False
-        self.set_config('report_info', 'true', sc)
-        self.set_config('caputlog_json', 'false', sc)
-        self.set_config('epics_env', '', sc)
-
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
     def get_src_file(self, src_dir=None, print_info=False):
-        db_suffix = DB_SUFFIX
-        proto_suffix = PROTO_SUFFIX
-        other_suffix = OTHER_SUFFIX
+
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
-        if self.verbose:
-            print(f'IOC("{self.name}").get_src_file: get files from "{src_p}".')
         if not os.path.exists(src_p):
-            self.set_state_info(state=STATE_ERROR, state_info='source directory lost.')
+            self.state_manager.set_state_info(state=STATE_ERROR, state_info='source directory lost.')
             print(f'IOC("{self.name}").get_src_file: Failed. Path provided "{src_p}" not exist.')
             return
+
+        if self.verbose:
+            print(f'IOC("{self.name}").get_src_file: get files from "{src_p}".')
 
         db_list = ''
         proto_list = ''
@@ -354,16 +447,16 @@ class IOC:
         # When add file from other directory, to get the files already in self.src_path first.
         if src_p != self.src_path:
             for item in os.listdir(self.src_path):
-                if item.endswith(db_suffix):
+                if item.endswith(DB_SUFFIX):
                     db_list += f'{item}, '
-                elif item.endswith(proto_suffix):
+                elif item.endswith(PROTO_SUFFIX):
                     proto_list += f'{item}, '
-                elif item.endswith(other_suffix):
+                elif item.endswith(OTHER_SUFFIX):
                     other_list += f'{item}, '
 
         # Copy files from given path and set db file option, duplicate files will result in a warning message.
         for item in os.listdir(src_p):
-            if item.endswith(db_suffix):
+            if item.endswith(DB_SUFFIX):
                 if item not in db_list:
                     db_list += f'{item}, '
                     if src_p != self.src_path:
@@ -375,7 +468,7 @@ class IOC:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
                     if print_info:
                         print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
-            elif item.endswith(proto_suffix):
+            elif item.endswith(PROTO_SUFFIX):
                 if item not in proto_list:
                     proto_list += f'{item}, '
                     if src_p != self.src_path:
@@ -387,7 +480,7 @@ class IOC:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
                     if print_info:
                         print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
-            elif item.endswith(other_suffix):
+            elif item.endswith(OTHER_SUFFIX):
                 if item not in other_list:
                     other_list += f'{item}, '
                     if src_p != self.src_path:
@@ -430,7 +523,7 @@ class IOC:
             if db_file not in os.listdir(self.src_path):
                 state_info = 'db file not found.'
                 prompt = f'db file "{db_file}" not found.'
-                self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                 print(f'IOC("{self.name}").generate_substitution_file: Failed. DB file "{db_file}" not found in '
                       f'path "{self.src_path}" while parsing string "{load_line}" in "load" option.')
                 return False
@@ -446,7 +539,7 @@ class IOC:
                 else:
                     state_info = 'bad load string definition.'
                     prompt = f'in "{load_line}".'
-                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                    self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad load string '
                           f'"{load_line}" defined in {IOC_CONFIG_FILE}. You may need to check and set the attributes correctly.')
                     return False
@@ -470,7 +563,7 @@ class IOC:
                     f.writelines(lines_to_add)
             except Exception as e:
                 state_info = 'substitutions file generating failed.'
-                self.set_state_info(state=STATE_WARNING, state_info=state_info)
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
                 print(f'IOC("{self.name}").generate_substitution_file: Failed. '
                       f'Exception "{e}" occurs while trying to write "{self.name}.substitutions" file.')
                 return False
@@ -480,7 +573,7 @@ class IOC:
             return True
         else:
             state_info = 'empty load string definition.'
-            self.set_state_info(state=STATE_WARNING, state_info=state_info)
+            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
             print(f'IOC("{self.name}").generate_substitution_file: Failed. '
                   f'At least one load string should be defined to generate "{self.name}.substitutions".')
             return False
@@ -492,19 +585,13 @@ class IOC:
             print(f'IOC("{self.name}").generate_st_cmd": Failed. Checks failed before generating startup files.')
             return
         else:
-            print(f'IOC("{self.name}").generate_st_cmd: Start generating startup files.')
+            if self.verbose:
+                print(f'IOC("{self.name}").generate_st_cmd: Start generating startup files.')
 
         lines_before_dbload = []
         lines_at_dbload = [f'cd {self.startup_path_in_docker}\n',
                            f'dbLoadTemplate "db/{self.name}.substitutions"\n', ]
         lines_after_iocinit = ['\niocInit\n\n']
-
-        # Query whether to use default if unspecified IOC executable binary.
-        if not self.get_config('bin'):
-            print(f'IOC("{self.name}").generate_st_cmd": Failed. No executable IOC specified.')
-            state_info = 'option "bin" not set.'
-            self.set_state_info(state=STATE_WARNING, state_info=state_info)
-            return
 
         if self.verbose:
             print(f'IOC("{self.name}").generate_st_cmd": Setting "module: {self.get_config("module")}" '
@@ -524,21 +611,12 @@ class IOC:
         lines_before_dbload.append(f'{bin_IOC}_registerRecordDeviceDriver pdbbase\n\n'.replace('-', '_'))
 
         # EPICS_env settings.
-        sc = 'SETTING'
         # st.cmd
         # lines_before_dbload
         temp = ['#settings\n', ]
-        for env_def in multi_line_parse(self.get_config("epics_env", sc)):
+        for env_def in multi_line_parse(self.get_config("epics_env", "SETTING")):
             env_name, env_val = condition_parse(env_def)
-            if env_name:
-                temp.append(f'epicsEnvSet("{env_name}","{env_val}")\n')
-            else:
-                print(f'IOC("{self.name}").generate_st_cmd: Failed. Bad environment "{env_def}" defined in SETTING '
-                      f'section. You may need to check and set the attributes correctly.')
-                state_info = 'bad "epics_env" definition.'
-                prompt = f'in "{env_def}".'
-                self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                return
+            temp.append(f'epicsEnvSet("{env_name}","{env_val}")\n')
         else:
             temp.append('\n')
         lines_before_dbload.extend(temp)
@@ -669,17 +747,8 @@ class IOC:
             ps = self.get_config('protocol_file', sc).split(',')
             for item in ps:
                 item = item.strip()
-                if item not in os.listdir(self.src_path):
-                    print(f'IOC("{self.name}").generate_st_cmd: Failed. StreamDevice protocol file "{item}" '
-                          f'not found in "{self.src_path}", you need to add it then run this command again.')
-                    state_info = 'protocol file not found.'
-                    prompt = f'protocol file "{item}" not found.'
-                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                    return
-                else:
-                    # add .proto file
-                    file_copy(os.path.join(self.src_path, item), os.path.join(self.settings_path, item), 'r',
-                              self.verbose)
+                # add .proto file
+                file_copy(os.path.join(self.src_path, item), os.path.join(self.settings_path, item), 'r', self.verbose)
 
         # raw commands configurations.
         if self.conf.has_section('RAW'):
@@ -700,28 +769,14 @@ class IOC:
                     src = fs[0]
                     dest = fs[1]
                     mode = 'r'
-                elif len(fs) == 3:
+                else:  # len(fs) == 3 guaranteed by generate_check()
                     src = fs[0]
                     dest = fs[1]
                     mode = fs[2]
-                else:
-                    print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid string "{item}" specified for '
-                          f'file copy, exit.')
-                    state_info = 'bad "file_copy" definition.'
-                    prompt = f'in "{item}". try standard format: source_dir/file:dest_dir/file:[rwx].'
-                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                    return
                 if src.startswith('src/'):
                     src = os.path.join(self.src_path, src)
-                elif src.startswith('templates/'):
+                else:  # src.startswith('template/') guaranteed by generate_check()
                     src = os.path.join(self.template_path, src)
-                else:
-                    print(f'IOC("{self.name}").generate_st_cmd: Warning. Invalid source directory "{src}" specified '
-                          f'for file copy, exit.')
-                    state_info = 'bad "file_copy" definition.'
-                    prompt = f'in "{item}". only "src/" or "templates/" directory is supported.'
-                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                    return
                 dest = os.path.join(self.project_path, dest)
                 file_copy(src, dest, mode, self.verbose)
 
@@ -752,7 +807,7 @@ class IOC:
         if not self.generate_substitution_file():
             print(f'IOC("{self.name}").generate_st_cmd": Failed. Generate .substitutions file failed.')
             state_info = 'generate substitutions file failed.'
-            self.set_state_info(state=STATE_WARNING, state_info=state_info)
+            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
             return
 
         # write st.cmd file.
@@ -771,7 +826,7 @@ class IOC:
             print(f'IOC("{self.name}").generate_st_cmd: Failed. '
                   f'Exception "{e}" occurs while trying to write st.cmd file.')
             state_info = 'write st.cmd file failed.'
-            self.set_state_info(state=STATE_WARNING, state_info=state_info)
+            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
             return
         # set readable and executable permission.
         os.chmod(file_path, 0o555)
@@ -779,10 +834,10 @@ class IOC:
             print(f'IOC("{self.name}").generate_st_cmd: Successfully create "st.cmd" file.')
 
         # set status: generated and save self.conf to ioc.ini file
-        self.set_config('status', 'generated')
-        self.set_config('state', 'normal')
-        self.set_config('state_info', '')
-        self.write_config()
+        self.state_manager.set_config('status', 'generated')
+        self.state_manager.set_config('state', 'normal')
+        self.state_manager.set_config('state_info', '')
+        self.state_manager.write_config()
         # add snapshot files
         self.add_snapshot_files()
         print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
@@ -790,12 +845,12 @@ class IOC:
     # Copy IOC startup files to mount dir for running in container.
     # force_overwrite: "True" will overwrite all files, "False" only files that are not generated during running.
     def export_for_mount(self, force_overwrite=False):
-        if not self.check_config('state', 'normal'):
+        if not self.state_manager.check_config('state', 'normal'):
             print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
                   f'exporting operation must under "normal" state.')
             return
-
-        if not (self.check_config('status', 'generated') or self.check_config('status', 'exported')):
+        if not (self.state_manager.check_config('status', 'generated') or
+                self.state_manager.check_config('status', 'exported')):
             print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
                   f'startup files should be generated before exporting.')
             return
@@ -803,69 +858,43 @@ class IOC:
         container_name = self.name
         host_name = self.get_config('host')
         if not host_name:
-            state_info = 'option "host" not set.'
-            self.set_state_info(state=STATE_WARNING, state_info=state_info)
-            return
-
-        self.set_config('status', 'exported')
-        self.set_config('is_exported', 'true')
-        self.write_config()
-        self.add_snapshot_files()
+            host_name = SWARM_DIR
 
         top_path = os.path.join(MOUNT_PATH, host_name, container_name)
         if not os.path.isdir(top_path):
             file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('settings', 'log', 'startup',)
-            for item_file in file_to_copy:
-                file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
-                          verbose=self.verbose)
-                os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
-            for item_dir in dir_to_copy:
-                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
-                                self.verbose):
-                    print(f'IOC("{self.name}").export_for_mount: Failed. '
-                          f'You may run this command again with "-v" option to see '
-                          f'what happened for IOC "{self.name}" in details.')
-                    return
-            else:
-                print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" created in {top_path}.')
+            exec_type = 'created'
         elif os.path.isdir(top_path) and force_overwrite:
             file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('settings', 'log', 'startup',)
-            for item_file in file_to_copy:
-                file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
-                          verbose=self.verbose)
-                os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
-            for item_dir in dir_to_copy:
-                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
-                                self.verbose):
-                    print(f'IOC("{self.name}").export_for_mount: Failed. '
-                          f'You may run this command again with "-v" option to see '
-                          f'what happened for IOC "{self.name}" in details.')
-                    return
-            else:
-                print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" overwrite in {top_path}.')
-        elif os.path.isdir(top_path) and not force_overwrite:
+            exec_type = 'overwritten'
+        else:
             file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('startup',)
-            for item_file in file_to_copy:
-                file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
-                          verbose=self.verbose)
-                os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
-            for item_dir in dir_to_copy:
-                if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
-                                self.verbose):
-                    print(f'IOC("{self.name}").export_for_mount: Failed. '
-                          f'You may run this command again with "-v" option to see '
-                          f'what happened for IOC "{self.name}" in details.')
-                    return
-            else:
-                print(f'IOC("{self.name}").export_for_mount: Success. '
-                      f'Config file and "src" directory of updated in {top_path}.')
+            exec_type = 'updated'
+
+        for item_file in file_to_copy:
+            file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
+                      verbose=self.verbose)
+            os.chmod(os.path.join(top_path, item_file), mode=0o444)  # set readonly permission.
+        for item_dir in dir_to_copy:
+            if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
+                            self.verbose):
+                print(f'IOC("{self.name}").export_for_mount: Failed. '
+                      f'You may run this command again with "-v" option to see '
+                      f'what happened for IOC "{self.name}" in details.')
+                return
+        else:
+            print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" {exec_type} in {top_path}.')
+
+        self.state_manager.set_config('status', 'exported')
+        self.state_manager.set_config('is_exported', 'true')
+        self.state_manager.write_config()
 
     # return whether the files are in consistent with snapshot files.
     def check_snapshot_files(self, print_info=False):
-        if not self.check_config('snapshot', 'tracked'):
+        if not self.state_manager.check_config('snapshot', 'tracked'):
             if self.verbose:
                 print(f'IOC("{self.name}").check_snapshot_files: '
                       f'Failed, can\'t check snapshot files as project is not in "tracked" state.')
@@ -888,18 +917,18 @@ class IOC:
                 consistent_flag = False
                 config_file_check_res = 'config file lost.'
                 state_info = config_file_check_res
-                self.set_state_info(state=STATE_ERROR, state_info=state_info)
+                self.state_manager.set_state_info(state=STATE_ERROR, state_info=state_info)
         else:
             consistent_flag = False
-            self.set_config('snapshot', 'error')
-            self.write_config()
+            self.state_manager.set_config('snapshot', 'error')
+            self.state_manager.write_config()
             config_file_check_res = 'config file snapshot lost.'
         # check source snapshot files.
         if os.path.isdir(self.src_snapshot_path):
             if not os.path.isdir(self.src_path):
                 consistent_flag = False
-                self.set_config('state', 'error')
-                self.write_config()
+                self.state_manager.set_config('state', 'error')
+                self.state_manager.write_config()
                 source_file_check_res = 'source directory lost.'
             else:
                 src_compare_res = filecmp.dircmp(self.src_snapshot_path, self.src_path)
@@ -930,8 +959,8 @@ class IOC:
                 source_file_check_res = source_file_check_res.rstrip('\n')
         else:
             consistent_flag = False
-            self.set_config('snapshot', 'error')
-            self.write_config()
+            self.state_manager.set_config('snapshot', 'error')
+            self.state_manager.write_config()
             config_file_check_res = 'source directory snapshot lost.'
         if not consistent_flag and print_info:
             prefix_str = ''
@@ -952,28 +981,20 @@ class IOC:
         if self.verbose:
             print(f'IOC("{self.name}").add_snapshot_file: Starting to add snapshot files.')
         self.delete_snapshot_files()
-        self.set_config('snapshot', 'tracked')
-        self.write_config()
-        snapshot_finished = True
         # snapshot for config file.
         if os.path.isfile(self.config_file_path):
             if file_copy(self.config_file_path, self.config_snapshot_file, 'r', self.verbose):
                 if self.verbose:
                     print(f'IOC("{self.name}").add_snapshot_file: Snapshot file for config successfully created.')
             else:
-                snapshot_finished = False
-                if self.verbose:
-                    print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file for config created failed.')
-
+                print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file for config created failed.')
+                self.state_manager.set_config('snapshot', 'error')
+                self.state_manager.write_config()
+                return False
         else:
-            snapshot_finished = False
-            if self.verbose:
-                print(f'IOC("{self.name}").add_snapshot_file: failed, source file "{self.config_file_path}" not exist.')
-        if not snapshot_finished:
-            self.set_config('snapshot', 'error')
-            self.write_config()
-            state_info = 'add config snapshot file failed.'
-            self.set_state_info(state=STATE_WARNING, state_info=state_info)
+            print(f'IOC("{self.name}").add_snapshot_file: Failed, source file "{self.config_file_path}" not exist.')
+            self.state_manager.set_config('snapshot', 'error')
+            self.state_manager.write_config()
             return False
         # snapshot for source files.
         for item in os.listdir(self.src_path):
@@ -983,31 +1004,29 @@ class IOC:
                     print(f'IOC("{self.name}").add_snapshot_file: Snapshot file '
                           f'"{os.path.join(self.src_snapshot_path, item)}" successfully created.')
             else:
-                snapshot_finished = False
-                if self.verbose:
-                    print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file '
-                          f'"{os.path.join(self.src_snapshot_path, item)}" created failed.')
-            if not snapshot_finished:
-                self.set_config('snapshot', 'error')
-                self.write_config()
-                state_info = 'add source snapshot files failed.'
-                self.set_state_info(state=STATE_WARNING, state_info=state_info)
+                print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file '
+                      f'"{os.path.join(self.src_snapshot_path, item)}" created failed.')
+                self.state_manager.set_config('snapshot', 'error')
+                self.state_manager.write_config()
                 return False
-        else:
-            if self.verbose:
-                print(f'IOC("{self.name}").add_snapshot_file: Snapshot for source files successfully created.')
+
+        if self.verbose:
+            print(f'IOC("{self.name}").add_snapshot_file: Snapshot for source files successfully created.')
+        self.state_manager.set_config('snapshot', 'tracked')
+        self.state_manager.write_config()
+        return True
 
     def delete_snapshot_files(self):
         if os.path.isdir(self.snapshot_path):
             dir_remove(self.snapshot_path, self.verbose)
-            self.set_config('snapshot', 'untracked')
-            self.write_config()
+            self.state_manager.set_config('snapshot', 'untracked')
+            self.state_manager.write_config()
         else:
             if self.verbose:
                 print(f'IOC("{self.name}").delete_snapshot_file: Failed, path "{self.snapshot_path}" not exist.')
 
     def restore_from_snapshot_files(self, restore_files: list, force_restore=False):
-        if self.check_config('snapshot', 'untracked'):
+        if self.state_manager.check_config('snapshot', 'untracked'):
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
                   f'Failed, can\'t restore snapshot files in "untracked" state.')
             return
@@ -1080,22 +1099,69 @@ class IOC:
                             print(f'IOC("{self.name}").restore_from_snapshot_file": '
                                   f'Restoring {item} succeed.')
 
-    # Checks before generating the IOC project startup file.
+    # Checks before generating the IOC project startup files.
     def generate_check(self):
         check_flag = True
 
-        # Check whether modules to be installed was set correctly.
+        # Check whether IOC executable binary is specified.
+        sc = "IOC"
+        if not self.get_config('bin'):
+            print(f'IOC("{self.name}").generate_st_cmd": Failed. No executable IOC specified.')
+            state_info = f'option "bin" in section "{sc}" not set.'
+            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
+            check_flag = False
+
+        # Check whether modules to be installed are set correctly.
+        sc = "IOC"
         module_list = self.get_config('module').strip().split(',')
         for s in module_list:
             if s == '':
                 continue
             else:
                 if s.strip().lower() not in MODULES_PROVIDED:
-                    state_info = 'invalid "module" setting.'
+                    state_info = f'option "module" in section "{sc}" invalid.'
                     prompt = f'"{s.strip()}" is not supported.'
-                    self.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                    print(f'IOC("{self.name}").generate_check: Failed. Invalid module "{s}" '
-                          f'set in option "module", please check and reset the settings correctly.')
+                    self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                    check_flag = False
+
+        # Check whether epics_env definitions are set correctly.
+        sc = "SETTING"
+        for env_def in multi_line_parse(self.get_config(option="epics_env", section=sc)):
+            env_name, env_val = condition_parse(env_def)
+            if not env_name:
+                state_info = f'option "epics_env" in section "{sc}" invalid.'
+                prompt = f'in "{env_def}".'
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                check_flag = False
+
+        # Check whether protocol_file definitions are set correctly.
+        if self.conf.has_section('STREAM'):
+            sc = "STREAM"
+            ps = self.get_config(option='protocol_file', section=sc).split(',')
+            for item in ps:
+                item = item.strip()
+                if item not in os.listdir(self.src_path):
+                    state_info = f'option "protocol_file" in section "{sc}" invalid.'
+                    prompt = f'protocol file "{item}" not found.'
+                    self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                    check_flag = False
+
+        # Check whether file_copy definitions are set correctly.
+        if self.conf.has_section('RAW'):
+            sc = "RAW"
+            for item in multi_line_parse(self.get_config('file_copy', sc)):
+                fs = item.split(sep=':')
+                if not (len(fs) == 2 or len(fs) == 3):
+                    state_info = f'option "file_copy" in section "{sc}" invalid.'
+                    prompt = f'in "{item}". try standard format: "dir/src_file":"dir/dest_file":[rwx].'
+                    self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+                    check_flag = False
+                    continue
+                src = fs[0]
+                if not (src.startswith('src/') or src.startswith('template/')):
+                    state_info = f'option "file_copy" in section "{sc}" invalid.'
+                    prompt = f'in "{item}". only "src/" or "template/" directory is supported for file_copy.'
+                    self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     check_flag = False
 
         return check_flag
