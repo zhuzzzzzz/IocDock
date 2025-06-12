@@ -1,5 +1,8 @@
 import os
+import yaml
 import filecmp
+import tarfile
+import datetime
 import configparser
 
 from .IMFunc import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, condition_parse, multi_line_parse, \
@@ -121,7 +124,7 @@ class IocStateManager:
             self.write_config()
 
     def remove(self):
-        file_remove(self.info_file_path, verbose=self.verbose)
+        file_remove(self.info_file_path, verbose=False)
 
     def set_state_info(self, state, state_info, prompt=''):
         if self.state_info:
@@ -179,9 +182,9 @@ class IOC:
         # self.startup_path_in_docker
 
         if verbose and read_mode:
-            print(f'IOC.__init__: Initializing at "{dir_path}" in read-only mode.')
+            print(f'IOC.__init__: Start initializing at "{dir_path}" in read-only mode.')
         if verbose and not read_mode:
-            print(f'IOC.__init__: Initializing at "{dir_path}".')
+            print(f'IOC.__init__: Start initializing at "{dir_path}".')
 
         self.read_mode = read_mode
         self.verbose = verbose
@@ -240,7 +243,7 @@ class IOC:
                 self.try_repair()
 
         if self.verbose:
-            print(f'IOC.__init__: Initializing finished for IOC "{self.name}".\n')
+            print(f'IOC.__init__: Finished initializing for IOC "{self.name}".\n')
 
     def create_new(self):
         self.make_directory_structure()
@@ -436,6 +439,8 @@ class IOC:
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
     def get_src_file(self, src_dir=None, print_info=False):
+        if self.verbose:
+            print(f'IOC("{self.name}").get_src_file: Start.')
 
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
         if not os.path.exists(src_p):
@@ -444,7 +449,7 @@ class IOC:
             return
 
         if self.verbose:
-            print(f'IOC("{self.name}").get_src_file: get files from "{src_p}".')
+            print(f'IOC("{self.name}").get_src_file: collect files from "{src_p}".')
 
         db_list = ''
         proto_list = ''
@@ -466,36 +471,36 @@ class IOC:
                     db_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                        if print_info:
+                        if self.verbose:
                             print(f'IOC("{self.name}").get_src_file: add "{item}".')
                 else:
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                    if print_info:
+                    if self.verbose:
                         print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
             elif item.endswith(PROTO_SUFFIX):
                 if item not in proto_list:
                     proto_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                        if print_info:
+                        if self.verbose:
                             print(f'IOC("{self.name}").get_src_file: add "{item}".')
                 else:
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                    if print_info:
+                    if self.verbose:
                         print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
             elif item.endswith(OTHER_SUFFIX):
                 if item not in other_list:
                     other_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                        if print_info:
+                        if self.verbose:
                             print(f'IOC("{self.name}").get_src_file: add "{item}".')
                 else:
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                    if print_info:
+                    if self.verbose:
                         print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
 
         # Update the settings.
@@ -504,32 +509,37 @@ class IOC:
         other_list = other_list.rstrip(', ')
         if db_list:
             self.set_config('db_file', db_list, 'SRC')
-            if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: get db files "{db_list}".')
+            if self.verbose or print_info:
+                print(f'IOC("{self.name}").get_src_file: collect db files "{db_list}".')
         if proto_list:
             self.set_config('protocol_file', proto_list, 'SRC')
-            if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: get protocol files "{proto_list}".')
+            if self.verbose or print_info:
+                print(f'IOC("{self.name}").get_src_file: collect protocol files "{proto_list}".')
         if other_list:
             self.set_config('other_file', other_list, 'SRC')
-            if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: get other files "{other_list}".')
+            if self.verbose or print_info:
+                print(f'IOC("{self.name}").get_src_file: collect other files "{other_list}".')
         if any((db_list, proto_list, other_list)):
             self.write_config()
 
-    # Generate .substitutions file for st.cmd to load.
-    # This function should be called after getting source files and setting the load options.
-    def generate_substitution_file(self):
+        if self.verbose:
+            print(f'IOC("{self.name}").get_src_file: Finish.')
+
+    # Generate .substitutions file for st.cmd to load and prepare db files.
+    def generate_substitutions_file(self):
+        if self.verbose:
+            print(f'IOC("{self.name}").generate_substitutions_file: Start.')
+        try_makedirs(self.db_path, self.verbose)
         lines_to_add = []
         for load_line in multi_line_parse(self.get_config('load', 'DB')):
             db_file, *conditions = load_line.split(',')
             # print(conditions)
             db_file = db_file.strip()
             if db_file not in os.listdir(self.src_path):
-                state_info = 'db file not found.'
+                state_info = 'option "load" in section "DB" invalid.'
                 prompt = f'db file "{db_file}" not found.'
                 self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                print(f'IOC("{self.name}").generate_substitution_file: Failed. DB file "{db_file}" not found in '
+                print(f'IOC("{self.name}").generate_substitutions_file: Failed. DB file "{db_file}" not found in '
                       f'path "{self.src_path}" while parsing string "{load_line}" in "load" option.')
                 return False
             else:
@@ -542,10 +552,10 @@ class IOC:
                     ks += f'{k}, '
                     vs += f'{v}, '
                 else:
-                    state_info = 'bad load string definition.'
-                    prompt = f'in "{load_line}".'
+                    state_info = 'option "load" in section "DB" invalid.'
+                    prompt = f'invalid macro definition in "{load_line}".'
                     self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
-                    print(f'IOC("{self.name}").generate_substitution_file: Failed. Bad load string '
+                    print(f'IOC("{self.name}").generate_substitutions_file: Failed. Bad load string '
                           f'"{load_line}" defined in {IOC_CONFIG_FILE}. You may need to check and set the attributes correctly.')
                     return False
             else:
@@ -559,48 +569,45 @@ class IOC:
             # write .substitutions file.
             file_path = os.path.join(self.db_path, f'{self.name}.substitutions')
             if os.path.exists(file_path):
-                if self.verbose:
-                    print(f'IOC("{self.name}").generate_substitution_file: File "{self.name}.substitutions" exists, '
-                          f'firstly remove it before writing a new one.')
-                file_remove(file_path, self.verbose)
+                file_remove(file_path, verbose=False)
             try:
                 with open(file_path, 'w') as f:
                     f.writelines(lines_to_add)
             except Exception as e:
                 state_info = 'substitutions file generating failed.'
-                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
-                print(f'IOC("{self.name}").generate_substitution_file: Failed. '
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=f'{e}')
+                print(f'IOC("{self.name}").generate_substitutions_file: Failed. '
                       f'Exception "{e}" occurs while trying to write "{self.name}.substitutions" file.')
                 return False
+            else:
+                if self.verbose:
+                    print(f'IOC("{self.name}").generate_substitutions_file: Create "{self.name}.substitutions".')
             # set readonly permission.
             os.chmod(file_path, 0o444)
-            print(f'IOC("{self.name}").generate_substitution_file: Success. "{self.name}.substitutions" created.')
+            print(f'IOC("{self.name}").generate_substitutions_file: Success.')
             return True
         else:
-            state_info = 'empty load string definition.'
-            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
-            print(f'IOC("{self.name}").generate_substitution_file: Failed. '
-                  f'At least one load string should be defined to generate "{self.name}.substitutions".')
+            state_info = 'option "load" in section "DB" invalid.'
+            prompt = 'empty load string.'
+            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
+            print(f'IOC("{self.name}").generate_substitutions_file: Failed. '
+                  f'Option "load" in section "DB" should be defined before generating "{self.name}.substitutions".')
             return False
 
     # Generate all startup files for running an IOC project.
     # This function should be called after that generate_check is passed.
     def generate_startup_files(self):
+        if self.verbose:
+            print(f'IOC("{self.name}").generate_startup_files: Start.')
+
         if not self.generate_check():
-            print(f'IOC("{self.name}").generate_st_cmd": Failed. Checks failed before generating startup files.')
+            print(f'IOC("{self.name}").generate_startup_files": Failed. Checks failed before generating startup files.')
             return
-        else:
-            if self.verbose:
-                print(f'IOC("{self.name}").generate_st_cmd: Start generating startup files.')
 
         lines_before_dbload = []
         lines_at_dbload = [f'cd {self.startup_path_in_docker}\n',
                            f'dbLoadTemplate "db/{self.name}.substitutions"\n', ]
         lines_after_iocinit = ['\niocInit\n\n']
-
-        if self.verbose:
-            print(f'IOC("{self.name}").generate_st_cmd": Setting "module: {self.get_config("module")}" '
-                  f'will be used to generate startup files.')
 
         # specify interpreter.
         bin_IOC = self.get_config('bin')
@@ -809,26 +816,21 @@ class IOC:
             lines_after_iocinit.extend(temp)
 
         # generate .substitutions file.
-        if not self.generate_substitution_file():
-            print(f'IOC("{self.name}").generate_st_cmd": Failed. Generate .substitutions file failed.')
-            state_info = 'generate substitutions file failed.'
-            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
+        if not self.generate_substitutions_file():
             return
 
         # write st.cmd file.
+        try_makedirs(self.boot_path, self.verbose)
         file_path = os.path.join(self.boot_path, 'st.cmd')
         if os.path.exists(file_path):
-            if self.verbose:
-                print(f'IOC("{self.name}").generate_st_cmd: File "{self.name}.substitutions" exists, '
-                      f'firstly remove it before writing a new one.')
-            file_remove(file_path, self.verbose)
+            file_remove(file_path, verbose=False)
         try:
             with open(file_path, 'w') as f:
                 f.writelines(lines_before_dbload)
                 f.writelines(lines_at_dbload)
                 f.writelines(lines_after_iocinit)
         except Exception as e:
-            print(f'IOC("{self.name}").generate_st_cmd: Failed. '
+            print(f'IOC("{self.name}").generate_startup_files: Failed. '
                   f'Exception "{e}" occurs while trying to write st.cmd file.')
             state_info = 'write st.cmd file failed.'
             self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
@@ -836,28 +838,33 @@ class IOC:
         # set readable and executable permission.
         os.chmod(file_path, 0o555)
         if self.verbose:
-            print(f'IOC("{self.name}").generate_st_cmd: Successfully create "st.cmd" file.')
+            print(f'IOC("{self.name}").generate_startup_files: Create "st.cmd".')
 
-        # set status: generated and save self.conf to ioc.ini file
+        # add snapshot files
+        if not self.add_snapshot_files():
+            return
+
+        #
         self.state_manager.set_config('status', 'generated')
         self.state_manager.set_config('state', 'normal')
         self.state_manager.set_config('state_info', '')
         self.state_manager.write_config()
-        # add snapshot files
-        self.add_snapshot_files()
-        print(f'IOC("{self.name}").generate_st_cmd": Success. Generating startup files finished.')
+        print(f'IOC("{self.name}").generate_startup_files": Success.')
 
     # Copy IOC startup files to mount dir for running in container.
     # force_overwrite: "True" will overwrite all files, "False" only files that are not generated during running.
     def export_for_mount(self, force_overwrite=False):
+        if self.verbose:
+            print(f'IOC("{self.name}").export_for_mount: Start.')
+
         if not self.state_manager.check_config('state', 'normal'):
-            print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
-                  f'exporting operation must under "normal" state.')
+            print(f'IOC("{self.name}").export_for_mount: Failed. '
+                  f'Exporting operation must under "normal" state.')
             return
         if not (self.state_manager.check_config('status', 'generated') or
                 self.state_manager.check_config('status', 'exported')):
-            print(f'IOC("{self.name}").export_for_mount: Failed for "{self.name}", '
-                  f'startup files should be generated before exporting.')
+            print(f'IOC("{self.name}").export_for_mount: Failed. '
+                  f'Startup files should be generated before exporting.')
             return
 
         container_name = self.name
@@ -887,11 +894,12 @@ class IOC:
             if not dir_copy(os.path.join(self.project_path, item_dir), os.path.join(top_path, item_dir),
                             self.verbose):
                 print(f'IOC("{self.name}").export_for_mount: Failed. '
-                      f'You may run this command again with "-v" option to see '
-                      f'what happened for IOC "{self.name}" in details.')
+                      f'Run this command again with "-v" option to see what happened in details.')
+                state_info = 'exporting failed.'
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
                 return
         else:
-            print(f'IOC("{self.name}").export_for_mount: Success. IOC "{self.name}" {exec_type} in {top_path}.')
+            print(f'IOC("{self.name}").export_for_mount: Success. Project files {exec_type} in "{top_path}".')
 
         self.state_manager.set_config('status', 'exported')
         self.state_manager.set_config('is_exported', 'true')
@@ -984,51 +992,46 @@ class IOC:
 
     def add_snapshot_files(self):
         if self.verbose:
-            print(f'IOC("{self.name}").add_snapshot_file: Starting to add snapshot files.')
+            print(f'IOC("{self.name}").add_snapshot_files: Start.')
         self.delete_snapshot_files()
         # snapshot for config file.
+        try_makedirs(self.snapshot_path, self.verbose)
         if os.path.isfile(self.config_file_path):
-            if file_copy(self.config_file_path, self.config_snapshot_file, 'r', self.verbose):
-                if self.verbose:
-                    print(f'IOC("{self.name}").add_snapshot_file: Snapshot file for config successfully created.')
-            else:
-                print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file for config created failed.')
+            if not file_copy(self.config_file_path, self.config_snapshot_file, 'r', self.verbose):
+                print(f'IOC("{self.name}").add_snapshot_files: Failed, snapshot file for config created failed.')
                 self.state_manager.set_config('snapshot', 'error')
-                self.state_manager.write_config()
+                state_info = f'snapshot files not create correctly.'
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
                 return False
         else:
-            print(f'IOC("{self.name}").add_snapshot_file: Failed, source file "{self.config_file_path}" not exist.')
+            print(f'IOC("{self.name}").add_snapshot_files: Failed, source file "{self.config_file_path}" not exist.')
             self.state_manager.set_config('snapshot', 'error')
-            self.state_manager.write_config()
+            state_info = f'snapshot files not create correctly.'
+            self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
             return False
         # snapshot for source files.
+        try_makedirs(self.src_snapshot_path, self.verbose)
         for item in os.listdir(self.src_path):
-            if file_copy(os.path.join(self.src_path, item), os.path.join(self.src_snapshot_path, item), 'r',
-                         self.verbose):
-                if self.verbose:
-                    print(f'IOC("{self.name}").add_snapshot_file: Snapshot file '
-                          f'"{os.path.join(self.src_snapshot_path, item)}" successfully created.')
-            else:
-                print(f'IOC("{self.name}").add_snapshot_file: Failed, snapshot file '
+            if not file_copy(os.path.join(self.src_path, item), os.path.join(self.src_snapshot_path, item), 'r',
+                             self.verbose):
+                print(f'IOC("{self.name}").add_snapshot_files: Failed, snapshot file '
                       f'"{os.path.join(self.src_snapshot_path, item)}" created failed.')
                 self.state_manager.set_config('snapshot', 'error')
-                self.state_manager.write_config()
+                state_info = f'snapshot files not create correctly.'
+                self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
                 return False
 
         if self.verbose:
-            print(f'IOC("{self.name}").add_snapshot_file: Snapshot for source files successfully created.')
+            print(f'IOC("{self.name}").add_snapshot_files: Success.')
         self.state_manager.set_config('snapshot', 'tracked')
         self.state_manager.write_config()
         return True
 
     def delete_snapshot_files(self):
         if os.path.isdir(self.snapshot_path):
-            dir_remove(self.snapshot_path, self.verbose)
+            dir_remove(self.snapshot_path, verbose=False)
             self.state_manager.set_config('snapshot', 'untracked')
             self.state_manager.write_config()
-        else:
-            if self.verbose:
-                print(f'IOC("{self.name}").delete_snapshot_file: Failed, path "{self.snapshot_path}" not exist.')
 
     def restore_from_snapshot_files(self, restore_files: list, force_restore=False):
         if self.state_manager.check_config('snapshot', 'untracked'):
@@ -1074,7 +1077,7 @@ class IOC:
             if not force_restore:
                 while not force_restore:
                     print(f'IOC("{self.name}").restore_from_snapshot_file: Restoring snapshot files.\n'
-                          f'{file_string} will be restored.')
+                          f'"{file_string}" will be restored.')
                     if unsupported_items:
                         print(f'{unsupported_items} can\'t be restored as they are not exist.')
                     ans = input(f'Confirm to continue?[y|n]:')
@@ -1242,3 +1245,339 @@ class IOC:
     def try_repair(self):
         self.make_directory_structure()
         self.state_manager.read_config(create=True)
+
+
+def gen_swarm_files(iocs, verbose):
+    """
+    Generate Docker Compose file for swarm deploying at swarm data dir for specified IOC projects.
+
+    :param iocs: IOC projects specified to generate compose file.
+    :param verbose:
+    """
+    if verbose:
+        print(f'gen_swarm_files: Processing with iocs="{iocs}", verbosity="{verbose}".')
+
+    if not iocs:
+        print(f'gen_swarm_files: Failed. No IOC project specified.')
+        return
+
+    top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
+    if not os.path.isdir(top_path):
+        print(f'gen_swarm_files: Failed. Working directory {top_path} is not exist!')
+        return
+    else:
+        if verbose:
+            print(f'gen_swarm_files: Working at {top_path}.')
+
+    processed_dir = []
+    for service_dir in os.listdir(top_path):
+        if not (iocs == ['alliocs'] or service_dir in iocs):
+            continue
+        service_path = os.path.join(top_path, service_dir)
+
+        # read ioc.ini and get deployment setting.
+        ioc_settings = {'service_dir': service_dir}
+        ioc_ini_path = os.path.join(service_path, IOC_CONFIG_FILE)
+        if not os.path.exists(ioc_ini_path):
+            if verbose:
+                print(f'gen_swarm_files: Skip directory "{service_dir}" as there is no valid IOC config file.')
+            continue
+        try:
+            temp_ioc = IOC(dir_path=service_path, read_mode=True, verbose=verbose,
+                           state_info_ini_dir=os.path.join(REPOSITORY_PATH, service_dir))
+            if not temp_ioc.get_config(section='IOC', option='image'):
+                print(f'gen_swarm_files: Warning. No image defined in settings of IOC "{service_dir}", skipped.')
+                continue
+            else:
+                ioc_settings['image'] = temp_ioc.get_config(section='IOC', option='image')
+            if not temp_ioc.get_config(section='DEPLOY', option='cpu-reserve'):
+                ioc_settings['cpu-reserve'] = ''
+            else:
+                ioc_settings['cpu-reserve'] = temp_ioc.get_config(section='DEPLOY', option='cpu-reserve')
+            if not temp_ioc.get_config(section='DEPLOY', option='memory-reserve'):
+                ioc_settings['memory-reserve'] = ''
+            else:
+                ioc_settings['memory-reserve'] = temp_ioc.get_config(section='DEPLOY', option='memory-reserve')
+            if not temp_ioc.get_config(section='DEPLOY', option='cpu-limit'):
+                ioc_settings['cpu-limit'] = RESOURCE_IOC_CPU_LIMIT
+            else:
+                ioc_settings['cpu-limit'] = temp_ioc.get_config(section='DEPLOY', option='cpu-limit')
+            if not temp_ioc.get_config(section='DEPLOY', option='memory-limit'):
+                ioc_settings['memory-limit'] = RESOURCE_IOC_MEMORY_LIMIT
+            else:
+                ioc_settings['memory-limit'] = temp_ioc.get_config(section='DEPLOY', option='memory-limit')
+            # resources reservations
+            reservations_dict = {}
+            if ioc_settings['cpu-reserve']:
+                reservations_dict['cpus'] = ioc_settings['cpu-reserve']
+            if ioc_settings['memory-reserve']:
+                reservations_dict['memory'] = ioc_settings['memory-reserve']
+            # labels
+            labels_to_add = {}
+            for label_line in multi_line_parse(temp_ioc.get_config(section='DEPLOY', option='labels')):
+                k, v = condition_parse(label_line)
+                if k:
+                    labels_to_add[k] = v
+                else:
+                    print(f'gen_swarm_files: Warning. '
+                          f'Invalid label definition "{label_line}" for IOC "{service_dir}", skipped.')
+        except IMIOCError as e:
+            print(f'gen_swarm_files: Warning. Exception raised "{e}" while Parsing "{ioc_ini_path}", skipped.')
+            continue
+
+        # yaml file title, name of Compose Project must match pattern '^[a-z0-9][a-z0-9_-]*$'
+        yaml_data = {
+            'services': {},
+            'networks': {},
+        }
+        # add services according to IOC projects.
+        temp_yaml = {
+            'image': ioc_settings['image'],
+            'entrypoint': [
+                'bash',
+                '-c',
+                f'cd RUN/{ioc_settings["service_dir"]}/startup/iocBoot; ./st.cmd;'
+            ],
+            'tty': True,
+            'networks': ['hostnet'],
+            'volumes': [
+                {
+                    'type': 'bind',
+                    'source': f'../{ioc_settings["service_dir"]}',
+                    'target': f'{os.path.join(CONTAINER_IOC_RUN_PATH, ioc_settings["service_dir"])}',
+                },
+                {
+                    'type': 'bind',
+                    'source': f'.',
+                    'target': f'{os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR)}',
+                },
+                {
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True
+                },  # set correct timezone for linux kernel
+            ],
+            'deploy': {
+                'labels':
+                    {
+                        'service-type': 'ioc',
+                    },
+                'replicas': 1,
+                'update_config':
+                    {
+                        'parallelism': 1,
+                        'delay': '10s',
+                        'failure_action': 'rollback',
+                    },
+                'resources':
+                    {
+                        'limits': {
+                            'cpus': ioc_settings['cpu-limit'],
+                            'memory': ioc_settings['memory-limit'],
+                        },
+                    }
+            }
+        }
+        # reservations dict.
+        if reservations_dict:
+            temp_yaml['deploy']['resources']['reservations'] = reservations_dict
+        # labels dict
+        if labels_to_add:
+            temp_yaml['deploy']['labels'].update(labels_to_add)
+        #
+        yaml_data['services'].update({f'srv-{ioc_settings["service_dir"]}': temp_yaml})
+        # add network for each stack.
+        temp_yaml = {
+            'external': True,
+            'name': 'host',
+        }
+        yaml_data['networks'].update({f'hostnet': temp_yaml})
+        # write yaml file
+        file_path = os.path.join(top_path, service_dir, IOC_SERVICE_FILE)
+        if os.path.exists(file_path):
+            if verbose:
+                print(f'gen_swarm_files: File "{file_path}" exists, firstly remove it before writing a new one.')
+            file_remove(file_path, verbose)
+        with open(file_path, 'w') as file:
+            yaml.dump(yaml_data, file, default_flow_style=False)
+        # set readonly permission.
+        os.chmod(file_path, 0o444)
+
+        processed_dir.append(service_dir)
+        print(f'gen_swarm_files: Create swarm file for service "{service_dir}".')
+    else:
+        if iocs == ['alliocs']:
+            print(f'gen_swarm_files: Finished creating swarm files for all IOC projects.')
+        else:
+            for item in iocs:
+                if item not in processed_dir:
+                    print(f'gen_swarm_files: Failed to create swarm files for IOC project "{item}", '
+                          f'may be it is not correctly set.')
+            else:
+                if not iocs:
+                    print(f'gen_swarm_files: No IOC project was specified to generate compose file!')
+
+
+def get_all_ioc(dir_path=None, from_list=None, read_mode=False, verbose=False):
+    """
+    Get IOC projects at given path from given name list. Return all IOC projects if name list not given.
+
+    :param dir_path: top path to find all ioc projects
+    :param from_list: return ioc projects from given list
+    :param read_mode: whether to initialize an IOC in read-only mode
+    :param verbose: verbosity
+    :return: a list of IOC class objects.
+    """
+    ioc_list = []
+    if not dir_path:
+        dir_path = REPOSITORY_PATH
+    items = os.listdir(dir_path)
+    if from_list:
+        temp_items = []
+        for i in items:
+            if i in from_list:
+                temp_items.append(i)
+        else:
+            items = temp_items
+    items.sort()  # sort according to name string.
+    for ioc_name in items:
+        subdir_path = os.path.join(dir_path, ioc_name)
+        if os.path.isdir(subdir_path):
+            ioc_temp = IOC(dir_path=subdir_path, read_mode=read_mode, verbose=verbose)
+            ioc_list.append(ioc_temp)
+    return ioc_list
+
+
+def repository_backup(backup_mode, backup_dir, verbose):
+    """
+    Generate backup file of IOC project files into datetime tgz file.
+
+    :param backup_mode: "src" to back up only config file and source files, "all" to back up all files.
+    :param backup_dir: relative path or absolute path to store backup files.
+    :param verbose:
+    :return:
+    """
+    ioc_list = get_all_ioc(read_mode=True)
+    if ioc_list:
+        backup_path = relative_and_absolute_path_to_abs(backup_dir, IOC_BACKUP_DIR)  # default: ./ioc-backup/
+        if not os.path.exists(backup_path):
+            try_makedirs(backup_path, verbose)
+        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        tar_dir = os.path.join(backup_path, now_time)
+
+        try:
+            for ioc_item in ioc_list:
+                # make temporary directory.
+                ioc_tar_dir = os.path.join(tar_dir, ioc_item.name)
+                try_makedirs(ioc_tar_dir, verbose)
+                # copy config file, state info file and "src" dir anyway.
+                file_copy(ioc_item.config_file_path, os.path.join(ioc_tar_dir, IOC_CONFIG_FILE), mode='rw',
+                          verbose=verbose)
+                file_copy(ioc_item.state_manager.info_file_path, os.path.join(ioc_tar_dir, IOC_STATE_INFO_FILE),
+                          mode='rw',
+                          verbose=verbose)
+                dir_copy(ioc_item.src_path, os.path.join(ioc_tar_dir, 'src'), verbose=verbose)
+                # copy "project" dir if backup_mode == "all".
+                if backup_mode == 'all':
+                    # copy from repository
+                    dir_copy(ioc_item.startup_path, os.path.join(ioc_tar_dir, 'project', 'startup'), verbose=verbose)
+                    # copy from running data
+                    ioc_run_path = os.path.join(MOUNT_PATH, ioc_item.get_config('host'), ioc_item.name)
+                    dir_copy(os.path.join(ioc_run_path, 'log'), os.path.join(ioc_tar_dir, 'project', 'log'),
+                             verbose=verbose)
+                    dir_copy(os.path.join(ioc_run_path, 'settings'), os.path.join(ioc_tar_dir, 'project', 'settings'),
+                             verbose=verbose)
+            else:
+                with tarfile.open(os.path.join(backup_path, f'{now_time}.ioc.tar.gz'), "w:gz") as tar:
+                    tar.add(tar_dir, arcname=os.path.basename(tar_dir))
+                dir_remove(tar_dir, verbose=verbose)
+                print(f'repository_backup: Finished. Backup file created at {backup_path} in "{backup_mode}" mode.')
+        except Exception as e:
+            print(f'repository_backup: Failed. Exception raised: {e}.')
+            dir_remove(tar_dir, verbose=verbose)
+    else:
+        print(f'repository_backup: Skipped. No IOC project in repository.')
+
+
+def restore_backup(backup_path, force_overwrite, verbose):
+    """
+    Restore IOC projects into repository from tgz backup file.
+
+    :param backup_path: path of tgz backup file.
+    :param force_overwrite: whether to force overwrite when existing IOC project conflicts with the backup file.
+    :param verbose:
+    :return:
+    """
+    extract_path = relative_and_absolute_path_to_abs(backup_path)
+    if not os.path.isfile(extract_path):
+        print(f'restore_backup: Failed. File "{extract_path}" to extract not exists.')
+        return
+
+    # make temporary directory.
+    temp_dir = relative_and_absolute_path_to_abs(f'/tmp/tar_temp_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}')
+    try_makedirs(temp_dir, verbose=verbose)
+    # extract tgz files into temporary directory.
+    try:
+        with tarfile.open(extract_path, 'r:gz') as tar:
+            tar.extractall(temp_dir)
+    except Exception as e:
+        print(f'restore_backup: Failed. Failed to extract "{extract_path}", {e}.')
+        dir_remove(temp_dir, verbose=verbose)
+        return
+    else:
+        if verbose:
+            print(f'restore_backup: File extracted at {temp_dir}.')
+        temp_in_dir = os.path.join(temp_dir, os.listdir(temp_dir)[0])
+        print(f'restore_backup: Start restoring from backup file "{os.path.basename(temp_in_dir)}".')
+
+    try:
+        # restore IOC projects. if IOC conflicts, skip or overwrite according to force_overwrite.
+        ioc_existed = [ioc_item.name for ioc_item in get_all_ioc(read_mode=True)]
+        for ioc_item in os.listdir(temp_in_dir):
+            backup_ioc_dir = os.path.join(temp_in_dir, ioc_item)
+            current_ioc_dir = os.path.join(REPOSITORY_PATH, ioc_item)
+            restore_flag = False
+            if os.path.isdir(backup_ioc_dir) and os.path.exists(os.path.join(backup_ioc_dir, IOC_CONFIG_FILE)):
+                if ioc_item not in ioc_existed:
+                    print(f'restore_backup: Restoring IOC project "{ioc_item}".')
+                    dir_copy(backup_ioc_dir, current_ioc_dir, verbose=verbose)
+                    restore_flag = True
+                elif ioc_item in ioc_existed and not force_overwrite:
+                    while True:
+                        ans = input(f'restore_backup: "{ioc_item}" already exists, overwrite '
+                                    f'it(this will remove the original IOC project files)?[y|n]:')
+                        if ans.lower() == 'yes' or ans.lower() == 'y':
+                            overwrite_flag = True
+                            print(f'restore_backup: choose to overwrite "{ioc_item}".')
+                            break
+                        elif ans.lower() == 'no' or ans.lower() == 'n':
+                            overwrite_flag = False
+                            print(f'restore_backup: choose to skip "{ioc_item}".')
+                            break
+                        else:
+                            print(f'restore_backup: wrong input, please enter your answer again.')
+                    if overwrite_flag:
+                        dir_copy(backup_ioc_dir, current_ioc_dir, verbose=verbose)
+                        restore_flag = True
+                else:
+                    print(f'restore_backup: Restoring IOC project "{ioc_item}", local project will be overwrite.')
+                    dir_copy(backup_ioc_dir, current_ioc_dir, verbose=verbose)
+                    restore_flag = True
+            else:
+                if verbose:
+                    print(f'restore_backup: Skip invalid directory "{ioc_item}".')
+            if restore_flag:
+                print(f'restore_backup: Restoring IOC project "{ioc_item}" finished.')
+                temp_ioc = IOC(dir_path=current_ioc_dir, read_mode=True, verbose=verbose)
+                # set status for restored IOC.
+                temp_ioc.state_manager.set_config('status', 'restored')
+                temp_ioc.write_config()
+    except Exception as e:
+        # remove temporary directory finally.
+        print(f'\nrestore_backup: Falided. Exception raised: {e}.')
+        dir_remove(temp_dir, verbose=verbose)
+    else:
+        # remove temporary directory finally.
+        print(f'restore_backup: Restoring Finished.')
+        dir_remove(temp_dir, verbose=verbose)

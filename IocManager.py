@@ -51,7 +51,7 @@ if __name__ == '__main__':
                             help=f'manually specify attributes in {IOC_CONFIG_FILE} file, format: "key=value".\n'
                                  f'attributes set by this option will override other options if conflicts.')
     parser_set.add_argument('-s', '--section', type=str, default='IOC',
-                            help='specify section used for manually specified attributes. '
+                            help='specify section used for manually specified attributes.'
                                  '\ndefault: "IOC" ')
     parser_set.add_argument('-f', '--ini-file', type=str,
                             help=f'copy settings from specified {IOC_CONFIG_FILE} files.\n'
@@ -75,52 +75,50 @@ if __name__ == '__main__':
     parser_execute.add_argument('name', type=str, nargs='*', help='name for IOC project, a list of name is supported.')
     # Sort by operation procedure.
     parser_execute.add_argument('--add-src-file', metavar="DIR_PATH", type=str, nargs='?', const='', default=None,
-                                help='add source files from given path and update settings automatically. '
-                                     '\ndefault: the "src" directory in project ')
+                                help='add source files from given path and update settings automatically.'
+                                     '\ndefault: "src" directory in the project')
     parser_execute.add_argument('--gen-startup-file', action="store_true",
-                                help='generate st.cmd file and other startup files. ')
+                                help='generate startup files for IOC project.')
     parser_execute.add_argument('--export-for-mount', action="store_true",
-                                help='export generated runtime files into mount dir. '
-                                     '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
-                                     'conflicts with the those in repository. ')
-    parser_execute.add_argument('--force-overwrite', action="store_true", default=True,
-                                help='force overwrite if files in the IOC project already exists.')
+                                help='export generated startup files into running dir.'
+                                     '\nset "--force-overwrite" to enable overwrite when project files in running dir '
+                                     'conflicts with those in repository.')
+    parser_execute.add_argument('--force-overwrite', action="store_true",
+                                help='force overwrite when file conflicts or already exists.')
     parser_execute.add_argument('--generate-and-export', action="store_true",
-                                help='generate startup files and then export them into mount dir. '
-                                     '\nset "--force-overwrite" to enable overwrite exporting when IOC in mount dir '
-                                     'conflicts with the one in repository. ')
+                                help='generate startup files and then export them into running dir.'
+                                     '\nset "--force-overwrite" to enable exporting overwrite when IOC in running dir '
+                                     'conflicts with the one in repository.')
     parser_execute.add_argument('--gen-swarm-file', action="store_true",
-                                help='generate docker compose file of IOC projects for swarm deploying. ')
-    # new
+                                help='generate docker service compose file of IOC projects for swarm deploying.')
     parser_execute.add_argument('--deploy', action="store_true",
-                                help='generate and export startup files, then generate compose file for docker running.'
-                                     '\nset "--force-overwrite" to enable overwrite when project files in mount dir '
-                                     'conflicts with the those in repository. ')
+                                help='generate and export startup files, then generate swarm file for deploying.'
+                                     '\nset "--force-overwrite" to enable exporting overwrite when IOC in running dir '
+                                     'conflicts with the one in repository.')
     parser_execute.add_argument('-b', '--gen-backup-file', action="store_true",
                                 help='generate backup file, all IOC projects currently '
-                                     'in the repository will be packed and compressed into a tgz file. '
-                                     '\nset "--backup-path" to choose a backup directory. '
+                                     'in the repository will be packed and compressed into a tgz file.'
+                                     '\nset "--backup-path" to choose a directory to store backup file.'
                                      '\nset "--backup-mode" to choose a backup mode.')
     parser_execute.add_argument('--backup-path', type=str,
                                 default=f'{os.path.join(get_manager_path(), "..", IOC_BACKUP_DIR)}',
-                                help=f'path of directory used for storing backup files of IOC projects. '
+                                help=f'path of directory used for storing backup files of IOC projects.'
                                      f'\ndefault: "$MANAGER_PATH/../{IOC_BACKUP_DIR}/" ')
     parser_execute.add_argument('--backup-mode', type=str, default='src',
-                                help='backup mode for IOC projects. '
+                                help='backup mode for IOC projects.'
                                      '\n"all": back up all files including running files'
-                                     '(files generated by autosave, etc.). '
-                                     '\n"src": back up config file and source files. '
+                                     '(files generated by autosave, etc.).'
+                                     '\n"src": back up only config file and source files.'
                                      '\ndefault: "src" ')
     parser_execute.add_argument('-r', '--restore-backup-file', metavar="BACKUP_FILE", type=str,
-                                help='restore IOC projects from tgz backup file. '
+                                help='restore IOC projects from tgz backup file into repository.'
                                      '\nset "--force-overwrite" to enable overwrite when IOC in backup file '
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--restore-snapshot-file', metavar="SNAPSHOT_FILE", type=str, nargs='+',
-                                help='restore IOC projects from snapshot files. '
-                                     '\nset "--force-overwrite" to enable overwrite when snapshot file '
+                                help='restore IOC project files from snapshot.'
+                                     '\nset "--force-overwrite" to enable overwrite when file in snapshot'
                                      'conflicts with the one in repository.')
-    parser_execute.add_argument('--run-check', action="store_true",
-                                help='check IOC projects.')
+    parser_execute.add_argument('--run-check', action="store_true", help='do checks for IOC projects.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_execute.set_defaults(func='parse_execute')
 
@@ -128,7 +126,7 @@ if __name__ == '__main__':
     parser_list = subparsers.add_parser('list', help='List existing IOC projects filtered by given conditions.',
                                         formatter_class=argparse.RawTextHelpFormatter)
     parser_list.add_argument('condition', type=str, nargs='*',
-                             help='conditions to filter IOC projects in specified section. format: "xxx=xxx". '
+                             help='conditions to filter IOC projects in specified section. format: "xxx=xxx".'
                                   '\nlist all IOC projects if no condition provided.')
     parser_list.add_argument('-s', '--section', type=str, default='IOC',
                              help='specify a section applied for condition filtering. default section: "IOC".')
@@ -157,7 +155,7 @@ if __name__ == '__main__':
     parser_swarm.add_argument('--show-digest', action="store_true",
                               help='show digest information of current swarm deploying.')
     parser_swarm.add_argument('--show-services', action="store_true",
-                              help='show all service deployed in swarm. '
+                              help='show all service deployed in swarm.'
                                    '\nset "--detail" to show details.')
     parser_swarm.add_argument('--detail', action="store_true")
     parser_swarm.add_argument('--show-nodes', action="store_true",

@@ -7,7 +7,7 @@ import filecmp
 import logging
 from logging.handlers import RotatingFileHandler
 
-from .IMConfig import OPERATION_LOG_PATH, OPERATION_LOG_FILE
+from imutils.IMConfig import OPERATION_LOG_PATH, OPERATION_LOG_FILE
 
 
 def try_makedirs(d, verbose=False):
@@ -23,11 +23,11 @@ def try_makedirs(d, verbose=False):
         os.makedirs(d)
     except Exception as e:
         if verbose:
-            print(f'try_makedirs("{d}") failed, {e}.')
+            print(f'try_makedirs("{d}"): Failed, {e}.')
         return False
     else:
         if verbose:
-            print(f'try_makedirs("{d}") Success.')
+            print(f'try_makedirs("{d}"): Success.')
         return True
 
 
@@ -35,31 +35,27 @@ def file_remove(file_path, verbose=False):
     try:
         os.remove(file_path)
     except Exception as e:
-        print(f'file_remove: "{file_path}" removed failed, {e}.')
+        print(f'file_remove("{file_path}"): Failed, {e}.')
     else:
         if verbose:
-            print(f'file_remove: "{file_path}" removed.')
+            print(f'file_remove("{file_path}"): Success.')
 
 
 def dir_remove(dir_path, verbose=False):
     try:
         shutil.rmtree(dir_path)
-    except shutil.Error as e:
-        print(f'dir_remove: "{dir_path}" removed failed, {e}.')
-    except FileNotFoundError as e:
-        print(f'dir_remove: "{dir_path}" removed failed, {e}.')
     except Exception as e:
-        print(f'dir_remove: "{dir_path}" removed failed, {e}.')
+        print(f'dir_remove("{dir_path}"): Failed, {e}.')
     else:
         if verbose:
-            print(f'dir_remove: "{dir_path}" removed.')
+            print(f'dir_remove("{dir_path}"): Success.')
 
 
-# be careful of that whether the input path is relative or absolute
 def file_copy(src, dest, mode='r', verbose=False):
     """
     copy the file src to the file or directory dst.
-    If dst specifies a directory, the file will be copied into dst using the base filename from src.
+    If dst specifies a directory, it must exist, the file will be copied into dst using the base filename from src.
+    If dst specifies a directory not exist, dest will be considered as a file.
     If dst specifies a file that already exists, it will be replaced.
 
     :param src:
@@ -68,81 +64,76 @@ def file_copy(src, dest, mode='r', verbose=False):
     :param verbose:
     :return: whether the execution was successful or not
     """
-    if not os.path.exists(src):
-        print(f'file_copy: failed, source file "{src}" not found.')
+    if not os.path.isfile(src):
+        print(f'file_copy: Failed, source "{src}" not found or is not file.')
         return False
-    # if destination file exists, remove it.
-    if os.path.exists(dest):
+    replace_flag = False
+    # remove first if destination file exists(for some read-only files can not be replaced).
+    if os.path.isfile(dest):
         if verbose:
-            print(f'file_copy: destination "{dest}" exists, first remove it.')
-        file_remove(dest, verbose)
-    # if destination dir no exists, create it.
-    dest_dir = os.path.dirname(dest)
-    if not os.path.isdir(dest_dir):
-        if verbose:
-            print(f'file_copy: destination directory "{dest_dir}" not exists, first create it.')
-        try_makedirs(dest_dir, verbose)
+            replace_flag = True
+        file_remove(dest, verbose=False)
+    elif os.path.isdir(dest):
+        if os.path.isfile(os.path.join(dest, os.path.basename(src))):
+            if verbose:
+                replace_flag = True
+            file_remove(os.path.join(dest, os.path.basename(src)), verbose=False)
     #
     try:
-        shutil.copy(src, dest)
-    except PermissionError as e:
-        print(f'file_copy: failed, {e}.')
-        return False
+        res = shutil.copy(src, dest)
     except Exception as e:
-        print(f'file_copy: failed, {e}.')
+        print(f'file_copy: Failed, {e}.')
         return False
     else:
-        if verbose:
-            print(f'file_copy: success, copy file from "{src}" to "{dest}.')
         mode_number = 0o000
-        if os.path.isdir(dest):
-            dest = os.path.join(dest, os.path.basename(src))
         if 'r' in mode or 'R' in mode:
             mode_number += 0o444
-            if verbose:
-                print(f'file_copy: set "{dest}" as readable.')
         if 'w' in mode or 'W' in mode:
             mode_number += 0o220
-            if verbose:
-                print(f'file_copy: set "{dest}" as writable.')
         if 'x' in mode or 'X' in mode:
             mode_number += 0o110
-            if verbose:
-                print(f'file_copy: set "{dest}" as executable.')
         if mode_number != 0o000:
-            os.chmod(dest, mode_number)
+            os.chmod(res, mode_number)
+        else:
+            os.chmod(res, 0o664)
+        if verbose:
+            print(f'file_copy: Success, {"replace" if replace_flag else "copy"} file '
+                  f'from "{src}" to "{res}" and set mode="{"DEFAULT" if mode_number == 0o000 else mode}".')
         return True
 
 
 def dir_copy(source_folder, destination_folder, verbose=False):
-    if os.path.exists(destination_folder):
-        if verbose:
-            print(f'dir_copy: destination folder "{destination_folder}" exists, first remove it.')
-        dir_remove(destination_folder, verbose)
+    if os.path.isdir(destination_folder):
+        dir_remove(destination_folder, verbose=False)
     try:
         shutil.copytree(source_folder, destination_folder)
     except shutil.Error as e:
-        print(f'dir_copy: failed, {e}')
+        print(f'dir_copy: Failed, {e}')
         return False
     else:
         if verbose:
-            print(f'dir_copy: success, copy files from "{source_folder}" to "{destination_folder}".')
+            print(f'dir_copy: Success, copy dir from "{source_folder}" to "{destination_folder}".')
         return True
 
 
-# return a normalized path or return a path relative to current work path if a relative path was given.
-# use a default path if no input_path was given.
 def relative_and_absolute_path_to_abs(input_path, default_path=None):
+    """
+    return an absolute path or a relative path against current work path in normalized format.
+    If no input_path was given use default_path.
+
+    :param input_path:
+    :param default_path:
+    :return:
+    """
     if not default_path:
-        default_path = ''
+        default_path = os.getcwd()
     if not input_path:
         input_path = default_path
     if not os.path.isabs(input_path):
         output_path = os.path.join(os.getcwd(), input_path)
     else:
         output_path = input_path
-    output_path = os.path.normpath(output_path)
-    return output_path
+    return os.path.normpath(output_path)
 
 
 def condition_parse(condition: str, split_once: bool = False):
@@ -270,4 +261,4 @@ def operation_log():
 
 
 if __name__ == '__main__':
-    print()
+    file_copy('/home/zhu/docker/IocDock/README.md', '/home/zhu/abc', mode='r', verbose=True)
