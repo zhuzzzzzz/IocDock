@@ -1042,70 +1042,85 @@ class IOC:
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
                   f'Failed, input arg "restore_files" must be a non-empty list.')
             return
-        files_to_restore = {'config': '', 'src': []}
+        else:
+            restore_files = list(set(restore_files))  # remove duplicates
+
+        supported_items = []
         files_provided = {'config': '', 'src': []}
-        unsupported_items = []
         if os.path.isfile(self.config_snapshot_file):
             files_provided['config'] = self.config_snapshot_file
+            supported_items.append('ioc.ini')
         for item in os.listdir(self.src_snapshot_path):
             files_provided['src'].append(os.path.join(self.src_snapshot_path, item))
+            supported_items.append(item)
+
+        items_to_restore = []
+        unsupported_items = []
+        files_to_restore = {'config': '', 'src': []}
         if 'all' in restore_files:
             files_to_restore = files_provided
+            items_to_restore = supported_items
         else:
             if 'ioc.ini' in restore_files:
                 restore_files.remove('ioc.ini')
-                files_to_restore['config'] = files_provided['config']
-                if not files_to_restore['config']:
+                files_to_restore['config'] = files_provided['config']  # as it is to restore, get path of ioc.ini
+                if not files_provided['config']:  # if it is not provided, add to unsupported list
                     unsupported_items.append('ioc.ini')
+                else:
+                    items_to_restore.append('ioc.ini')
             for item in restore_files:
                 item_path = os.path.join(self.src_snapshot_path, item)
                 if item_path in files_provided:
                     files_to_restore['src'].append(item_path)
+                    items_to_restore.append(item)
                 else:
                     unsupported_items.append(item)
 
-        file_string = ''
-        if files_to_restore['config']:
-            file_string += f"{files_to_restore['config']} "
-        for item in files_to_restore['src']:
-            file_string += f"{item} "
-        file_string = file_string.rstrip()
-        if not file_string:
+        supported_file_string = ''
+        for item in items_to_restore:
+            supported_file_string += f'"{item}", '
+        else:
+            supported_file_string = supported_file_string.rstrip()
+            supported_file_string = supported_file_string.rstrip(',')
+        unsupported_file_string = ''
+        for item in unsupported_items:
+            unsupported_file_string += f'"{item}", '
+        else:
+            unsupported_file_string = unsupported_file_string.rstrip()
+            unsupported_file_string = unsupported_file_string.rstrip(',')
+
+        if not supported_file_string:
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
-                  f'Failed to Restore any snapshot files from {restore_files}, as they are not exist.')
+                  f'Failed to Restore any snapshot files from {restore_files}, as they are not exist in snapshot path.')
         else:
             if not force_restore:
                 while not force_restore:
-                    print(f'IOC("{self.name}").restore_from_snapshot_file: Restoring snapshot files.\n'
-                          f'"{file_string}" will be restored.')
+                    print(f'IOC("{self.name}").restore_from_snapshot_file: Start.\n\n'
+                          f'The following files will be restored:\n'
+                          f'{supported_file_string}.')
                     if unsupported_items:
-                        print(f'{unsupported_items} can\'t be restored as they are not exist.')
-                    ans = input(f'Confirm to continue?[y|n]:')
+                        print(f'\nThe following files will not be restored as they are not exist in snapshot path:\n'
+                              f'{unsupported_file_string}.')
+                    ans = input(f'\nconfirm to continue?[y|n]:')
                     if ans.lower() == 'n' or ans.lower() == 'no':
                         print(f'IOC("{self.name}").restore_from_snapshot_file": Restoring canceled.')
                         return
                     if ans.lower() == 'y' or ans.lower() == 'yes':
-                        print(f'IOC("{self.name}").restore_from_snapshot_file": Executing restoring.')
+                        print(f'IOC("{self.name}").restore_from_snapshot_file": Execute restoring.')
                         force_restore = True
                         break
-                    print('Invalid input, please try again.')
+                    print('invalid input, please try again.')
             if force_restore:
                 if files_to_restore['config']:
                     if not file_copy(files_to_restore['config'], self.dir_path, mode='rw', verbose=self.verbose):
-                        print(f'IOC("{self.name}").restore_from_snapshot_file": '
-                              f'Restoring {files_to_restore["config"]} failed.')
+                        print(f'Restoring "{files_to_restore["config"]}" failed.')
                     else:
-                        if self.verbose:
-                            print(f'IOC("{self.name}").restore_from_snapshot_file": '
-                                  f'Restoring {files_to_restore["config"]} succeed.')
+                        print(f'Restoring "{files_to_restore["config"]}" succeed.')
                 for item in files_to_restore['src']:
                     if not file_copy(item, self.src_path, mode='rw', verbose=self.verbose):
-                        print(f'IOC("{self.name}").restore_from_snapshot_file": '
-                              f'Restoring {item} failed.')
+                        print(f'Restoring "{item}" failed.')
                     else:
-                        if self.verbose:
-                            print(f'IOC("{self.name}").restore_from_snapshot_file": '
-                                  f'Restoring {item} succeed.')
+                        print(f'Restoring "{item}" succeed.')
 
     # Checks before generating the IOC project startup files.
     def generate_check(self):
@@ -1255,7 +1270,7 @@ def gen_swarm_files(iocs, verbose):
     :param verbose:
     """
     if verbose:
-        print(f'gen_swarm_files: Processing with iocs="{iocs}", verbosity="{verbose}".')
+        print(f'gen_swarm_files: Start. Processing with iocs="{iocs}", verbosity="{verbose}".')
 
     if not iocs:
         print(f'gen_swarm_files: Failed. No IOC project specified.')
