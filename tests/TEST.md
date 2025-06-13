@@ -23,3 +23,5 @@ cd $MANAGER_PATH
 
 3. 创建项目后删除 src 目录   
    结果符合预期。提示 source directory lost 目录丢失，并自动创建空目录。
+
+##### 错误配置测试
