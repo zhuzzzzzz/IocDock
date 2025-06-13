@@ -3,10 +3,10 @@ from imutils.IMError import IMInitError
 
 
 def get_manager_path() -> str:
-    repository_path = os.environ.get("MANAGER_PATH", default='')
-    if repository_path:
-        if os.path.isdir(repository_path):
-            return repository_path
+    manager_path = os.environ.get("MANAGER_PATH", default='')
+    if manager_path:
+        if os.path.isdir(manager_path):
+            return manager_path
         else:
             raise IMInitError(f'Invalid system environment variable "$MANAGER_PATH".')
     else:

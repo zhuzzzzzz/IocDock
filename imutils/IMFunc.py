@@ -107,7 +107,7 @@ def dir_copy(source_folder, destination_folder, verbose=False):
         dir_remove(destination_folder, verbose=False)
     try:
         shutil.copytree(source_folder, destination_folder)
-    except shutil.Error as e:
+    except Exception as e:
         print(f'dir_copy: Failed, {e}')
         return False
     else:

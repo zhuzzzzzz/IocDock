@@ -238,21 +238,21 @@ if __name__ == '__main__':
         parser.print_help()
         exit()
 
+    # log current operation.
     operation_log()
 
     # print(f'{args}')
     if args.verbose:
         print(args)
-        print()
     if args.func == 'parse_create' or args.func == 'parse_set':
         # ./iocManager.py create or ./iocManager.py set
         conf_temp = configparser.ConfigParser()
         #
         if args.ini_file:
-            if conf_temp.read(args.ini_file):
-                print(f'Read configuration from file "{args.ini_file}".')
-            else:
-                print(f'Read configuration failed, invalid {IOC_CONFIG_FILE} file "{args.ini_file}", skipped.')
+            if args.verbose:
+                print(f'ArgumentParser: Read configuration from file "{args.ini_file}".')
+            if not conf_temp.read(args.ini_file):
+                print(f'ArgumentParser: skip invalid file "{args.ini_file}".')
         #
         module_installed = ''
         if args.autosave:
@@ -270,25 +270,29 @@ if __name__ == '__main__':
             conf_temp.set('IOC', 'module', module_installed)
         #
         if args.options:
+            if args.verbose:
+                print(f'ArgumentParser: Read configuration from specified options.')
             args.section = args.section.upper()
             if not conf_temp.has_section(args.section):
                 conf_temp.add_section(args.section)
             for item in args.options:
-                k, v = condition_parse(item, split_once=1)
+                k, v = condition_parse(item, split_once=True)
                 if k:
                     conf_temp.set(args.section, k, v)
                 else:
                     if args.verbose:
-                        print(f'Invalid option "{item}" specified for section "{args.section}", skipped.')
+                        print(f'skip invalid option "{item}".')
         #
         if args.verbose:
-            print(f'Configurations Parsed:')
+            if conf_temp.sections():
+                print(f'ArgumentParser: Configurations parsed.')
+                print('//-----------------------------')
             for sec in conf_temp.sections():
                 print(f"[{sec}]")
                 for key, value in conf_temp.items(sec):
                     print(f"{key} = {value}")
             else:
-                print()
+                print('-----------------------------//')
         #
         if args.func == 'parse_create':
             # ./iocManager.py create
@@ -325,3 +329,5 @@ if __name__ == '__main__':
     if args.func == 'parse_config':
         # ./iocManager.py config
         execute_config(args)
+    if args.verbose:
+        print()

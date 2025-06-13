@@ -172,13 +172,13 @@ class SwarmManager:
 
     # copy compose file to swarm dir from template dir for global and local services.
     @staticmethod
-    def gen_global_services(mount_dir):
+    def gen_global_services(verbose):
         #
-        mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
-        top_path = os.path.join(mount_path, MOUNT_DIR, 'swarm')
+        top_path = os.path.join(MOUNT_PATH, 'swarm')
         # make directory for iocLogServer
         try_makedirs(os.path.join(top_path, LOG_FILE_DIR))
         #
+        try_makedirs(os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR))
         #
 
         for item in GlobalServicesList:
@@ -186,7 +186,7 @@ class SwarmManager:
                 # copy yaml file
                 template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{item}.yaml')
                 file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
-                file_copy(template_path, file_path)
+                file_copy(template_path, file_path, mode='r', verbose=verbose)
                 print(f'SwarmManager: Create deployment file for "{item}".')
             else:
                 print(
@@ -194,10 +194,9 @@ class SwarmManager:
 
     # copy configuration file to swarm dir from template dir for given services.
     @staticmethod
-    def gen_local_services(mount_dir):
+    def gen_local_services(verbose):
         #
-        mount_path = relative_and_absolute_path_to_abs(mount_dir, '.')
-        top_path = os.path.join(mount_path, MOUNT_DIR, 'swarm')
+        top_path = os.path.join(MOUNT_PATH, 'swarm')
 
         # 目前使用硬编码方式，后续可通过 LocalServicesList 变量实现动态添加
         # copy registry
@@ -213,7 +212,7 @@ class SwarmManager:
                 f.write(f'REGISTRY_COMMON_NAME={REGISTRY_COMMON_NAME}\n')
                 f.write(f'REGISTRY_CERT_DOCKER_DIR={REGISTRY_CERT_DOCKER_DIR}\n')
             # copy all deployment files
-            dir_copy(src_path, dest_path)
+            dir_copy(src_path, dest_path, verbose=verbose)
             print(f'SwarmManager: Create deployment directory for "registry".')
 
         # copy prometheus
@@ -223,7 +222,7 @@ class SwarmManager:
         else:
             src_path = os.path.join(SERVICES_PATH, 'prometheus')
             dest_path = os.path.join(top_path, 'prometheus')
-            dir_copy(src_path, dest_path)
+            dir_copy(src_path, dest_path, verbose=verbose)
             print(f'SwarmManager: Create deployment directory for "prometheus".')
 
         # copy alertManager
@@ -238,7 +237,7 @@ class SwarmManager:
             with open(file_path, "w") as f:
                 f.write(f'ALERT_MANAGER_MASTER_IP={ALERT_MANAGER_MASTER_IP}\n')
                 f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_PORT}\n')
-            dir_copy(src_path, dest_path)
+            dir_copy(src_path, dest_path, verbose=verbose)
             print(f'SwarmManager: Create deployment directory for "alertManager".')
 
     @staticmethod

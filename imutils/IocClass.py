@@ -5,10 +5,11 @@ import tarfile
 import datetime
 import configparser
 
-from .IMFunc import try_makedirs, file_remove, dir_remove, file_copy, dir_copy, condition_parse, multi_line_parse, \
-    format_normalize, relative_and_absolute_path_to_abs, dir_compare
-from .IMConfig import *
-from .IMError import IMValueError, IMIOCError
+from imutils.IMConfig import *
+from imutils.IMError import IMValueError, IMIOCError
+from imutils.IMFunc import (try_makedirs, file_remove, dir_remove, file_copy, dir_copy,
+                            condition_parse, multi_line_parse, format_normalize,
+                            relative_and_absolute_path_to_abs, dir_compare)
 
 
 class IocStateManager:
@@ -24,7 +25,8 @@ class IocStateManager:
         # self.info_file_path
 
         if not dir_path or not os.path.isdir(dir_path):
-            raise IMValueError(f'Incorrect initialization parameters: IocStateManager(dir_path={dir_path}).')
+            print(f'IocStateManager.__init__: Incorrect initialization parameters: dir_path="{dir_path}".')
+
         self.dir_path = dir_path
         self.verbose = verbose
         self.info_file_path = os.path.join(self.dir_path, IOC_STATE_INFO_FILE)
@@ -36,18 +38,22 @@ class IocStateManager:
         self.state = self.get_config('state')
         self.state_info += self.get_config('state_info')
 
-        self.normalize_config()
-
     def create_new(self):
         self.conf = configparser.ConfigParser()
-        if self.verbose:
-            print(f'IocStateManager.read_config: Initialize a new state info file "{self.info_file_path}" '
-                  f'with default settings.')
         self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
         self.set_config('state_info', '')
         self.set_config('status', 'created')
         self.set_config('snapshot', 'untracked')  # untracked, tracked
         self.set_config('is_exported', 'false')
+        self.write_config()
+
+    def create_error(self):
+        self.conf = configparser.ConfigParser()
+        self.set_config('state', STATE_ERROR)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
+        self.set_config('state_info', 'unknown')
+        self.set_config('status', 'unknown')
+        self.set_config('snapshot', 'unknown')
+        self.set_config('is_exported', 'unknown')
         self.write_config()
 
     def read_config(self, create):
@@ -60,15 +66,26 @@ class IocStateManager:
             else:
                 if create:
                     self.create_new()
+                    if self.verbose:
+                        print(f'IocStateManager.read_config: Create state info file "{self.info_file_path}".')
                 else:
-                    raise IMIOCError(f'unrecognized state info file "{self.info_file_path}".')
+                    self.create_error()
+                    state_info = f'unrecognized state info file'
+                    prompt = f'unrecognized state info "{self.info_file_path}".'
+                    self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
         else:
             if create:
                 self.create_new()
+                if self.verbose:
+                    print(f'IocStateManager.read_config: Create state info file "{self.info_file_path}".')
             else:
-                raise IMIOCError(f'state info "{self.info_file_path}" lost.')
+                self.create_error()
+                state_info = f'state info file lost'
+                prompt = f'state info file "{self.info_file_path}" lost.'
+                self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
 
     def write_config(self):
+        self.normalize_config()
         with open(self.info_file_path, 'w') as f:
             self.conf.write(f)
 
@@ -121,7 +138,6 @@ class IocStateManager:
                 temp_conf.set(section.upper(), option, format_normalize(temp))
         else:
             self.conf = temp_conf
-            self.write_config()
 
     def remove(self):
         file_remove(self.info_file_path, verbose=False)
@@ -164,7 +180,6 @@ class IOC:
 
         # self.dir_path: directory for IOC project.
         # self.src_path
-        # self.template_path
         # self.config_file_path
         # self.project_path: directory for separating editing files and non-editing files.
         # self.settings_path
@@ -181,18 +196,20 @@ class IOC:
         # self.log_path_in_docker
         # self.startup_path_in_docker
 
-        if verbose and read_mode:
-            print(f'IOC.__init__: Start initializing at "{dir_path}" in read-only mode.')
-        if verbose and not read_mode:
-            print(f'IOC.__init__: Start initializing at "{dir_path}".')
+        if verbose:
+            if read_mode:
+                print(f'IOC.__init__: Start initializing at "{dir_path}" in read-only mode.')
+            else:
+                print(f'IOC.__init__: Start initializing at "{dir_path}".')
+        if not dir_path or not os.path.isdir(dir_path):
+            print(f'IOC.__init__: Incorrect initialization parameters: dir_path="{dir_path}".')
+            return
 
         self.read_mode = read_mode
         self.verbose = verbose
-        if not dir_path or not os.path.isdir(dir_path):
-            raise IMValueError(f'Incorrect initialization parameters: IOC(dir_path={dir_path}).')
         self.dir_path = os.path.normpath(dir_path)
+
         self.src_path = os.path.join(self.dir_path, 'src')
-        self.template_path = TEMPLATE_PATH
         self.config_file_path = os.path.join(self.dir_path, IOC_CONFIG_FILE)
         self.project_path = os.path.join(dir_path, 'project')
         self.settings_path = os.path.join(self.project_path, 'settings')
@@ -211,14 +228,15 @@ class IOC:
             self.read_config(create=False)
 
         self.name = self.get_config('name')
-        if self.name != os.path.basename(self.dir_path) and not self.read_mode:
-            old_name = self.name
-            self.name = os.path.basename(self.dir_path)
-            self.set_config('name', self.name)
-            self.write_config()
-            print(f'IOC.__init__: Get wrong name "{old_name}" from config file "{self.config_file_path}", '
-                  f'directory name of IOC project may has been manually changed to "{self.name}". '
-                  f'IOC name has been automatically set in config file to follow that change.')
+        if self.name != os.path.basename(self.dir_path):
+            if self.read_mode:
+                self.name = os.path.basename(self.dir_path)
+            else:
+                old_name = self.name
+                self.name = os.path.basename(self.dir_path)
+                self.set_config('name', self.name)
+                self.write_config()
+                print(f'IOC.__init__: Set name from "{old_name}" to "{self.name}" according to project top-level path.')
 
         self.snapshot_path = os.path.join(SNAPSHOT_PATH, self.name)
         self.config_snapshot_file = os.path.join(self.snapshot_path, IOC_CONFIG_FILE)
@@ -231,11 +249,10 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
+        # update currently managed source files or check existence of src dir if in read-only mode.
+        self.get_src_file()
+
         if not self.read_mode:
-            # update currently managed source files.
-            self.get_src_file()
-            # normalize settings format.
-            self.normalize_config()
             #
             if not self.state_manager.check_config('state', 'normal'):
                 if self.verbose:
@@ -243,11 +260,11 @@ class IOC:
                 self.try_repair()
 
         if self.verbose:
-            print(f'IOC.__init__: Finished initializing for IOC "{self.name}".\n')
+            print(f'IOC.__init__: Finished initializing for IOC "{self.name}".')
 
     def create_new(self):
         self.make_directory_structure()
-        self.add_default_settings()
+        self.set_default_settings()
 
     def make_directory_structure(self):
         try_makedirs(self.src_path, self.verbose)
@@ -265,20 +282,22 @@ class IOC:
                 if self.verbose:
                     print(f'IOC.read_config: Read config file "{self.config_file_path}".')
             else:
-                self.state_manager.set_state_info(state=STATE_ERROR, state_info='unrecognized config file.')
-                raise IMIOCError(f'unrecognized config file "{self.config_file_path}".')
+                state_info = 'unrecognized config file.'
+                prompt = f'unrecognized config file "{self.config_file_path}".'
+                self.state_manager.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
         else:
             if create:
                 self.conf = configparser.ConfigParser()
-                if self.verbose:
-                    print(f'IOC.read_config: Initialize a new config file "{self.config_file_path}" '
-                          f'with default settings.')
                 self.create_new()
+                if self.verbose:
+                    print(f'IOC.read_config: Create config file "{self.config_file_path}" with default settings.')
             else:
-                self.state_manager.set_state_info(state=STATE_ERROR, state_info='config file lost.')
-                raise IMIOCError(f'config file "{self.config_file_path}" lost.')
+                state_info = 'config file lost.'
+                prompt = f'config file "{self.config_file_path}" lost.'
+                self.state_manager.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
 
     def write_config(self):
+        self.normalize_config()
         with open(self.config_file_path, 'w') as f:
             self.conf.write(f)
 
@@ -294,7 +313,7 @@ class IOC:
 
     def get_config(self, option, section="IOC"):
         value = ''  # undefined option will return ''.
-        if self.conf.has_option(section, option):
+        if self.conf and self.conf.has_option(section, option):
             value = self.conf.get(section, option)
         return value
 
@@ -344,7 +363,6 @@ class IOC:
                 temp_conf.set(section.upper(), option, format_normalize(temp))
         else:
             self.conf = temp_conf
-            self.write_config()
 
     def remove(self, all_remove=False):
         if all_remove:
@@ -362,7 +380,7 @@ class IOC:
             self.check_snapshot_files()
             print(f'Success. IOC "{self.name}" removed, but "src" dir and config file preserved.')
 
-    def add_default_settings(self):
+    def set_default_settings(self):
         self.set_config('name', os.path.basename(self.dir_path))
         self.set_config('host', '')
         self.set_config('image', '')
@@ -440,16 +458,28 @@ class IOC:
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
     def get_src_file(self, src_dir=None, print_info=False):
         if self.verbose:
-            print(f'IOC("{self.name}").get_src_file: Start.')
+            if self.read_mode:
+                print(f'IOC("{self.name}").get_src_file: Start in read-only mode.')
+            else:
+                print(f'IOC("{self.name}").get_src_file: Start.')
+
+        if not os.path.isdir(self.src_path):
+            print(f'IOC("{self.name}").get_src_file: Failed. Source path of project "{self.src_path}" not exist.')
+            state_info = 'source directory lost'
+            prompt = 'source directory was lost and an empty dir was created.'
+            self.state_manager.set_state_info(STATE_ERROR, state_info=state_info, prompt=prompt)
+            try_makedirs(self.src_path, verbose=self.verbose)
 
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
         if not os.path.exists(src_p):
-            self.state_manager.set_state_info(state=STATE_ERROR, state_info='source directory lost.')
-            print(f'IOC("{self.name}").get_src_file: Failed. Path provided "{src_p}" not exist.')
+            print(f'IOC("{self.name}").get_src_file: Failed. Dir path "{src_p}" not exist.')
+            return
+
+        if self.read_mode:
             return
 
         if self.verbose:
-            print(f'IOC("{self.name}").get_src_file: collect files from "{src_p}".')
+            print(f'IOC("{self.name}").get_src_file: Collect files from "{src_p}".')
 
         db_list = ''
         proto_list = ''
@@ -521,9 +551,9 @@ class IOC:
                 print(f'IOC("{self.name}").get_src_file: collect other files "{other_list}".')
         if any((db_list, proto_list, other_list)):
             self.write_config()
-
-        if self.verbose:
-            print(f'IOC("{self.name}").get_src_file: Finish.')
+        else:
+            if self.verbose or print_info:
+                print(f'IOC("{self.name}").get_src_file: no file collected.')
 
     # Generate .substitutions file for st.cmd to load and prepare db files.
     def generate_substitutions_file(self):
@@ -788,7 +818,7 @@ class IOC:
                 if src.startswith('src/'):
                     src = os.path.join(self.src_path, src)
                 else:  # src.startswith('template/') guaranteed by generate_check()
-                    src = os.path.join(self.template_path, src)
+                    src = os.path.join(TEMPLATE_PATH, src)
                 dest = os.path.join(self.project_path, dest)
                 file_copy(src, dest, mode, self.verbose)
 
@@ -1259,7 +1289,6 @@ class IOC:
 
     def try_repair(self):
         self.make_directory_structure()
-        self.state_manager.read_config(create=True)
 
 
 def gen_swarm_files(iocs, verbose):
@@ -1300,8 +1329,11 @@ def gen_swarm_files(iocs, verbose):
         try:
             temp_ioc = IOC(dir_path=service_path, read_mode=True, verbose=verbose,
                            state_info_ini_dir=os.path.join(REPOSITORY_PATH, service_dir))
+            if not temp_ioc.check_config(section='IOC', option='host', value='swarm'):
+                print(f'gen_swarm_files: Warning. IOC "{service_dir}" not defined in swarm mode, skipped.')
+                continue
             if not temp_ioc.get_config(section='IOC', option='image'):
-                print(f'gen_swarm_files: Warning. No image defined in settings of IOC "{service_dir}", skipped.')
+                print(f'gen_swarm_files: Warning. Option "image" not defined for IOC "{service_dir}", skipped.')
                 continue
             else:
                 ioc_settings['image'] = temp_ioc.get_config(section='IOC', option='image')
@@ -1411,9 +1443,7 @@ def gen_swarm_files(iocs, verbose):
         # write yaml file
         file_path = os.path.join(top_path, service_dir, IOC_SERVICE_FILE)
         if os.path.exists(file_path):
-            if verbose:
-                print(f'gen_swarm_files: File "{file_path}" exists, firstly remove it before writing a new one.')
-            file_remove(file_path, verbose)
+            file_remove(file_path, verbose=False)
         with open(file_path, 'w') as file:
             yaml.dump(yaml_data, file, default_flow_style=False)
         # set readonly permission.
@@ -1429,9 +1459,6 @@ def gen_swarm_files(iocs, verbose):
                 if item not in processed_dir:
                     print(f'gen_swarm_files: Failed to create swarm files for IOC project "{item}", '
                           f'may be it is not correctly set.')
-            else:
-                if not iocs:
-                    print(f'gen_swarm_files: No IOC project was specified to generate compose file!')
 
 
 def get_all_ioc(dir_path=None, from_list=None, read_mode=False, verbose=False):
@@ -1446,6 +1473,7 @@ def get_all_ioc(dir_path=None, from_list=None, read_mode=False, verbose=False):
     """
     ioc_list = []
     if not dir_path:
+        try_makedirs(REPOSITORY_PATH, verbose=verbose)
         dir_path = REPOSITORY_PATH
     items = os.listdir(dir_path)
     if from_list:

@@ -265,6 +265,7 @@ def execute_ioc(args):
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
+                    print(f'execute_ioc: operating for IOC "{name}".')
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     ioc_temp.project_check(print_info=True)
                 else:
@@ -280,62 +281,35 @@ def execute_ioc(args):
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
-                    if args.verbose:
-                        print(f'execute_ioc: dealing with IOC "{name}".')
+                    print(f'execute_ioc: operating for IOC "{name}".')
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     if isinstance(args.add_src_file, str):
-                        if args.verbose:
-                            print(f'execute_ioc: adding source file.')
                         ioc_temp.get_src_file(src_dir=args.add_src_file, print_info=True)
                     elif args.generate_and_export:
-                        if args.verbose:
-                            print(f'execute_ioc: generating startup files.')
                         ioc_temp.generate_startup_files()
-                        if args.verbose:
-                            print(f'execute_ioc: exporting startup files.')
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                     elif args.gen_startup_file:
-                        if args.verbose:
-                            print(f'execute_ioc: generating startup files.')
                         ioc_temp.generate_startup_files()
                     elif args.export_for_mount:
-                        if args.verbose:
-                            print(f'execute_ioc: exporting startup files.')
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                     elif args.restore_snapshot_file:
-                        if args.verbose:
-                            print(f'execute_ioc: restoring snapshot file.')
                         ioc_temp.restore_from_snapshot_files(restore_files=args.restore_snapshot_file,
                                                              force_restore=args.force_overwrite)
                     elif args.deploy:
-                        if args.verbose:
-                            print(f'execute_ioc: generating startup files.')
                         ioc_temp.generate_startup_files()
-                        if args.verbose:
-                            print(f'execute_ioc: exporting startup files.')
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
-                        if ioc_temp.check_config('host', 'swarm'):
-                            if args.verbose:
-                                print(f'execute_ioc: generating swarm file.')
-                            gen_swarm_files(iocs=list([ioc_temp.name, ]), verbose=args.verbose)
-                        else:
-                            if args.verbose:
-                                print(f'execute_ioc: generating compose file.')
+                        gen_swarm_files(iocs=list([ioc_temp.name, ]), verbose=args.verbose)
                     else:
-                        if args.verbose:
-                            print(f'execute_ioc: No "exec" operation specified.')
+                        print(f'execute_ioc: No "exec" option specified.')
                         break  # break to avoid repeat print of "no exec" operation.
                 else:
                     print(f'execute_ioc: Failed. IOC "{name}" not found.')
-            else:
-                if args.verbose:
-                    print('')
 
 
 def execute_swarm(args):
     if args.gen_built_in_services:
-        SwarmManager.gen_global_services(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
-        SwarmManager.gen_local_services(mount_dir=f'{os.path.join(get_manager_path(), "..")}')
+        SwarmManager.gen_global_services(verbose=args.verbose)
+        SwarmManager.gen_local_services(verbose=args.verbose)
     elif args.deploy_global_services:
         SwarmManager().deploy_global_services()
     elif args.deploy_all_iocs:
