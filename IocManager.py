@@ -116,11 +116,14 @@ if __name__ == '__main__':
                                      'conflicts with the one in repository.')
     parser_execute.add_argument('--add-snapshot-file', action="store_true",
                                 help='add snapshot file for current project files.')
+    parser_execute.add_argument('--check-snapshot', action="store_true",
+                                help='check differences between files in snapshot and repository.')
     parser_execute.add_argument('--restore-snapshot-file', metavar="SNAPSHOT_FILE", type=str, nargs='+',
                                 help='restore IOC project files from snapshot.'
                                      '\nset "--force-overwrite" to enable overwrite when file in snapshot'
                                      'conflicts with the one in repository.')
-    parser_execute.add_argument('--run-check', action="store_true", help='do checks for IOC projects.')
+    parser_execute.add_argument('--check-running', action="store_true",
+                                help='check differences between files in running dir and repository.')
     parser_execute.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_execute.set_defaults(func='parse_execute')
 

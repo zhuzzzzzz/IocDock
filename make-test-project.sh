@@ -52,6 +52,10 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				
 				# generate compose file for swarm deploying
 				./IocManager.py exec "$create_prefix$i" --gen-swarm-file $verbose
+				
+				# add snapshot
+				./IocManager.py exec "$create_prefix$i" --add-snapshot-file $verbose
+				
 				verbose=""
 			done
 		done

@@ -10,7 +10,8 @@ from imutils.ServiceDefinition import GlobalServicesList, LocalServicesList, Cus
 
 
 class SwarmManager:
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=False, **kwargs):
+        try_makedirs(REPOSITORY_PATH, verbose=verbose)
         self.services = {item: SwarmService(name=item, service_type='ioc') for item in
                          os.listdir(REPOSITORY_PATH)}
         for ss in GlobalServicesList:
@@ -36,6 +37,7 @@ class SwarmManager:
         self.running_services = self.get_services_from_docker()
 
         if verbose:
+            print('Managed services:')
             print(self.services)
 
     def get_services_from_docker(self):
@@ -155,9 +157,8 @@ class SwarmManager:
             else:
                 print(f'SwarmManager: Invalid input, please try again.')
         for item in self.services.values():
-            if item.is_available:
-                if item.is_deployed:
-                    item.remove()
+            if item.is_deployed:
+                item.remove()
 
     def update_deployed_services(self):
         print(f'Update all deployed services, this will cause all ioc services to be restarted.')
@@ -535,3 +536,4 @@ if __name__ == '__main__':
     # SwarmManager.backup_swarm()
     print(SwarmManager.get_deployed_swarm_services())
     print(SwarmManager(verbose=True).list_managed_services())
+    print(SwarmService(name='alertManager', service_type='local').is_available)

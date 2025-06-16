@@ -9,7 +9,7 @@ from imutils.IMConfig import *
 from imutils.IMError import IMIOCError
 from imutils.IMFunc import (try_makedirs, file_remove, dir_remove, file_copy, dir_copy,
                             condition_parse, multi_line_parse, format_normalize,
-                            relative_and_absolute_path_to_abs, dir_compare)
+                            relative_and_absolute_path_to_abs, )
 
 
 class IocStateManager:
@@ -244,13 +244,11 @@ class IOC:
 
         self.dir_path_for_mount = os.path.join(MOUNT_PATH, self.get_config('host'), self.get_config('name'))
         self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, IOC_CONFIG_FILE)
+        self.startup_path_for_mount = os.path.join(self.dir_path_for_mount, 'startup')
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
-
-        # update currently managed source files or check existence of src dir if in read-only mode.
-        self.get_src_file()
 
         if not self.read_mode:
             #
@@ -903,6 +901,7 @@ class IOC:
             host_name = SWARM_DIR
 
         top_path = os.path.join(MOUNT_PATH, host_name, container_name)
+        try_makedirs(top_path, self.verbose)
         if not os.path.isdir(top_path):
             file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('settings', 'log', 'startup',)
@@ -1218,73 +1217,42 @@ class IOC:
 
         return check_flag
 
-    # Check differences between snapshot file and running settings file.
-    # Check differences between project files and running files.
-    def check_consistency(self, print_info=False):
+    # Check differences between files in snapshot and repository.
+    def check_snapshot_consistency(self, print_info=False):
+        if not self.state_manager.check_config('snapshot', 'tracked'):
+            if print_info:
+                print(f'IOC("{self.name}").check_snapshot_consistency": No valid snapshot available.')
+            return False, f'snapshot {self.state_manager.get_config("snapshot")}'
+
+        if print_info:
+            res_config_file = os.system(
+                f'git diff --no-index --no-prefix {self.config_snapshot_file} {self.config_file_path}')
+            res_src_dir = os.system(f'git diff --no-index --no-prefix {self.src_snapshot_path} {self.src_path}')
+        else:
+            res_config_file = os.system(f'git diff --quiet {self.config_snapshot_file} {self.config_file_path}')
+            res_src_dir = os.system(f'git diff --no-index --quiet {self.src_snapshot_path} {self.src_path}')
+
+        return (True, 'consistent') if (res_config_file == 0 and res_src_dir == 0) \
+            else (False, 'inconsistent')
+
+    def check_running_consistency(self, print_info=False):
         if not self.state_manager.check_config('is_exported', 'true'):
-            if self.verbose:
-                print(f'IOC("{self.name}").check_consistency: '
-                      f'Failed, can\'t check consistency as project is not in "exported" state.')
-            return False, "Project not exported."
-        if not os.path.isfile(self.config_snapshot_file):
-            if self.verbose:
-                print(f'IOC("{self.name}").check_consistency: '
-                      f'Failed, can\'t check consistency as config snapshot file lost.')
-            return False, "Config snapshot file lost."
-        if not os.path.isfile(self.config_file_path_for_mount):
-            if self.verbose:
-                print(f'IOC("{self.name}").check_consistency: '
-                      f'Failed, can\'t check consistency as config file in mount dir lost.')
-            return False, "Differences detected."
-
-        if self.verbose or print_info:
-            print(f'IOC("{self.name}").check_consistency: '
-                  f'Start checking consistency.')
-
-        consistent_flag = True
-        check_res = 'Consistency checked.'
-
-        files_to_compare = (
-            (self.config_snapshot_file, self.config_file_path_for_mount),
-        )
-        dirs_to_compare = (
-            (self.settings_path, os.path.join(self.dir_path_for_mount, 'settings')),
-            (self.startup_path, os.path.join(self.dir_path_for_mount, 'startup')),
-        )
-        for item in files_to_compare:
             if print_info:
-                print(f'diff {item[0]} {item[1]}')
-            compare_res = filecmp.cmp(item[0], item[1])
-            if not compare_res:
-                consistent_flag = False
-                check_res = 'Differences detected.'
-                if print_info:
-                    print('changed files: "ioc.ini".\n')
-            if print_info:
-                print()
-        for item in dirs_to_compare:
-            if dir_compare(item[0], item[1], print_info=print_info):
-                consistent_flag = False
-                check_res = 'Differences detected.'
-        return consistent_flag, check_res
+                print(f'IOC("{self.name}").check_running_consistency": Please export project before checking.')
+            return False, f'export required'
 
-    # Checks for IOC projects.
-    def project_check(self, print_info=False):
-        print(f'---------------------------------------------')
-        consistent_flag, temp, _ = self.check_snapshot_files(print_info=print_info)
-        if consistent_flag:
-            print(f'IOC("{self.name}").project_check: snapshot consistency OK.')
+        if print_info:
+            res_config_file = os.system(
+                f'git diff --no-index --no-prefix {self.config_file_path_for_mount} {self.config_file_path}')
+            res_startup_dir = os.system(
+                f'git diff --no-index --no-prefix {self.startup_path_for_mount} {self.startup_path}')
         else:
-            if temp == 'unchecked':
-                print(f'IOC("{self.name}").project_check: '
-                      f'can\'t check snapshot consistency as project is not tracked by snapshot.')
-            else:
-                print(f'IOC("{self.name}").project_check: snapshot inconsistency found!')
-        consistent_flag, _ = self.check_consistency(print_info=print_info)
-        if consistent_flag:
-            print(f'IOC("{self.name}").project_check: running file consistency OK.')
-        else:
-            print(f'IOC("{self.name}").project_check: running file inconsistency found!')
+            res_config_file = os.system(f'git diff --quiet {self.config_file_path_for_mount} {self.config_file_path}')
+            res_startup_dir = os.system(
+                f'git diff --no-index --quiet {self.startup_path_for_mount} {self.startup_path}')
+
+        return (True, 'consistent') if (res_config_file == 0 and res_startup_dir == 0) \
+            else (False, 'inconsistent')
 
     def try_repair(self):
         self.make_directory_structure()

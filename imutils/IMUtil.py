@@ -4,7 +4,6 @@ from tabulate import tabulate
 from collections.abc import Iterable
 
 import imutils.IMConfig as IMConfig
-from imutils.IMConfig import get_manager_path
 from imutils.IMError import IMValueError
 from imutils.IocClass import IOC, gen_swarm_files, get_all_ioc, repository_backup, restore_backup
 from imutils.SwarmClass import SwarmManager, SwarmService
@@ -229,7 +228,7 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             index_reserved.append(i)
     # print results.
     ioc_print = []
-    panel_print = [["IOC", "Host", "State", "Status", "DeployStatus", "ExportConsistency"], ]
+    panel_print = [["IOC", "Host", "State", "Status", "DeployStatus", "SnapshotConsistency", "RuningConsistency"], ]
     for i in index_reserved:
         if show_info:
             ioc_list[i].show_config()
@@ -239,7 +238,9 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
                                 ioc_list[i].state_manager.get_config("state"),
                                 ioc_list[i].state_manager.get_config("status"),
                                 temp_service.current_state,
-                                ioc_list[i].check_consistency(print_info=False)[1]])
+                                ioc_list[i].check_snapshot_consistency(print_info=False)[1],
+                                ioc_list[i].check_running_consistency(print_info=False)[1],
+                                ])
         else:
             ioc_print.append(ioc_list[i].name)
     else:
@@ -260,18 +261,6 @@ def execute_ioc(args):
     elif args.restore_backup_file:
         restore_backup(backup_path=args.restore_backup_file, force_overwrite=args.force_overwrite,
                        verbose=args.verbose)
-    elif args.run_check:
-        if args.name:
-            for name in args.name:
-                dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
-                if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
-                    ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
-                    ioc_temp.project_check(print_info=True)
-                else:
-                    print(f'execute_ioc: Failed. IOC "{name}" not found.')
-        else:
-            for ioc_temp in get_all_ioc():
-                ioc_temp.project_check()
     else:
         # operation inside IOC projects.
         if not args.name:
@@ -292,6 +281,8 @@ def execute_ioc(args):
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                     elif args.add_snapshot_file:
                         ioc_temp.add_snapshot_files()
+                    elif args.check_snapshot:
+                        ioc_temp.check_snapshot_consistency(print_info=True)
                     elif args.restore_snapshot_file:
                         ioc_temp.restore_from_snapshot_files(restore_files=args.restore_snapshot_file,
                                                              force_restore=args.force_overwrite)
@@ -299,6 +290,8 @@ def execute_ioc(args):
                         ioc_temp.generate_startup_files()
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                         gen_swarm_files(iocs=list([ioc_temp.name, ]), verbose=args.verbose)
+                    elif args.check_running:
+                        ioc_temp.check_running_consistency(print_info=True)
                     else:
                         print(f'execute_ioc: No execution operation specified.')
                         break  # break to avoid repeat print of no exec operation.
@@ -311,17 +304,17 @@ def execute_swarm(args):
         SwarmManager.gen_global_services(verbose=args.verbose)
         SwarmManager.gen_local_services(verbose=args.verbose)
     elif args.deploy_global_services:
-        SwarmManager().deploy_global_services()
+        SwarmManager(verbose=args.verbose).deploy_global_services()
     elif args.deploy_all_iocs:
-        SwarmManager().deploy_all_iocs()
+        SwarmManager(verbose=args.verbose).deploy_all_iocs()
     elif args.remove_global_services:
-        SwarmManager().remove_global_services()
+        SwarmManager(verbose=args.verbose).remove_global_services()
     elif args.remove_all_iocs:
-        SwarmManager().remove_all_iocs()
+        SwarmManager(verbose=args.verbose).remove_all_iocs()
     elif args.remove_all_services:
-        SwarmManager().remove_all_services()
+        SwarmManager(verbose=args.verbose).remove_all_services()
     elif args.show_digest:
-        SwarmManager().show_info()
+        SwarmManager(verbose=args.verbose).show_info()
     elif args.show_services:
         if args.detail:
             SwarmManager.show_deployed_services_detail()
@@ -332,13 +325,13 @@ def execute_swarm(args):
     elif args.show_tokens:
         SwarmManager.show_join_tokens()
     elif args.list_managed_services:
-        print(SwarmManager().list_managed_services())
+        print(SwarmManager(verbose=False).list_managed_services())
     elif args.backup_swarm:
         SwarmManager.backup_swarm()
     elif args.restore_swarm:
         SwarmManager.restore_swarm(args.backup_file)
     elif args.update_deployed_services:
-        SwarmManager().update_deployed_services()
+        SwarmManager(verbose=args.verbose).update_deployed_services()
 
 
 def execute_service(args):
