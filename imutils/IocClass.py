@@ -422,7 +422,7 @@ class IOC:
         elif template_type.lower() == 'stream':
             if not self.conf.has_section('RAW'):
                 self.add_raw_cmd_template()
-            cmd_before_dbload = (f'epicsEnvSet("STREAM_PROTOCOL_PATH", {self.settings_path_in_docker})\n'
+            cmd_before_dbload = (f'epicsEnvSet("STREAM_PROTOCOL_PATH", {self.startup_path_in_docker})\n'
                                  f'drvAsynIPPortConfigure("L0","192.168.0.23:4001",0,0,0)\n'
                                  f'drvAsynSerialPortConfigure("L0","/dev/tty.PL2303-000013FA",0,0,0)\n'
                                  f'asynSetOption("L0", -1, "baud", "9600")\n'
@@ -432,7 +432,7 @@ class IOC:
                                  f'asynSetOption("L0", -1, "clocal", "Y")\n'
                                  f'asynSetOption("L0", -1, "crtscts", "Y")\n')
             cmd_at_dbload = f'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n'
-            copy_str = f'src/protocol_file.proto:settings/protocol_file.proto:r'
+            copy_str = f'src/protocol_file.proto:startup/protocol_file.proto:r'
             self.set_config('cmd_before_dbload', cmd_before_dbload, section='RAW')
             self.set_config('cmd_at_dbload', cmd_at_dbload, section='RAW')
             self.set_config('file_copy', copy_str, section='RAW')
@@ -702,7 +702,7 @@ class IOC:
             # lines_before_dbload
             temp = [
                 f'#caPutLog\n',
-                f'asSetFilename("{self.settings_path_in_docker}/{self.name}.acf")\n',
+                f'asSetFilename("{self.startup_path_in_docker}/{self.name}.acf")\n',
                 f'epicsEnvSet("EPICS_IOC_LOG_INET","127.0.0.1")\n',
                 f'iocLogPrefix("{self.name} ")\n',
                 f'iocLogInit()\n',
@@ -726,8 +726,7 @@ class IOC:
                 ]
             lines_after_iocinit.extend(temp)
             # caPutLog .acf file
-            # try_makedirs(self.settings_path, self.verbose)  # shutil.copy不会递归创建不存在的文件夹
-            file_path = os.path.join(self.settings_path, f'{self.name}.acf')
+            file_path = os.path.join(self.startup_path, f'{self.name}.acf')
             template_file_path = os.path.join(TEMPLATE_PATH, 'caputlog.acf')
             file_copy(template_file_path, file_path, 'r', self.verbose)
 
@@ -750,45 +749,6 @@ class IOC:
             file_path = os.path.join(self.db_path, 'status_OS.db')
             template_file_path = os.path.join(DB_TEMPLATE_PATH, 'status_OS.db')
             file_copy(template_file_path, file_path, 'r', self.verbose)
-
-        # asyn configurations.
-        if self.conf.has_section('ASYN'):
-            sc = 'ASYN'
-            # st.cmd
-            # lines_before_dbload
-            temp = [
-                '#asyn\n',
-                f'{self.get_config("port_config", sc)}\n',
-                f'{self.get_config("asyn_option", sc)}\n',
-                '\n',
-            ]
-            lines_before_dbload.extend(temp)
-            # lines_at_dbload
-            lines_at_dbload.append(f'{self.get_config("load", sc)}\n')
-            # add asynRecord.db
-            file_path = os.path.join(self.db_path, 'asynRecord.db')
-            template_file_path = os.path.join(DB_TEMPLATE_PATH, 'asynRecord.db')
-            file_copy(template_file_path, file_path, 'r', self.verbose)
-
-        # StreamDevice configurations.
-        if self.conf.has_section('STREAM'):
-            sc = 'STREAM'
-            # st.cmd
-            # lines_before_dbload
-            temp = [
-                '#StreamDevice\n',
-                f'epicsEnvSet("STREAM_PROTOCOL_PATH", {self.settings_path_in_docker})\n',
-                f'{self.get_config("port_config", sc)}\n',
-                f'{self.get_config("asyn_option", sc)}\n',
-                '\n',
-            ]
-            lines_before_dbload.extend(temp)
-            # protocol file
-            ps = self.get_config('protocol_file', sc).split(',')
-            for item in ps:
-                item = item.strip()
-                # add .proto file
-                file_copy(os.path.join(self.src_path, item), os.path.join(self.settings_path, item), 'r', self.verbose)
 
         # raw commands configurations.
         if self.conf.has_section('RAW'):
@@ -815,7 +775,7 @@ class IOC:
                     mode = fs[2]
                 if src.startswith('src/'):
                     src = os.path.join(self.src_path, src)
-                else:  # src.startswith('template/') guaranteed by generate_check()
+                else:  # src.startswith('templates/') guaranteed by generate_check()
                     src = os.path.join(TEMPLATE_PATH, src)
                 dest = os.path.join(self.project_path, dest)
                 file_copy(src, dest, mode, self.verbose)
@@ -1209,9 +1169,9 @@ class IOC:
                     check_flag = False
                     continue
                 src = fs[0]
-                if not (src.startswith('src/') or src.startswith('template/')):
+                if not (src.startswith('src/') or src.startswith('templates/')):
                     state_info = f'option "file_copy" in section "{sc}" invalid.'
-                    prompt = f'in "{item}". only "src/" or "template/" directory is supported for file_copy.'
+                    prompt = f'in "{item}". source files can only be in "src/" or "templates/" directory.'
                     self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info, prompt=prompt)
                     check_flag = False
 
