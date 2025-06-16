@@ -6,7 +6,7 @@ import datetime
 import configparser
 
 from imutils.IMConfig import *
-from imutils.IMError import IMValueError, IMIOCError
+from imutils.IMError import IMIOCError
 from imutils.IMFunc import (try_makedirs, file_remove, dir_remove, file_copy, dir_copy,
                             condition_parse, multi_line_parse, format_normalize,
                             relative_and_absolute_path_to_abs, dir_compare)
@@ -870,9 +870,9 @@ class IOC:
         if self.verbose:
             print(f'IOC("{self.name}").generate_startup_files: Create "st.cmd".')
 
-        # add snapshot files
-        if not self.add_snapshot_files():
-            return
+        # # add snapshot files
+        # if not self.add_snapshot_files():
+        #     return
 
         #
         self.state_manager.set_config('status', 'generated')
@@ -1051,8 +1051,7 @@ class IOC:
                 self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
                 return False
 
-        if self.verbose:
-            print(f'IOC("{self.name}").add_snapshot_files: Success.')
+        print(f'IOC("{self.name}").add_snapshot_files: Success.')
         self.state_manager.set_config('snapshot', 'tracked')
         self.state_manager.write_config()
         return True
@@ -1121,7 +1120,7 @@ class IOC:
 
         if not supported_file_string:
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
-                  f'Failed to Restore any snapshot files from {restore_files}, as they are not exist in snapshot path.')
+                  f'Can\'t restore any snapshot files from {restore_files}, they are not exist in snapshot.')
         else:
             if not force_restore:
                 while not force_restore:

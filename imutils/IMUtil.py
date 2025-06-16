@@ -265,7 +265,6 @@ def execute_ioc(args):
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
-                    print(f'execute_ioc: operating for IOC "{name}".')
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     ioc_temp.project_check(print_info=True)
                 else:
@@ -281,7 +280,6 @@ def execute_ioc(args):
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
-                    print(f'execute_ioc: operating for IOC "{name}".')
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     if isinstance(args.add_src_file, str):
                         ioc_temp.get_src_file(src_dir=args.add_src_file, print_info=True)
@@ -292,6 +290,8 @@ def execute_ioc(args):
                         ioc_temp.generate_startup_files()
                     elif args.export_for_mount:
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
+                    elif args.add_snapshot_file:
+                        ioc_temp.add_snapshot_files()
                     elif args.restore_snapshot_file:
                         ioc_temp.restore_from_snapshot_files(restore_files=args.restore_snapshot_file,
                                                              force_restore=args.force_overwrite)
@@ -300,8 +300,8 @@ def execute_ioc(args):
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
                         gen_swarm_files(iocs=list([ioc_temp.name, ]), verbose=args.verbose)
                     else:
-                        print(f'execute_ioc: No "exec" option specified.')
-                        break  # break to avoid repeat print of "no exec" operation.
+                        print(f'execute_ioc: No execution operation specified.')
+                        break  # break to avoid repeat print of no exec operation.
                 else:
                     print(f'execute_ioc: Failed. IOC "{name}" not found.')
 

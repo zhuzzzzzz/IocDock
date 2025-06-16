@@ -21,7 +21,7 @@ _mycommand_completion() {
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw"
 	#
 	exec_prompt="" # general prompt for all exec commands.
-	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --restore-snapshot-file --gen-swarm-file --deploy" # exec commands for specified IOC projects.
+	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --add-snapshot-file --restore-snapshot-file --gen-swarm-file --deploy" # exec commands for specified IOC projects.
 	#
 	list_prompt="--section --list-from --show-info --show-panel"
 	_condition_type_prompt="name= host= state= status= snapshot= is_exported= "
@@ -235,6 +235,9 @@ _mycommand_completion() {
 						COMPREPLY+=( "${file}" )
 					fi
 				done
+				return 0
+				;;
+				"--add-snapshot-file")
 				return 0
 				;;
 				"--restore-snapshot-file")

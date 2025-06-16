@@ -114,6 +114,8 @@ if __name__ == '__main__':
                                 help='restore IOC projects from tgz backup file into repository.'
                                      '\nset "--force-overwrite" to enable overwrite when IOC in backup file '
                                      'conflicts with the one in repository.')
+    parser_execute.add_argument('--add-snapshot-file', action="store_true",
+                                help='add snapshot file for current project files.')
     parser_execute.add_argument('--restore-snapshot-file', metavar="SNAPSHOT_FILE", type=str, nargs='+',
                                 help='restore IOC project files from snapshot.'
                                      '\nset "--force-overwrite" to enable overwrite when file in snapshot'
