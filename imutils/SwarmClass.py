@@ -13,7 +13,7 @@ class SwarmManager:
     def __init__(self, verbose=False, **kwargs):
         try_makedirs(REPOSITORY_PATH, verbose=verbose)
         self.services = {item: SwarmService(name=item, service_type='ioc') for item in
-                         os.listdir(REPOSITORY_PATH)}
+                         os.listdir(REPOSITORY_PATH) if os.path.isdir(os.path.join(REPOSITORY_PATH, item))}
         for ss in GlobalServicesList:
             if ss in self.services.keys():
                 print(f'SwarmManager: Warning! Service "{ss}" defined in GlobalServicesList '
@@ -44,9 +44,23 @@ class SwarmManager:
         services = self.client.services.list(filters={'label': f'com.docker.stack.namespace={PREFIX_STACK_NAME}'})
         return [item for item in services]
 
-    def list_managed_services(self):
+    @staticmethod
+    def list_managed_services():
         res = ''
-        for item in self.services.keys():
+        try_makedirs(REPOSITORY_PATH, verbose=False)
+        services_list = [item for item in os.listdir(REPOSITORY_PATH) if
+                         os.path.isdir(os.path.join(REPOSITORY_PATH, item))]
+        for ss in GlobalServicesList + LocalServicesList:
+            if ss in services_list:
+                continue
+            else:
+                services_list.append(ss)
+        for ss in CustomServicesList:
+            if ss[0] in services_list:
+                continue
+            else:
+                services_list.append(ss[0])
+        for item in services_list:
             res += f'{item} '
         return res.rstrip()
 
@@ -535,5 +549,5 @@ if __name__ == '__main__':
     # SwarmManager().list_running_services()
     # SwarmManager.backup_swarm()
     print(SwarmManager.get_deployed_swarm_services())
-    print(SwarmManager(verbose=True).list_managed_services())
+    print(SwarmManager.list_managed_services())
     print(SwarmService(name='alertManager', service_type='local').is_available)

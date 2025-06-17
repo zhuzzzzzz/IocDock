@@ -325,7 +325,7 @@ def execute_swarm(args):
     elif args.show_tokens:
         SwarmManager.show_join_tokens()
     elif args.list_managed_services:
-        print(SwarmManager(verbose=False).list_managed_services())
+        print(SwarmManager.list_managed_services())
     elif args.backup_swarm:
         SwarmManager.backup_swarm()
     elif args.restore_swarm:
