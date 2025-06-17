@@ -137,8 +137,9 @@ if __name__ == '__main__':
                              help='specify a section applied for condition filtering. default section: "IOC".')
     parser_list.add_argument('-l', '--list-from', type=str, nargs='*',
                              help='filter IOC projects by given conditions from given IOC list.')
-    parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC settings.')
-    parser_list.add_argument('-p', '--show-panel', action="store_true", help='show panel of IOC information.')
+    parser_list.add_argument('-i', '--show-info', action="store_true", help='show details of IOC.')
+    parser_list.add_argument('-d', '--show-description', action="store_true", help='show description of IOC.')
+    parser_list.add_argument('-p', '--show-panel', action="store_true", help='show panel of all managed IOC.')
     parser_list.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_list.set_defaults(func='parse_list')
 
@@ -308,7 +309,7 @@ if __name__ == '__main__':
     if args.func == 'parse_list':
         # ./iocManager.py list
         get_filtered_ioc(args.condition, section=args.section, from_list=args.list_from, show_info=args.show_info,
-                         show_panel=args.show_panel, verbose=args.verbose)
+                         show_description=args.show_description, show_panel=args.show_panel, verbose=args.verbose)
     if args.func == 'parse_remove':
         # ./iocManager.py remove
         for item in args.name:

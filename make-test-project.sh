@@ -25,6 +25,16 @@ if [ "$1" == 'delete' -o "$1" == 'del' ]; then
 		done
 	done
 elif [ "$1" == 'create' -o "$1" == 'make' ]; then
+	#  remove first.
+	for item in "${create_host[@]}"; do 
+		create_prefix=${item}_
+	    	for ((i=1; i<=$create_num; i++)); do
+			./IocManager.py remove "$create_prefix$i" -rf $verbose
+			verbose=""
+		done
+	done
+	# make
+	verbose="-v"
 	if [ "$2" == "swarm" -o "$2" == "" ]; then
 		# make test projects for swarm deploy.
 		for item in "${create_host[@]}"; do 
@@ -45,23 +55,18 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 				# add set options here..
 				
 				
+				
 				# generate startup files
 				./IocManager.py exec "$create_prefix$i" --gen-startup-file $verbose
 				# copy files to default mount path 
 				./IocManager.py exec "$create_prefix$i" --export-for-mount --force-overwrite $verbose
-				
 				# generate compose file for swarm deploying
 				./IocManager.py exec "$create_prefix$i" --gen-swarm-file $verbose
-				
 				# add snapshot
 				./IocManager.py exec "$create_prefix$i" --add-snapshot-file $verbose
-				
 				verbose=""
 			done
 		done
-		echo 
-		echo "####### something occurs below if IOC run-check failed #######" 
-		./IocManager.py exec --run-check -v
 		echo
 	fi
 fi

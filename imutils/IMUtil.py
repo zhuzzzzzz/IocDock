@@ -164,8 +164,8 @@ def rename_ioc(old_name, new_name, verbose):
         print(f'rename_ioc: Failed. IOC "{old_name}" not found.')
 
 
-def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=False, show_panel=False,
-                     verbose=False):
+def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=False, show_description=False,
+                     show_panel=False, verbose=False):
     """
     Filter and List IOC projects by specified conditions and section. Logic "AND" is used between each condition.
 
@@ -173,7 +173,8 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
     :param section: filter on given section in config file
     :param from_list: filter from given IOC list
     :param show_info: show IOC configurations
-    :param show_panel: show IOC management pannel
+    :param show_description: show IOC description
+    :param show_panel: show IOC management panel
     :param verbose:
     :return:
     """
@@ -200,6 +201,10 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
                 if key.lower() == 'name':
                     for i in range(0, len(ioc_list)):
                         if value not in ioc_list[i].name:
+                            index_to_remove.append(i)
+                elif key.lower() in ('state', 'status', 'snapshot', 'is_exported'):
+                    for i in range(0, len(ioc_list)):
+                        if not ioc_list[i].state_manager.check_config(key, value):
                             index_to_remove.append(i)
                 else:
                     for i in range(0, len(ioc_list)):
@@ -228,6 +233,7 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             index_reserved.append(i)
     # print results.
     ioc_print = []
+    description_print = [["IOC", "Description"], ]
     panel_print = [["IOC", "Host", "State", "Status", "DeployStatus", "SnapshotConsistency", "RuningConsistency"], ]
     for i in index_reserved:
         if show_info:
@@ -241,11 +247,18 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
                                 ioc_list[i].check_snapshot_consistency(print_info=False)[1],
                                 ioc_list[i].check_running_consistency(print_info=False)[1],
                                 ])
+        elif show_description:
+            desc = ioc_list[i].get_config("description")
+            if len(desc) > 60:
+                desc = desc[:50] + '...'
+            description_print.append([ioc_list[i].name, desc])
         else:
             ioc_print.append(ioc_list[i].name)
     else:
         if show_info:
             pass
+        elif show_description:
+            print(tabulate(description_print, headers="firstrow", tablefmt='plain'))
         elif show_panel:
             print(tabulate(panel_print, headers="firstrow", tablefmt='plain'))
         else:

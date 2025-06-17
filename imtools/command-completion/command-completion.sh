@@ -23,8 +23,8 @@ _mycommand_completion() {
 	exec_prompt="" # general prompt for all exec commands.
 	exec_ioc_prompt="--generate-and-export --gen-startup-file --export-for-mount --add-src-file --add-snapshot-file --check-snapshot --restore-snapshot-file --gen-swarm-file --deploy --check-running" # exec commands for specified IOC projects.
 	#
-	list_prompt="--section --list-from --show-info --show-panel"
-	_condition_type_prompt="name= host= state= status= snapshot= is_exported= "
+	list_prompt="--section --list-from --show-info --show-description --show-panel"
+	_condition_type_prompt="name= state=normal state=warning state=error"
 	#
 	remove_prompt="--remove-all --force"
 	#
@@ -280,11 +280,13 @@ _mycommand_completion() {
 				;;
 				"-i"|"--show-info")
 				;;
-				"-p"|"--prompt-info")
+				"-d"|"--show-description")
+				;;
+				"-p"|"--show-panel")
 				;;
 				*)
 				if [ "$option_set_last" == "--list-from" -o "$option_set_last" == "-l" ]; then 
-					prompt="--section --show-info --show-panel $ioc_list"
+					prompt="--section --show-info --show-description --show-panel $ioc_list"
 					COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
 					return 0
 				fi
