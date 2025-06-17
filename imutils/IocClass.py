@@ -671,12 +671,13 @@ class IOC:
                 f'epicsEnvSet SAVE_DIR {self.log_path_in_docker}/autosave\n',
                 'set_requestfile_path("$(REQ_DIR)")\n',
                 'set_savefile_path("$(SAVE_DIR)")\n',
-                f'set_pass0_restoreFile("${self.name}-automake-pass0.sav")\n',
-                f'set_pass1_restoreFile("${self.name}-automake.sav")\n',
+                f'set_pass0_restoreFile("{self.name}-automake-pass0.sav")\n',
+                f'set_pass1_restoreFile("{self.name}-automake-pass1.sav")\n',
                 'save_restoreSet_DatedBackupFiles(1)\n',
                 'save_restoreSet_NumSeqFiles(3)\n',
                 'save_restoreSet_SeqPeriodInSeconds(600)\n',
                 'save_restoreSet_RetrySeconds(60)\n',
+                'save_restoreSet_CAReconnect(1)\n',
                 'save_restoreSet_CallbackTimeout(-1)\n',
                 '\n',
             ]
@@ -685,10 +686,10 @@ class IOC:
             # lines after iocinit
             temp = [
                 '#autosave after iocInit\n',
-                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/${self.name}-automake-pass0.req","autosaveFields_pass0")\n',
-                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/${self.name}-automake.req","autosaveFields")\n',
-                f'create_monitor_set("${self.name}-automake-pass0.req",10)\n',
-                f'create_monitor_set("${self.name}-automake.req",10)\n',
+                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/{self.name}-automake-pass0.req","autosaveFields_pass0")\n',
+                f'makeAutosaveFileFromDbInfo("$(REQ_DIR)/{self.name}-automake-pass1.req","autosaveFields")\n',
+                f'create_monitor_set("{self.name}-automake-pass0.req",10)\n',
+                f'create_monitor_set("{self.name}-automake-pass1.req",10)\n',
                 '\n',
             ]
             lines_after_iocinit.extend(temp)
@@ -1313,6 +1314,7 @@ def gen_swarm_files(iocs, verbose):
                 f'cd RUN/{ioc_settings["service_dir"]}/startup/iocBoot; ./st.cmd;'
             ],
             'tty': True,
+            'stdin_open': True,
             'networks': ['hostnet'],
             'volumes': [
                 {
