@@ -234,13 +234,18 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
     # print results.
     ioc_print = []
     description_print = [["IOC", "Description"], ]
-    panel_print = [["IOC", "Host", "State", "Status", "DeployStatus", "SnapshotConsistency", "RuningConsistency"], ]
+    panel_print = [["IOC", "Host", "Description", "State", "Status",
+                    "DeployStatus", "SnapshotConsistency", "RuningConsistency"], ]
     for i in index_reserved:
         if show_info:
             ioc_list[i].show_config()
         elif show_panel:
+            desc = ioc_list[i].get_config("description")
+            if len(desc) > 37:
+                desc = desc[:37] + '...'
             temp_service = SwarmService(name=ioc_list[i].name, service_type='ioc')
             panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"),
+                                desc,
                                 ioc_list[i].state_manager.get_config("state"),
                                 ioc_list[i].state_manager.get_config("status"),
                                 temp_service.current_state,
@@ -249,8 +254,8 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
                                 ])
         elif show_description:
             desc = ioc_list[i].get_config("description")
-            if len(desc) > 60:
-                desc = desc[:50] + '...'
+            if len(desc) > 100:
+                desc = desc[:80] + '...'
             description_print.append([ioc_list[i].name, desc])
         else:
             ioc_print.append(ioc_list[i].name)
@@ -281,7 +286,7 @@ def execute_ioc(args):
         else:
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
-                if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
+                if os.path.isdir(dir_path):
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     if isinstance(args.add_src_file, str):
                         ioc_temp.get_src_file(src_dir=args.add_src_file, print_info=True)

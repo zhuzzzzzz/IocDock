@@ -70,7 +70,7 @@ class IocStateManager:
                         print(f'IocStateManager.read_config: Create state info file "{self.info_file_path}".')
                 else:
                     self.create_error()
-                    state_info = f'unrecognized state info file'
+                    state_info = f'unrecognized state info file.'
                     prompt = f'unrecognized state info "{self.info_file_path}".'
                     self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
         else:
@@ -80,7 +80,7 @@ class IocStateManager:
                     print(f'IocStateManager.read_config: Create state info file "{self.info_file_path}".')
             else:
                 self.create_error()
-                state_info = f'state info file lost'
+                state_info = f'state info file lost.'
                 prompt = f'state info file "{self.info_file_path}" lost.'
                 self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
 
@@ -147,9 +147,9 @@ class IocStateManager:
             prefix_newline = '\n'
         else:
             prefix_newline = ''
-        state_info = f'{prefix_newline}[{state}] {state_info}'
+        state_info = f'{prefix_newline}[{state}] [{datetime.datetime.now().strftime("%Y/%m/%d-%H:%M:%S")}] {state_info}'
         if prompt:
-            state_info = state_info + '\n' + '====>>>> ' + prompt + '\n'
+            state_info = state_info + '\n' + '>>> prompt | ' + prompt + '\n'
         if state == STATE_ERROR:
             self.state = state
             self.state_info += state_info
@@ -176,6 +176,7 @@ class IOC:
         :param verbose: whether to show details about program processing.
         :param kwargs: extra arguments. "create" to indicate a creation operation.
             "state_info_ini_dir" to indicate dir of state info file when reading config file not in repository dir.
+            "no_exec_get_src" to control the behavior of get_src_file().
         """
 
         # self.dir_path: directory for IOC project.
@@ -229,26 +230,26 @@ class IOC:
 
         self.name = self.get_config('name')
         if self.name != os.path.basename(self.dir_path):
-            if self.read_mode:
-                self.name = os.path.basename(self.dir_path)
-            else:
-                old_name = self.name
-                self.name = os.path.basename(self.dir_path)
-                self.set_config('name', self.name)
-                self.write_config()
-                print(f'IOC.__init__: Set name from "{old_name}" to "{self.name}" according to project top-level path.')
+            old_name = self.name
+            self.name = os.path.basename(self.dir_path)
+            print(f'IOC.__init__: Set attribute "self.name" from "{old_name}" to "{self.name}" '
+                  f'according to project top-level path basename.')
 
         self.snapshot_path = os.path.join(SNAPSHOT_PATH, self.name)
         self.config_snapshot_file = os.path.join(self.snapshot_path, IOC_CONFIG_FILE)
         self.src_snapshot_path = os.path.join(self.snapshot_path, 'src')
 
-        self.dir_path_for_mount = os.path.join(MOUNT_PATH, self.get_config('host'), self.get_config('name'))
+        self.dir_path_for_mount = os.path.join(MOUNT_PATH,
+                                               self.get_config('host') if self.get_config('host') else 'swarm',
+                                               self.name)
         self.config_file_path_for_mount = os.path.join(self.dir_path_for_mount, IOC_CONFIG_FILE)
         self.startup_path_for_mount = os.path.join(self.dir_path_for_mount, 'startup')
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
+
+        self.get_src_file(read_mode=True, no_exec=kwargs.get('no_exec_get_src', False))
 
         if not self.read_mode:
             #
@@ -270,6 +271,28 @@ class IOC:
         try_makedirs(self.log_path, self.verbose)
         try_makedirs(self.db_path, self.verbose)
         try_makedirs(self.boot_path, self.verbose)
+
+    def set_default_settings(self):
+        self.set_config('name', os.path.basename(self.dir_path))
+        self.set_config('host', '')
+        self.set_config('image', '')
+        self.set_config('bin', DEFAULT_IOC)
+        self.set_config('module', DEFAULT_MODULES)
+        self.set_config('description', '')
+        self.set_config('db_file', '', section='SRC')
+        self.set_config('protocol_file', '', section='SRC')
+        self.set_config('others_file', '', section='SRC')
+        self.set_config('load', '', section='DB')
+        self.set_config('report_info', 'true', section='SETTING')
+        self.set_config('caputlog_json', 'false', section='SETTING')
+        self.set_config('epics_env', '', section='SETTING')
+        self.set_config('labels', '', section='DEPLOY')
+        self.set_config('cpu-limit', RESOURCE_IOC_CPU_LIMIT, section='DEPLOY')
+        self.set_config('memory-limit', RESOURCE_IOC_MEMORY_LIMIT, section='DEPLOY')
+        self.set_config('cpu-reserve', '', section='DEPLOY')
+        self.set_config('memory-reserve', '', section='DEPLOY')
+        self.set_config('constraints', '', section='DEPLOY')
+        self.write_config()
 
     # read config or create a new config or set error.
     def read_config(self, create):
@@ -378,28 +401,6 @@ class IOC:
             self.check_snapshot_files()
             print(f'Success. IOC "{self.name}" removed, but "src" dir and config file preserved.')
 
-    def set_default_settings(self):
-        self.set_config('name', os.path.basename(self.dir_path))
-        self.set_config('host', '')
-        self.set_config('image', '')
-        self.set_config('bin', DEFAULT_IOC)
-        self.set_config('module', DEFAULT_MODULES)
-        self.set_config('description', '')
-        self.set_config('db_file', '', section='SRC')
-        self.set_config('protocol_file', '', section='SRC')
-        self.set_config('others_file', '', section='SRC')
-        self.set_config('load', '', section='DB')
-        self.set_config('report_info', 'true', section='SETTING')
-        self.set_config('caputlog_json', 'false', section='SETTING')
-        self.set_config('epics_env', '', section='SETTING')
-        self.set_config('labels', '', section='DEPLOY')
-        self.set_config('cpu-limit', RESOURCE_IOC_CPU_LIMIT, section='DEPLOY')
-        self.set_config('memory-limit', RESOURCE_IOC_MEMORY_LIMIT, section='DEPLOY')
-        self.set_config('cpu-reserve', '', section='DEPLOY')
-        self.set_config('memory-reserve', '', section='DEPLOY')
-        self.set_config('constraints', '', section='DEPLOY')
-        self.write_config()
-
     def add_module_template(self, template_type):
         if template_type.lower() == 'asyn':
             if not self.conf.has_section('RAW'):
@@ -454,26 +455,42 @@ class IOC:
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
-    def get_src_file(self, src_dir=None, print_info=False):
+    def get_src_file(self, src_dir=None, read_mode=False, print_info=False, no_exec=False):
+        if no_exec:
+            return
+
+        read_mode = read_mode or self.read_mode
         if self.verbose:
-            if self.read_mode:
+            if read_mode:
                 print(f'IOC("{self.name}").get_src_file: Start in read-only mode.')
             else:
                 print(f'IOC("{self.name}").get_src_file: Start.')
 
         if not os.path.isdir(self.src_path):
             print(f'IOC("{self.name}").get_src_file: Failed. Source path of project "{self.src_path}" not exist.')
-            state_info = 'source directory lost'
+            state_info = 'source directory lost.'
             prompt = 'source directory was lost and an empty dir was created.'
             self.state_manager.set_state_info(STATE_ERROR, state_info=state_info, prompt=prompt)
             try_makedirs(self.src_path, verbose=self.verbose)
 
+        if read_mode:
+            db_list = self.get_config('db_file', 'SRC')
+            proto_list = self.get_config('proto_file', 'SRC')
+            others_list = self.get_config('others_file', 'SRC')
+            file_list = list(filter(None, db_list.split(','))) + list(filter(None, proto_list.split(','))) + list(
+                filter(None, others_list.split(',')))
+            for item in file_list:
+                if item not in os.listdir(self.src_path):
+                    state_info = 'source file lost.'
+                    prompt = f'source file "{item}" lost.'
+                    self.state_manager.set_state_info(STATE_ERROR, state_info=state_info, prompt=prompt)
+            if self.verbose:
+                print(f'IOC("{self.name}").get_src_file: Finished in read-only mode.')
+            return
+
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
         if not os.path.exists(src_p):
             print(f'IOC("{self.name}").get_src_file: Failed. Dir path "{src_p}" not exist.')
-            return
-
-        if self.read_mode:
             return
 
         if self.verbose:
@@ -481,7 +498,7 @@ class IOC:
 
         db_list = ''
         proto_list = ''
-        other_list = ''
+        others_list = ''
         # When add file from other directory, to get the files already in self.src_path first.
         if src_p != self.src_path:
             for item in os.listdir(self.src_path):
@@ -490,68 +507,76 @@ class IOC:
                 elif item.endswith(PROTO_SUFFIX):
                     proto_list += f'{item}, '
                 elif item.endswith(OTHER_SUFFIX):
-                    other_list += f'{item}, '
+                    others_list += f'{item}, '
 
+        file_flag = False
         # Copy files from given path and set db file option, duplicate files will result in a warning message.
         for item in os.listdir(src_p):
             if item.endswith(DB_SUFFIX):
                 if item not in db_list:
                     db_list += f'{item}, '
                     if src_p != self.src_path:
-                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                        if self.verbose:
-                            print(f'IOC("{self.name}").get_src_file: add "{item}".')
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
+                        file_flag = True
+                        if self.verbose or print_info:
+                            print(f'add "{item}".')
                 else:
                     if src_p != self.src_path:
-                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                    if self.verbose:
-                        print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
+                        file_flag = True
+                    if self.verbose or print_info:
+                        print(f'overwrite "{item}".')
             elif item.endswith(PROTO_SUFFIX):
                 if item not in proto_list:
                     proto_list += f'{item}, '
                     if src_p != self.src_path:
-                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                        if self.verbose:
-                            print(f'IOC("{self.name}").get_src_file: add "{item}".')
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
+                        file_flag = True
+                        if self.verbose or print_info:
+                            print(f'add "{item}".')
                 else:
                     if src_p != self.src_path:
-                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                    if self.verbose:
-                        print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
+                        file_flag = True
+                    if self.verbose or print_info:
+                        print(f'overwrite "{item}".')
             elif item.endswith(OTHER_SUFFIX):
-                if item not in other_list:
-                    other_list += f'{item}, '
+                if item not in others_list:
+                    others_list += f'{item}, '
                     if src_p != self.src_path:
-                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                        if self.verbose:
-                            print(f'IOC("{self.name}").get_src_file: add "{item}".')
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
+                        file_flag = True
+                        if self.verbose or print_info:
+                            print(f'add "{item}".')
                 else:
                     if src_p != self.src_path:
-                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'r', self.verbose)
-                    if self.verbose:
-                        print(f'IOC("{self.name}").get_src_file: overwrite "{item}".')
+                        file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
+                        file_flag = True
+                    if self.verbose or print_info:
+                        print(f'overwrite "{item}".')
 
         # Update the settings.
         db_list = db_list.rstrip(', ')
         proto_list = proto_list.rstrip(', ')
-        other_list = other_list.rstrip(', ')
+        others_list = others_list.rstrip(', ')
         if db_list:
             self.set_config('db_file', db_list, 'SRC')
             if self.verbose or print_info:
-                print(f'IOC("{self.name}").get_src_file: collect db files "{db_list}".')
+                print(f'IOC("{self.name}").get_src_file: Managed db files "{db_list}".')
         if proto_list:
             self.set_config('protocol_file', proto_list, 'SRC')
             if self.verbose or print_info:
-                print(f'IOC("{self.name}").get_src_file: collect protocol files "{proto_list}".')
-        if other_list:
-            self.set_config('other_file', other_list, 'SRC')
+                print(f'IOC("{self.name}").get_src_file: Managed protocol files "{proto_list}".')
+        if others_list:
+            self.set_config('others_file', others_list, 'SRC')
             if self.verbose or print_info:
-                print(f'IOC("{self.name}").get_src_file: collect other files "{other_list}".')
-        if any((db_list, proto_list, other_list)):
+                print(f'IOC("{self.name}").get_src_file: Managed other files "{others_list}".')
+        if any((db_list, proto_list, others_list)):
             self.write_config()
-        else:
-            if self.verbose or print_info:
-                print(f'IOC("{self.name}").get_src_file: no file collected.')
+        
+        if self.verbose or print_info:
+            if not file_flag:
+                print(f'IOC("{self.name}").get_src_file: No file collected.')
 
     # Generate .substitutions file for st.cmd to load and prepare db files.
     def generate_substitutions_file(self):
@@ -1113,12 +1138,14 @@ class IOC:
 
     # Checks before generating the IOC project startup files.
     def generate_check(self):
+        if not os.path.isfile(self.config_file_path):
+            return False
+
         check_flag = True
 
         # Check whether IOC executable binary is specified.
         sc = "IOC"
         if not self.get_config('bin'):
-            print(f'IOC("{self.name}").generate_st_cmd": Failed. No executable IOC specified.')
             state_info = f'option "bin" in section "{sc}" not set.'
             self.state_manager.set_state_info(state=STATE_WARNING, state_info=state_info)
             check_flag = False
@@ -1186,12 +1213,23 @@ class IOC:
             return False, f'snapshot {self.state_manager.get_config("snapshot")}'
 
         if print_info:
+            if self.verbose:
+                print(f'git diff --no-index --no-prefix {self.config_snapshot_file} {self.config_file_path}')
             res_config_file = os.system(
                 f'git diff --no-index --no-prefix {self.config_snapshot_file} {self.config_file_path}')
+            if self.verbose:
+                print(f'git diff --no-index --no-prefix {self.src_snapshot_path} {self.src_path}')
             res_src_dir = os.system(f'git diff --no-index --no-prefix {self.src_snapshot_path} {self.src_path}')
         else:
-            res_config_file = os.system(f'git diff --quiet {self.config_snapshot_file} {self.config_file_path}')
-            res_src_dir = os.system(f'git diff --no-index --quiet {self.src_snapshot_path} {self.src_path}')
+            if self.verbose:
+                print(
+                    f'git diff --no-index --quiet {self.config_snapshot_file} {self.config_file_path} > /dev/null 2>&1')
+            res_config_file = os.system(
+                f'git diff --no-index --quiet {self.config_snapshot_file} {self.config_file_path} > /dev/null 2>&1')
+            if self.verbose:
+                print(f'git diff --no-index --quiet {self.src_snapshot_path} {self.src_path} > /dev/null 2>&1')
+            res_src_dir = os.system(
+                f'git diff --no-index --quiet {self.src_snapshot_path} {self.src_path} > /dev/null 2>&1')
 
         return (True, 'consistent') if (res_config_file == 0 and res_src_dir == 0) \
             else (False, 'inconsistent')
@@ -1203,20 +1241,30 @@ class IOC:
             return False, f'export required'
 
         if print_info:
+            if self.verbose:
+                print(f'git diff --no-index --no-prefix {self.config_file_path_for_mount} {self.config_file_path}')
             res_config_file = os.system(
                 f'git diff --no-index --no-prefix {self.config_file_path_for_mount} {self.config_file_path}')
+            if self.verbose:
+                print(f'git diff --no-index --no-prefix {self.startup_path_for_mount} {self.startup_path}')
             res_startup_dir = os.system(
                 f'git diff --no-index --no-prefix {self.startup_path_for_mount} {self.startup_path}')
         else:
-            res_config_file = os.system(f'git diff --quiet {self.config_file_path_for_mount} {self.config_file_path}')
+            if self.verbose:
+                print(f'git diff --no-index --quiet {self.config_file_path_for_mount} {self.config_file_path} '
+                      f'> /dev/null 2>&1')
+            res_config_file = os.system(
+                f'git diff --quiet {self.config_file_path_for_mount} {self.config_file_path} > /dev/null 2>&1')
+            if self.verbose:
+                print(f'git diff --no-index --quiet {self.startup_path_for_mount} {self.startup_path} > /dev/null 2>&1')
             res_startup_dir = os.system(
-                f'git diff --no-index --quiet {self.startup_path_for_mount} {self.startup_path}')
+                f'git diff --no-index --quiet {self.startup_path_for_mount} {self.startup_path} > /dev/null 2>&1')
 
         return (True, 'consistent') if (res_config_file == 0 and res_startup_dir == 0) \
             else (False, 'inconsistent')
 
     def try_repair(self):
-        self.make_directory_structure()
+        pass
 
 
 def gen_swarm_files(iocs, verbose):
@@ -1256,7 +1304,7 @@ def gen_swarm_files(iocs, verbose):
             continue
         try:
             temp_ioc = IOC(dir_path=service_path, read_mode=True, verbose=verbose,
-                           state_info_ini_dir=os.path.join(REPOSITORY_PATH, service_dir))
+                           state_info_ini_dir=os.path.join(REPOSITORY_PATH, service_dir), no_exec_get_src=True)
             if not temp_ioc.check_config(section='IOC', option='host', value='swarm'):
                 print(f'gen_swarm_files: Warning. IOC "{service_dir}" not defined in swarm mode, skipped.')
                 continue
