@@ -1,6 +1,5 @@
 import os
 import yaml
-import filecmp
 import tarfile
 import datetime
 import configparser
@@ -174,7 +173,8 @@ class IOC:
         :param dir_path: path to project directory.
         :param read_mode: init by read-only mode.
         :param verbose: whether to show details about program processing.
-        :param kwargs: extra arguments. "create" to indicate a creation operation.
+        :param kwargs: extra arguments.
+            "create" to indicate a creation operation.
             "state_info_ini_dir" to indicate dir of state info file when reading config file not in repository dir.
             "no_exec_get_src" to control the behavior of get_src_file().
         """
@@ -249,7 +249,7 @@ class IOC:
         self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
-        self.get_src_file(read_mode=True, no_exec=kwargs.get('no_exec_get_src', False))
+        self.get_src_file(init_mode=True, no_exec=kwargs.get('no_exec_get_src', False))
 
         if not self.read_mode:
             #
@@ -386,20 +386,15 @@ class IOC:
             self.conf = temp_conf
 
     def remove(self, all_remove=False):
+        # remove entire project in mount dir
+        dir_remove(self.dir_path, self.verbose)
         if all_remove:
-            # delete log file
-            self.delete_snapshot_files()
-            # remove entire project
-            dir_remove(self.dir_path, self.verbose)
+            dir_remove(self.snapshot_path, self.verbose)
+            # remove entire project in mount dir
+            dir_remove(self.dir_path_for_mount, self.verbose)
             print(f'Success. IOC "{self.name}" removed completely.')
         else:
-            # delete auto-generated part
-            for item in (self.project_path,):
-                dir_remove(item, self.verbose)
-            self.state_manager.set_config('status', 'removed')
-            self.state_manager.write_config()
-            self.check_snapshot_files()
-            print(f'Success. IOC "{self.name}" removed, but "src" dir and config file preserved.')
+            print(f'Success. IOC "{self.name}" removed.')
 
     def add_module_template(self, template_type):
         if template_type.lower() == 'asyn':
@@ -455,14 +450,14 @@ class IOC:
 
     # From given path copy source files and update ioc.ini settings according to file suffix specified.
     # src_p: existed path from where to get source files, absolute path or relative path, None to use IOC src path.
-    def get_src_file(self, src_dir=None, read_mode=False, print_info=False, no_exec=False):
+    def get_src_file(self, src_dir=None, init_mode=False, print_info=False, no_exec=False):
         if no_exec:
             return
 
-        read_mode = read_mode or self.read_mode
+        init_mode = init_mode or self.read_mode
         if self.verbose:
-            if read_mode:
-                print(f'IOC("{self.name}").get_src_file: Start in read-only mode.')
+            if init_mode:
+                print(f'IOC("{self.name}").get_src_file: Start in IOC init mode.')
             else:
                 print(f'IOC("{self.name}").get_src_file: Start.')
 
@@ -473,7 +468,7 @@ class IOC:
             self.state_manager.set_state_info(STATE_ERROR, state_info=state_info, prompt=prompt)
             try_makedirs(self.src_path, verbose=self.verbose)
 
-        if read_mode:
+        if init_mode:
             db_list = self.get_config('db_file', 'SRC')
             proto_list = self.get_config('proto_file', 'SRC')
             others_list = self.get_config('others_file', 'SRC')
@@ -485,7 +480,7 @@ class IOC:
                     prompt = f'source file "{item}" lost.'
                     self.state_manager.set_state_info(STATE_ERROR, state_info=state_info, prompt=prompt)
             if self.verbose:
-                print(f'IOC("{self.name}").get_src_file: Finished in read-only mode.')
+                print(f'IOC("{self.name}").get_src_file: Finished in IOC init mode.')
             return
 
         src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
@@ -573,7 +568,7 @@ class IOC:
                 print(f'IOC("{self.name}").get_src_file: Managed other files "{others_list}".')
         if any((db_list, proto_list, others_list)):
             self.write_config()
-        
+
         if self.verbose or print_info:
             if not file_flag:
                 print(f'IOC("{self.name}").get_src_file: No file collected.')
@@ -920,91 +915,6 @@ class IOC:
         self.state_manager.set_config('is_exported', 'true')
         self.state_manager.write_config()
 
-    # return whether the files are in consistent with snapshot files.
-    def check_snapshot_files(self, print_info=False):
-        if not self.state_manager.check_config('snapshot', 'tracked'):
-            if self.verbose:
-                print(f'IOC("{self.name}").check_snapshot_files: '
-                      f'Failed, can\'t check snapshot files as project is not in "tracked" state.')
-            return False, 'unchecked', 'unchecked'
-        if self.verbose or print_info:
-            print(f'IOC("{self.name}").check_snapshot_files: '
-                  f'Start checking snapshot files.')
-
-        consistent_flag = True
-        config_file_check_res = ''
-        source_file_check_res = ''
-        # check config snapshot file.
-        if os.path.isfile(self.config_snapshot_file):
-            if os.path.isfile(self.config_file_path):
-                compare_res = filecmp.cmp(self.config_snapshot_file, self.config_file_path)
-                if not compare_res:
-                    consistent_flag = False
-                    config_file_check_res = 'config file changed.'
-            else:
-                consistent_flag = False
-                config_file_check_res = 'config file lost.'
-                state_info = config_file_check_res
-                self.state_manager.set_state_info(state=STATE_ERROR, state_info=state_info)
-        else:
-            consistent_flag = False
-            self.state_manager.set_config('snapshot', 'error')
-            self.state_manager.write_config()
-            config_file_check_res = 'config file snapshot lost.'
-        # check source snapshot files.
-        if os.path.isdir(self.src_snapshot_path):
-            if not os.path.isdir(self.src_path):
-                consistent_flag = False
-                self.state_manager.set_config('state', 'error')
-                self.state_manager.write_config()
-                source_file_check_res = 'source directory lost.'
-            else:
-                src_compare_res = filecmp.dircmp(self.src_snapshot_path, self.src_path)
-                if src_compare_res.diff_files:
-                    consistent_flag = False
-                    source_file_check_res += 'changed files: '
-                    for item in src_compare_res.diff_files:
-                        source_file_check_res += f'{item}, '
-                    else:
-                        source_file_check_res = source_file_check_res.rstrip(', ')
-                        source_file_check_res += '.\n'
-                if src_compare_res.left_only:
-                    consistent_flag = False
-                    source_file_check_res += 'missing files and directories: '
-                    for item in src_compare_res.left_only:
-                        source_file_check_res += f'{item}, '
-                    else:
-                        source_file_check_res = source_file_check_res.rstrip(', ')
-                        source_file_check_res += '.\n'
-                if src_compare_res.right_only:
-                    consistent_flag = False
-                    source_file_check_res += 'untracked files and directories: '
-                    for item in src_compare_res.right_only:
-                        source_file_check_res += f'{item}, '
-                    else:
-                        source_file_check_res = source_file_check_res.rstrip(', ')
-                        source_file_check_res += '.\n'
-                source_file_check_res = source_file_check_res.rstrip('\n')
-        else:
-            consistent_flag = False
-            self.state_manager.set_config('snapshot', 'error')
-            self.state_manager.write_config()
-            config_file_check_res = 'source directory snapshot lost.'
-        if not consistent_flag and print_info:
-            prefix_str = ''
-            if config_file_check_res and source_file_check_res:
-                config_file_check_print = f'1: \n{config_file_check_res}\n'
-                source_file_check_print = f'2: \n{source_file_check_res}'
-            else:
-                config_file_check_print = config_file_check_res
-                source_file_check_print = source_file_check_res
-            print(f'IOC("{self.name}").check_snapshot_files: Inconsistency with snapshot files found: \n'
-                  f'{prefix_str}'
-                  f'{config_file_check_print}'
-                  f'{source_file_check_print}'
-                  f'\n')
-        return consistent_flag, config_file_check_res, source_file_check_res
-
     def add_snapshot_files(self):
         if self.verbose:
             print(f'IOC("{self.name}").add_snapshot_files: Start.')
@@ -1048,11 +958,7 @@ class IOC:
             self.state_manager.write_config()
 
     def restore_from_snapshot_files(self, restore_files: list, force_restore=False):
-        if self.state_manager.check_config('snapshot', 'untracked'):
-            print(f'IOC("{self.name}").restore_from_snapshot_file: '
-                  f'Failed, can\'t restore snapshot files in "untracked" state.')
-            return
-        if not isinstance(restore_files, list) or not restore_files:
+        if not isinstance(restore_files, list) or not list(filter(None, restore_files)):
             print(f'IOC("{self.name}").restore_from_snapshot_file: '
                   f'Failed, input arg "restore_files" must be a non-empty list.')
             return
@@ -1064,9 +970,10 @@ class IOC:
         if os.path.isfile(self.config_snapshot_file):
             files_provided['config'] = self.config_snapshot_file
             supported_items.append('ioc.ini')
-        for item in os.listdir(self.src_snapshot_path):
-            files_provided['src'].append(os.path.join(self.src_snapshot_path, item))
-            supported_items.append(item)
+        if os.path.isdir(self.src_snapshot_path):
+            for item in os.listdir(self.src_snapshot_path):
+                files_provided['src'].append(os.path.join(self.src_snapshot_path, item))
+                supported_items.append(item)
 
         items_to_restore = []
         unsupported_items = []
@@ -1104,8 +1011,12 @@ class IOC:
             unsupported_file_string = unsupported_file_string.rstrip(',')
 
         if not supported_file_string:
-            print(f'IOC("{self.name}").restore_from_snapshot_file: '
-                  f'Can\'t restore any snapshot files from {restore_files}, they are not exist in snapshot.')
+            if 'all' in restore_files:
+                print(f'IOC("{self.name}").restore_from_snapshot_file: '
+                      f'Can\'t restore any snapshot files, as there exists no snapshot files.')
+            else:
+                print(f'IOC("{self.name}").restore_from_snapshot_file: '
+                      f'Can\'t restore any snapshot files from {restore_files}, as they are not exist in snapshot.')
         else:
             if not force_restore:
                 while not force_restore:
@@ -1207,10 +1118,10 @@ class IOC:
 
     # Check differences between files in snapshot and repository.
     def check_snapshot_consistency(self, print_info=False):
-        if not self.state_manager.check_config('snapshot', 'tracked'):
+        if not os.path.isdir(self.snapshot_path):
             if print_info:
-                print(f'IOC("{self.name}").check_snapshot_consistency": No valid snapshot available.')
-            return False, f'snapshot {self.state_manager.get_config("snapshot")}'
+                print(f'IOC("{self.name}").check_snapshot_consistency": No snapshot available.')
+            return False, f'no snapshot'
 
         if print_info:
             if self.verbose:

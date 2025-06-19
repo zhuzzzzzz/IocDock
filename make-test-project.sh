@@ -17,14 +17,14 @@ create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "wor
 if [ "$1" == 'delete' -o "$1" == 'del' ]; then
 	verbose="-v"
 	for item in "${create_ioc[@]}"; do 
-		./IocManager.py remove "$item" -rf $verbose
+		./IocManager.py remove "$item" -f $verbose
 		verbose=""
 	done
 elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 	#  remove first.
 	verbose="-v"
 	for item in "${create_ioc[@]}"; do 
-		./IocManager.py remove "$item" -rf $verbose
+		./IocManager.py remove "$item" -f $verbose
 		verbose=""
 	done
 	# make
@@ -51,7 +51,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			# generate startup files
 			./IocManager.py exec "$item" --gen-startup-file $verbose
 			# copy files to default mount path 
-			./IocManager.py exec "$item" --export-for-mount --force-overwrite $verbose
+			./IocManager.py exec "$item" --export-for-mount $verbose
 			# generate compose file for swarm deploying
 			./IocManager.py exec "$item" --gen-swarm-file $verbose
 			# add snapshot

@@ -1,5 +1,4 @@
 import os
-import sys
 from tabulate import tabulate
 from collections.abc import Iterable
 
@@ -121,10 +120,11 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
     if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
         if not force_removal:
             if remove_all:
-                print(f'remove_ioc: IOC "{name}" will be removed completely.', end='')
+                print(f'remove_ioc: IOC "{name}" will be removed completely, '
+                      f'project files in running dir(if exist) will also be removed. Be careful!', end='')
             else:
-                print(f'remove_ioc: Remove IOC "{name}" partially. only the generated files will be removed,'
-                      f' "src/" directory and settings file will be preserved.', end='')
+                print(f'remove_ioc: IOC "{name}" will be removed, the files in repository will be removed.',
+                      end='')
             ans = input(f'Continue?[y|n]:')
             if ans.lower() == 'y' or ans.lower() == 'yes':
                 force_removal = True
@@ -143,23 +143,15 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
 def rename_ioc(old_name, new_name, verbose):
     dir_path = os.path.join(IMConfig.REPOSITORY_PATH, old_name)
     if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
+        ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
+        ioc_temp.set_config('name', new_name)
+        ioc_temp.write_config()
         try:
             os.rename(dir_path, os.path.join(IMConfig.REPOSITORY_PATH, new_name))
         except Exception as e:
             print(f'rename_ioc: Failed. Changing directory name failed, "{e}".')
         else:
-            if verbose:
-                IOC(dir_path=os.path.join(IMConfig.REPOSITORY_PATH, new_name), verbose=verbose)
-            else:
-                with open(os.devnull, 'w') as devnull:
-                    original_stdout = sys.stdout
-                    original_stderr = sys.stderr
-                    sys.stdout = devnull
-                    sys.stderr = devnull
-                    IOC(dir_path=os.path.join(IMConfig.REPOSITORY_PATH, new_name), verbose=verbose)
-                    sys.stdout = original_stdout
-                    sys.stderr = original_stderr
-            print(f'rename_ioc: Success. IOC project name changed from "{old_name}" to "{new_name}".')
+            print(f'rename_ioc: Success. IOC name changed from "{old_name}" to "{new_name}".')
     else:
         print(f'rename_ioc: Failed. IOC "{old_name}" not found.')
 
