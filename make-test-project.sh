@@ -17,7 +17,7 @@ create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "wor
 if [ "$1" == 'delete' -o "$1" == 'del' ]; then
 	verbose="-v"
 	for item in "${create_ioc[@]}"; do 
-		./IocManager.py remove "$item" -f $verbose
+		./IocManager.py remove "$item" -rf $verbose
 		verbose=""
 	done
 elif [ "$1" == 'create' -o "$1" == 'make' ]; then

@@ -184,7 +184,7 @@ class IOC:
         # self.config_file_path
         # self.project_path: directory for separating editing files and non-editing files.
         # self.settings_path
-        # self.log_path
+        # self.logs_path
         # self.startup_path
         # self.db_path
         # self.boot_path
@@ -194,7 +194,7 @@ class IOC:
         # self.dir_path_for_mount
         # self.config_file_path_for_mount
         # self.settings_path_in_docker
-        # self.log_path_in_docker
+        # self.logs_path_in_docker
         # self.startup_path_in_docker
 
         if verbose:
@@ -214,7 +214,7 @@ class IOC:
         self.config_file_path = os.path.join(self.dir_path, IOC_CONFIG_FILE)
         self.project_path = os.path.join(dir_path, 'project')
         self.settings_path = os.path.join(self.project_path, 'settings')
-        self.log_path = os.path.join(self.project_path, 'log')
+        self.logs_path = os.path.join(self.project_path, 'logs')
         self.startup_path = os.path.join(self.project_path, 'startup')
         self.db_path = os.path.join(self.startup_path, 'db')
         self.boot_path = os.path.join(self.startup_path, 'iocBoot')
@@ -246,7 +246,7 @@ class IOC:
         self.startup_path_for_mount = os.path.join(self.dir_path_for_mount, 'startup')
 
         self.settings_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'settings')
-        self.log_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'log')
+        self.logs_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'logs')
         self.startup_path_in_docker = os.path.join(CONTAINER_IOC_RUN_PATH, self.name, 'startup')
 
         self.get_src_file(init_mode=True, no_exec=kwargs.get('no_exec_get_src', False))
@@ -268,7 +268,7 @@ class IOC:
     def make_directory_structure(self):
         try_makedirs(self.src_path, self.verbose)
         try_makedirs(self.settings_path, self.verbose)
-        try_makedirs(self.log_path, self.verbose)
+        try_makedirs(self.logs_path, self.verbose)
         try_makedirs(self.db_path, self.verbose)
         try_makedirs(self.boot_path, self.verbose)
 
@@ -688,7 +688,7 @@ class IOC:
             temp = [
                 '#autosave\n'
                 f'epicsEnvSet REQ_DIR {self.settings_path_in_docker}/autosave\n',
-                f'epicsEnvSet SAVE_DIR {self.log_path_in_docker}/autosave\n',
+                f'epicsEnvSet SAVE_DIR {self.logs_path_in_docker}/autosave\n',
                 'set_requestfile_path("$(REQ_DIR)")\n',
                 'set_savefile_path("$(SAVE_DIR)")\n',
                 f'set_pass0_restoreFile("{self.name}-automake-pass0.sav")\n',
@@ -714,7 +714,7 @@ class IOC:
             ]
             lines_after_iocinit.extend(temp)
             # create log dir and request file dir
-            try_makedirs(os.path.join(self.log_path, 'autosave'), self.verbose)
+            try_makedirs(os.path.join(self.logs_path, 'autosave'), self.verbose)
             try_makedirs(os.path.join(self.settings_path, 'autosave'), self.verbose)
 
         # caputlog configurations.
@@ -783,7 +783,6 @@ class IOC:
             # lines after iocinit
             lines_after_iocinit.append(f'{self.get_config("cmd_after_iocinit", sc)}\n')
             # file copy
-
             for item in multi_line_parse(self.get_config('file_copy', sc)):
                 fs = item.split(sep=':')
                 if len(fs) == 2:
@@ -803,7 +802,7 @@ class IOC:
 
         # write report code at the end of st.cmd file if defined "report_info: true".
         if self.check_config('report_info', 'true', 'SETTING'):
-            report_path = os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR, f"{self.name}.info")
+            report_path = os.path.join(self.logs_path_in_docker, f"{self.name}.info")
             temp = [
                 '#report info\n',
                 f'system "touch {report_path}"\n',
@@ -849,10 +848,6 @@ class IOC:
         if self.verbose:
             print(f'IOC("{self.name}").generate_startup_files: Create "st.cmd".')
 
-        # # add snapshot files
-        # if not self.add_snapshot_files():
-        #     return
-
         #
         self.state_manager.set_config('status', 'generated')
         self.state_manager.set_config('state', 'normal')
@@ -882,20 +877,20 @@ class IOC:
             host_name = SWARM_DIR
 
         top_path = os.path.join(MOUNT_PATH, host_name, container_name)
-        try_makedirs(top_path, self.verbose)
         if not os.path.isdir(top_path):
             file_to_copy = (IOC_CONFIG_FILE,)
-            dir_to_copy = ('settings', 'log', 'startup',)
+            dir_to_copy = ('settings', 'logs', 'startup',)
             exec_type = 'created'
         elif os.path.isdir(top_path) and force_overwrite:
             file_to_copy = (IOC_CONFIG_FILE,)
-            dir_to_copy = ('settings', 'log', 'startup',)
+            dir_to_copy = ('settings', 'logs', 'startup',)
             exec_type = 'overwritten'
         else:
             file_to_copy = (IOC_CONFIG_FILE,)
             dir_to_copy = ('startup',)
             exec_type = 'updated'
 
+        try_makedirs(top_path, self.verbose)
         for item_file in file_to_copy:
             file_copy(os.path.join(self.dir_path, item_file), os.path.join(top_path, item_file),
                       verbose=self.verbose)
@@ -1415,7 +1410,7 @@ def repository_backup(backup_mode, backup_dir, verbose):
                     dir_copy(ioc_item.startup_path, os.path.join(ioc_tar_dir, 'project', 'startup'), verbose=verbose)
                     # copy from running data
                     ioc_run_path = os.path.join(MOUNT_PATH, ioc_item.get_config('host'), ioc_item.name)
-                    dir_copy(os.path.join(ioc_run_path, 'log'), os.path.join(ioc_tar_dir, 'project', 'log'),
+                    dir_copy(os.path.join(ioc_run_path, 'logs'), os.path.join(ioc_tar_dir, 'project', 'logs'),
                              verbose=verbose)
                     dir_copy(os.path.join(ioc_run_path, 'settings'), os.path.join(ioc_tar_dir, 'project', 'settings'),
                              verbose=verbose)
