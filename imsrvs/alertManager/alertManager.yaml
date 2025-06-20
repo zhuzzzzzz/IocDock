@@ -11,6 +11,7 @@ services:
     - "--storage.path=/alertmanager"
     - "--enable-feature=utf8-strict-mode"
     labels:
+      service-type: local
       prometheus-job: alertmanager
     networks:
     - hostnet

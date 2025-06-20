@@ -6,6 +6,7 @@ services:
       published: 9100
       mode: host # bypass the routing mesh
     labels:
+      service-type: global
       prometheus-job: node_exporter
     deploy:
       mode: global

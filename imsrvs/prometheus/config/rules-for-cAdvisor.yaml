@@ -149,6 +149,7 @@ groups:
           
       - alert: ContainerOffline
         expr: name_service_instance:container_last_beat_seconds > 60
+        for: 30s
         keep_firing_for: 1h
         labels:
           severity: info
@@ -166,6 +167,7 @@ groups:
           
       - alert: ServiceOffline
         expr: service:service_last_beat_seconds > 60
+        for: 30s
         keep_firing_for: 1h
         labels:
           severity: critical
@@ -182,6 +184,7 @@ groups:
           
       - alert: InstanceServiceOffline
         expr: instance_service:service_last_beat_seconds > 60
+        for: 30s
         keep_firing_for: 1h
         labels:
           severity: warning

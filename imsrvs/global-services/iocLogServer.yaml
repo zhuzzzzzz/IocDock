@@ -4,6 +4,8 @@ services:
     - target: 7004
       published: 7004
       mode: host # bypass the routing mesh
+    labels:
+      service-type: global
     deploy:
       resources:
         limits:

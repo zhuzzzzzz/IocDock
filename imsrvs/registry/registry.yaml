@@ -2,6 +2,7 @@ services:
   srv-registry:
     image: m.daocloud.io/docker.io/registry:3
     labels:
+      service-type: local
       prometheus-job: registry
     deploy:
       mode: global
@@ -22,9 +23,8 @@ services:
     environment:
       OTEL_TRACES_EXPORTER: none
     volumes:    
-#    - ../../../registry-data:/var/lib/registry # for test in templates dir.
     - ../../../registry-data:/var/lib/registry
     - ./certs:/certs
     - ./auth:/auth
-    - ./registry-config.yaml:/etc/distribution/config.yml
+    - ./config/registry-config.yaml:/etc/distribution/config.yml
     - /etc/localtime:/etc/localtime:ro

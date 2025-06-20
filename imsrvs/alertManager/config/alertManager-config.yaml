@@ -7,7 +7,7 @@ global:
   
 route:
   receiver: test-mail
-  group_by: ['component', 'severity']
+  group_by: ['service-type', 'component', 'severity']
   
 receivers:
   - name: test-mail

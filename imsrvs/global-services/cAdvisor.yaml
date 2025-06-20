@@ -6,6 +6,7 @@ services:
       published: 8080
       mode: host # bypass the routing mesh
     labels:
+      service-type: global
       prometheus-job: cadvisor
     deploy:
       mode: global
