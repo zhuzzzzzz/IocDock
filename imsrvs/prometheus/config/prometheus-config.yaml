@@ -6,7 +6,6 @@ global:
     deployment: ${HOSTNAME}
     
 scrape_config_files:
-  - ./scrape-config.yaml
   - ./scrape-config-*.yaml
     
 rule_files:

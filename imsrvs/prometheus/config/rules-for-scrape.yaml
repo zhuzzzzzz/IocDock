@@ -2,12 +2,13 @@ groups:
   - name: rules-monitoring
     rules:
     
-      # up
+      # absent for scrape jobs on one instances
       - alert: ScrapeJobDown
         expr: up == 0
+        for: 1m
         keep_firing_for: 1h
         labels:
-          severity: critical
+          severity: warning
           component: rule
         annotations:
           summary: "ScrapeJobDown for job {{ $labels.job }} on {{ $labels.instance }}"
@@ -16,8 +17,8 @@ groups:
             
       # absent for scrape jobs on all instances
       - alert: ScrapeJobLost
-        expr: up{job='prometheus'} == 0
-        for: 3m
+        expr: max(up{job='prometheus'}) == 0
+        for: 1m
         keep_firing_for: 1h
         labels:
           severity: critical
@@ -28,8 +29,8 @@ groups:
             "ScrapeJobDown for job prometheus."
       
       - alert: ScrapeJobDockerDaemonLost
-        expr: up{job='docker-daemon'} == 0
-        for: 3m
+        expr: max(up{job='docker-daemon'}) == 0
+        for: 1m
         keep_firing_for: 1h
         labels:
           severity: critical
@@ -40,8 +41,8 @@ groups:
             "ScrapeJobDown for job docker-daemon."      
       
       - alert: ScrapeJobNodeExporterLost
-        expr: up{job='node-exporter'} == 0
-        for: 3m
+        expr: max(up{job='node-exporter'}) == 0
+        for: 1m
         keep_firing_for: 1h
         labels:
           severity: critical
@@ -52,8 +53,8 @@ groups:
             "ScrapeJobDown for job node-exporter."  
       
       - alert: ScrapeJobCadvisorLost
-        expr: up{job='cadvisor-swarm'} == 0
-        for: 3m
+        expr: max(up{job='cadvisor-swarm'}) == 0
+        for: 1m
         keep_firing_for: 1h
         labels:
           severity: critical

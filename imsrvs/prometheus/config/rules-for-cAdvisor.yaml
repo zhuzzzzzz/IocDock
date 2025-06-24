@@ -3,14 +3,14 @@ groups:
     rules:
       
       # cpu | threshold: 70% of one single core 
-      - record: name_service_instance:container_cpu_core_usage_percent:avg5m
+      - record: container_cpu_core_usage_percent:name_service_instance
         expr: |2
-          (sum by (name, container_label_com_docker_swarm_service_name, instance)
-          (rate(container_cpu_usage_seconds_total{id!='/'}[5m]))) * 100
+          (sum by (name, service, instance)
+          (rate(container_cpu_usage_seconds_total{stack=~'dals|test'}[2m]))) * 100
           
       - alert: HighContainerCpuCoreUsagePercent
-        expr: name_service_instance:container_cpu_core_usage_percent:avg5m > 70
-        for: 5m
+        expr: container_cpu_core_usage_percent:name_service_instance > 70
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -22,15 +22,15 @@ groups:
             has used {{ $value }}% of one single cpu core(threshold: 70%)."
           
       # memory | threshold: 70% of assigned memory 
-      - record: name_service_instance:container_memory_usage_percent
+      - record: container_memory_usage_percent:name_service_instance
         expr: |2
-            (container_memory_working_set_bytes{id!="/"}  
-          / on(name, container_label_com_docker_swarm_service_name, instance) 
-            container_spec_memory_limit_bytes{id!="/"}) * 100
+            (container_memory_working_set_bytes{stack=~'dals|test'}  
+          / on(name, service, instance) 
+            container_spec_memory_limit_bytes{stack=~'dals|test'}) * 100
             
       - alert: HighContainerMemoryUsagePercent
-        expr: name_service_instance:container_memory_usage_percent > 70
-        for: 5m
+        expr: container_memory_usage_percent:name_service_instance > 70
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -42,14 +42,14 @@ groups:
             has used {{ $value }}% of its memory limit(threshold: 70%)."
       
       # blkio read | threshold: 10 MB/s
-      - record: name_service_instance_device:container_blkio_rate_read:avg5m
+      - record: container_blkio_rate_read:name_service_instance_device
         expr: |2
-          (sum(rate(container_blkio_device_usage_total{id!='/',operation='Read'}[5m]))
-          by (name, container_label_com_docker_swarm_service_name, instance, device)) / 1_000
+          (sum(rate(container_blkio_device_usage_total{stack=~'dals|test',operation='Read'}[2m]))
+          by (name, service, instance, device)) / 1_000
 
       - alert: HighContainerBlkioRateRead
-        expr: name_service_instance_device:container_blkio_rate_read:avg5m > 10_000
-        for: 5m
+        expr: container_blkio_rate_read:name_service_instance_device > 10_000
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -59,17 +59,17 @@ groups:
           summary: "HighContainerBlkioRateRead for container {{ $labels.name }}"
           description: 
             "Container {{ $labels.name }} running on {{ $labels.instance }} 
-            experienced a Block I/O READ rate of {{ $value }} MB/s on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
+            experienced a Block I/O READ rate of {{ $value }} MB/s on {{ $labels.device }} in past 2 minutes(threshold: 10 MB/s)."
         
       # blkio write | threshold: 10 MB/s
-      - record: name_service_instance_device:container_blkio_rate_write:avg5m
+      - record: container_blkio_rate_write:name_service_instance_device
         expr: |2
-          (sum(rate(container_blkio_device_usage_total{id!='/',operation='Write'}[5m]))
-          by (name, container_label_com_docker_swarm_service_name, instance, device)) / 1_000
+          (sum(rate(container_blkio_device_usage_total{stack=~'dals|test',operation='Write'}[2m]))
+          by (name, service, instance, device)) / 1_000
 
       - alert: HighContainerBlkioRateWrite
-        expr: name_service_instance_device:container_blkio_rate_write:avg5m > 10_000
-        for: 5m
+        expr: container_blkio_rate_write:name_service_instance_device > 10_000
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -79,18 +79,18 @@ groups:
           summary: "HighContainerBlkioRateWrite for container {{ $labels.name }}"
           description: 
             "Container {{ $labels.name }} running on {{ $labels.instance }} 
-            experienced a Block I/O WRITE rate of {{ $value }} MB/s on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
+            experienced a Block I/O WRITE rate of {{ $value }} MB/s on {{ $labels.device }} in past 2 minutes(threshold: 10 MB/s)."
            
       # file system usage | threshold: 70% of maximum capacity
-      - record: name_service_instance_device:container_fs_usage_percent
+      - record: container_fs_usage_percent:name_service_instance_device
         expr: |2
-            (container_fs_usage_bytes{id!='/'}
-          / on(name, container_label_com_docker_swarm_service_name, instance, device) 
-            container_fs_limit_bytes{id!='/'}) * 100
+            (container_fs_usage_bytes{stack=~'dals|test'}
+          / on(name, service, instance, device) 
+            container_fs_limit_bytes{stack=~'dals|test'}) * 100
 
       - alert: HighContainerFileSystemUsagePercent
-        expr: name_service_instance_device:container_fs_usage_percent > 70
-        for: 5m
+        expr: container_fs_usage_percent:name_service_instance_device > 70
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -102,14 +102,14 @@ groups:
             used {{ $value }}% of the file system limit on {{ $labels.device }}(threshold: 70%)."
           
       # file system read | threshold: 10 MB/s
-      - record: name_service_instance_device:container_fs_rate_read:avg5m
+      - record: container_fs_rate_read:name_service_instance_device
         expr: |2
-          (sum(rate(container_fs_reads_bytes_total{id!='/'}[5m])) 
-          by (name, container_label_com_docker_swarm_service_name, instance, device)) / 1_000
+          (sum(rate(container_fs_reads_bytes_total{stack=~'dals|test'}[2m])) 
+          by (name, service, instance, device)) / 1_000
 
       - alert: HighContainerFileSystemRateRead
-        expr: name_service_instance_device:container_fs_rate_read:avg5m > 10_000
-        for: 5m
+        expr: container_fs_rate_read:name_service_instance_device > 10_000
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -122,14 +122,14 @@ groups:
             experienced a File System READ rate of {{ $value }} MB/s on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
            
       # file system write | threshold: 10 MB/s
-      - record: name_service_instance_device:container_fs_rate_write:avg5m
+      - record: container_fs_rate_write:name_service_instance_device
         expr: |2
-          (sum(rate(container_fs_writes_bytes_total{id!='/'}[5m])) 
-          by (name, container_label_com_docker_swarm_service_name, instance, device)) / 1_000
+          (sum(rate(container_fs_writes_bytes_total{stack=~'dals|test'}[2m])) 
+          by (name, service, instance, device)) / 1_000
           
       - alert: HighContainerFileSystemRateWrite
-        expr: name_service_instance_device:container_fs_rate_write:avg5m > 10_000
-        for: 5m
+        expr: container_fs_rate_write:name_service_instance_device > 10_000
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -142,15 +142,15 @@ groups:
             experienced a File System WRITE rate of {{ $value }} MB/s on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
          
       # container offline | threshold: 60s lost of heartbeat
-      - record: name_service_instance:container_last_beat_seconds
+      - record: container_last_beat_seconds:name_service_instance
         expr: |2
-          sum by (name, container_label_com_docker_swarm_service_name, instance)
-          (time() - container_last_seen{id!='/'})
+          sum by (name, service, instance)
+          (time() - container_last_seen{stack=~'dals|test'})
           
       - alert: ContainerOffline
-        expr: name_service_instance:container_last_beat_seconds > 60
+        expr: container_last_beat_seconds:name_service_instance > 60
         for: 30s
-        keep_firing_for: 1h
+        keep_firing_for: 1d
         labels:
           severity: info
           component: container
@@ -161,60 +161,60 @@ groups:
             lost for {{ $value }} s (threshold: 60 s)."
       
       # service offline | threshold: 60s lost of heartbeat
-      - record: service:service_last_beat_seconds
+      - record: service_last_beat_seconds:service
         expr: |2
-          time() - (max(container_last_seen{id!='/'}) by (container_label_com_docker_swarm_service_name))
+          time() - (max(container_last_seen{stack=~'dals|test'}) by (service))
           
       - alert: ServiceOffline
-        expr: service:service_last_beat_seconds > 60
+        expr: service_last_beat_seconds:service > 60
         for: 30s
-        keep_firing_for: 1h
+        keep_firing_for: 1d
         labels:
           severity: critical
           component: service
         annotations:
-          summary: "ServiceOffline for {{ $labels.container_label_com_docker_swarm_service_name }}"
+          summary: "ServiceOffline for {{ $labels.service }}"
           description: 
-            "Service {{ $labels.container_label_com_docker_swarm_service_name }} lost for {{ $value }} s (threshold: 60 s)."
+            "Service {{ $labels.service }} lost for {{ $value }} s (threshold: 60 s)."
             
       # instance service offline | threshold: 60s lost of heartbeat
-      - record: instance_service:service_last_beat_seconds
+      - record: service_last_beat_seconds:instance_service
         expr: |2
-          time() - (max(container_last_seen{id!='/'}) by (container_label_com_docker_swarm_service_name, instance))
+          time() - (max(container_last_seen{stack=~'dals|test'}) by (service, instance))
           
       - alert: InstanceServiceOffline
-        expr: instance_service:service_last_beat_seconds > 60
+        expr: service_last_beat_seconds:instance_service > 60
         for: 30s
-        keep_firing_for: 1h
+        keep_firing_for: 1d
         labels:
           severity: warning
           component: service
         annotations:
-          summary: "InstanceServiceOffline for {{ $labels.container_label_com_docker_swarm_service_name }}"
+          summary: "InstanceServiceOffline for {{ $labels.service }}"
           description: 
-            "Service {{ $labels.container_label_com_docker_swarm_service_name }} lost on {{ $labels.instance }} for {{ $value }} s (threshold: 60 s)."
+            "Service {{ $labels.service }} lost on {{ $labels.instance }} for {{ $value }} s (threshold: 60 s)."
       
       # container network receive rate
-      - record: name_service_instance:container_network_kilobytes_rate_receive:avg5m
+      - record: container_network_kilobytes_rate_receive:name_service_instance
         expr: |2
-          (sum(rate(container_network_receive_bytes_total{id!='/'}[5m])) 
-          by (name, container_label_com_docker_swarm_service_name, instance)) / 1_000
+          (sum(rate(container_network_receive_bytes_total{stack=~'dals|test'}[2m])) 
+          by (name, service, instance)) / 1_000
           
       # container network transmit rate
-      - record: name_service_instance:container_network_kilobytes_rate_transmit:avg5m
+      - record: container_network_kilobytes_rate_transmit:name_service_instance
         expr: |2
-          (sum(rate(container_network_transmit_bytes_total{id!='/'}[5m])) 
-          by (name, container_label_com_docker_swarm_service_name, instance)) / 1_000
+          (sum(rate(container_network_transmit_bytes_total{stack=~'dals|test'}[2m])) 
+          by (name, service, instance)) / 1_000
           
       # container network errors rate | threshold: 10 packets per second
-      - record: name_service_instance:container_network_error_rate:avg5m
+      - record: container_network_error_rate:name_service_instance
         expr: |2
-          sum by (name, container_label_com_docker_swarm_service_name, instance)
-          (rate(container_network_receive_errors_total{id!='/'}[5m]) + rate(container_network_transmit_errors_total{id!='/'}[5m]))
+          sum by (name, service, instance)
+          (rate(container_network_receive_errors_total{stack=~'dals|test'}[2m]) + rate(container_network_transmit_errors_total{stack=~'dals|test'}[2m]))
           
       - alert: HighContainerNetworkErrorRate
-        expr: name_service_instance:container_network_error_rate:avg5m > 10
-        for: 5m
+        expr: container_network_error_rate:name_service_instance > 10
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
@@ -226,14 +226,14 @@ groups:
             experienced a network error rate of {{ $value }} count/s on {{ $labels.device }} in past 5 minutes(threshold: 10 count/s)."
       
       # container network packet drop rate | threshold: 10 packets per second
-      - record: name_service_instance:container_network_packet_drop_rate:avg5m
+      - record: container_network_packet_drop_rate:name_service_instance
         expr: |2
-          sum by (name, container_label_com_docker_swarm_service_name, instance)
-          (rate(container_network_receive_packets_dropped_total{id!='/'}[5m]) + rate(container_network_transmit_packets_dropped_total{id!='/'}[5m]))
+          sum by (name, service, instance)
+          (rate(container_network_receive_packets_dropped_total{stack=~'dals|test'}[2m]) + rate(container_network_transmit_packets_dropped_total{stack=~'dals|test'}[2m]))
           
       - alert: HighContainerNetworkPacketDropRate
-        expr: name_service_instance:container_network_packet_drop_rate:avg5m > 10
-        for: 5m
+        expr: container_network_packet_drop_rate:name_service_instance > 10
+        for: 2m
         keep_firing_for: 1h
         labels:
           severity: warning
