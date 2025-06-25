@@ -6,13 +6,98 @@ global:
   smtp_require_tls: false
   
 route:
-  receiver: test-mail
-  group_by: ['service-type', 'component', 'severity']
-  
-receivers:
-  - name: test-mail
-    email_configs: 
-    - to: 1728831951@qq.com
+  group_by: ['...']
+  receiver: default-mail
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+  # for container offline or service offline.
+  - matchers:
+    - alertname=~"ContainerOffline|ServiceOffline|InstanceServiceOffline"
+    - component=~"container|service"
+    group_by: [service_type, service]
+    receiver: test-mail
+    routes:
+    # for severity=info
+    - matchers:
+      - severity="info"
+      mute_time_intervals:
+      - all-time
+    # for severity!=info
+    - matchers:
+      - severity!="info"
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 10m
+  # for scrape job lost.
+  - matchers:
+    - component="rule"
+    group_by: [job]
+    receiver: test-mail
+    routes:
+    # for severity=info
+    - matchers: 
+      - severity="info"
+      mute_time_intervals:
+      - all-time
+    # for severity=warning
+    - matchers:
+      - severity="warning"
+      group_by: [job, instance]
+      receiver: test-mail
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 10m
+    # for severity=critical
+    - matchers:
+      - severity="critical"
+      receiver: test-mail-send-resolve
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 10m
+  # add other routes here.
+  #
+  # for other performance metrics and severity=info.
+  - matchers: 
+    - severity="info"
+    mute_time_intervals:
+    - all-time
+  # for other performance metrics and severity=waring.
+  - matchers: 
+    - severity="waring"
+    group_by: [component, severity, service, service_type]
+    receiver: test-mail-send-resolve
+    group_wait: 30s
+    group_interval: 1m
+    repeat_interval: 10m
+  # for other performance metrics and severity=critical.
+  - matchers: 
+    - severity="critical"
+    group_by: [component, severity, service, service_type]
+    receiver: test-mail-send-resolve
+    group_wait: 30s
+    group_interval: 1m
+    repeat_interval: 10m
       
+receivers:
+# default receiver of unrecognized alerts
+- name: default-mail
+  email_configs: 
+  - to: 1728831951@qq.com
+# default receiver of alerts
+- name: test-mail
+  email_configs: 
+  - to: 1728831951@qq.com
+# default receiver of alerts and resolved messages
+- name: test-mail-send-resolve
+  email_configs: 
+  - to: 1728831951@qq.com
+    send_resolved: true
 
-  
+time_intervals:
+- name: all-time
+  time_intervals:
+  - times:
+    - start_time: 00:00
+      end_time: 24:00

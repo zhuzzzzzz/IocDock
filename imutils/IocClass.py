@@ -1288,11 +1288,8 @@ def gen_swarm_files(iocs, verbose):
                     'read_only': True
                 },  # set correct timezone for linux kernel
             ],
+            'labels': {'service-type': 'ioc', },
             'deploy': {
-                'labels':
-                    {
-                        'service-type': 'ioc',
-                    },
                 'replicas': 1,
                 'update_config':
                     {
@@ -1314,7 +1311,7 @@ def gen_swarm_files(iocs, verbose):
             temp_yaml['deploy']['resources']['reservations'] = reservations_dict
         # labels dict
         if labels_to_add:
-            temp_yaml['deploy']['labels'].update(labels_to_add)
+            temp_yaml['labels'].update(labels_to_add)
         #
         yaml_data['services'].update({f'srv-{ioc_settings["service_dir"]}': temp_yaml})
         # add network for each stack.

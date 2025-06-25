@@ -12,7 +12,7 @@ scrape_configs:
         target_label: instance
         replacement: $1
       - target_label: job
-        replacement: docker-deamon
+        replacement: docker-daemon
 
 
 

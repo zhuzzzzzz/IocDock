@@ -2,67 +2,67 @@ groups:
   - name: rules-monitoring
     rules:
     
-      # absent for scrape jobs on one instances
+      # absent for scrape jobs on each instance
       - alert: ScrapeJobDown
         expr: up == 0
         for: 1m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: rule
         annotations:
           summary: "ScrapeJobDown for job {{ $labels.job }} on {{ $labels.instance }}"
           description: 
-            "ScrapeJobDown for job {{ $labels.job }} on {{ $labels.instance }}."
+            "Scrape Job Down for job {{ $labels.job }} running on {{ $labels.instance }}."
             
       # absent for scrape jobs on all instances
       - alert: ScrapeJobLost
-        expr: max(up{job='prometheus'}) == 0
+        expr: absent(up{job='prometheus'}) == 1
         for: 1m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: critical
           component: rule
         annotations:
-          summary: "ScrapeJobLost for job prometheus"
+          summary: "Scrape Job Lost for prometheus"
           description: 
-            "ScrapeJobDown for job prometheus."
+            "Scrape Job Lost for prometheus."
       
       - alert: ScrapeJobDockerDaemonLost
-        expr: max(up{job='docker-daemon'}) == 0
+        expr: absent(up{job='docker-daemon'}) == 1
         for: 1m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: critical
           component: rule
         annotations:
-          summary: "ScrapeJobDockerDaemonLost for job docker-daemon"
+          summary: "Scrape Job Lost for docker-daemon"
           description: 
-            "ScrapeJobDown for job docker-daemon."      
+            "Scrape Job Lost for docker-daemon."      
       
       - alert: ScrapeJobNodeExporterLost
-        expr: max(up{job='node-exporter'}) == 0
+        expr: absent(up{job='node-exporter'}) == 1
         for: 1m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: critical
           component: rule
         annotations:
-          summary: "ScrapeJobNodeExporterLost for job node-exporter"
+          summary: "Scrape Job Lost for node-exporter"
           description: 
-            "ScrapeJobDown for job node-exporter."  
+            "Scrape Job Lost for node-exporter."  
       
       - alert: ScrapeJobCadvisorLost
-        expr: max(up{job='cadvisor-swarm'}) == 0
+        expr: absent(up{job='cadvisor-swarm'}) == 1
         for: 1m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: critical
           component: rule
         annotations:
-          summary: "ScrapeJobCadvisorLost for job cadvisor-swarm"
+          summary: "Scrape Job Lost for cadvisor-swarm"
           description: 
-            "ScrapeJobDown for job cadvisor-swarm."  
+            "Scrape Job Lost for cadvisor-swarm."  
       #
       
       #

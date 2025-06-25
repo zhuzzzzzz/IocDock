@@ -9,7 +9,7 @@ groups:
       - alert: HighNodeCpuAverageUsagePercent
         expr: node_cpu_average_usage_percent:instance > 70
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -28,7 +28,7 @@ groups:
       - alert: HighNodeMemoryUasgePercent
         expr: node_memory_usage_percent:instance > 70
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -45,7 +45,7 @@ groups:
       - alert: HighNodeFileSystemUasgePercent
         expr: node_file_system_usage_percent:instance_device > 70
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -62,7 +62,7 @@ groups:
       - alert: HighNodeDiskReadKilobytesRate
         expr: node_disk_read_kilobytes_rate:instance_device > 100_000
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -80,7 +80,7 @@ groups:
       - alert: HighNodeDiskWriteKilobytesRate
         expr: node_disk_write_kilobytes_rate:instance_device > 100_000
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -98,7 +98,7 @@ groups:
       - alert: HighNodeNetworkReceiveKilobytesRate
         expr: node_network_receive_kilobytes_rate:instance_device > 500_000
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -116,7 +116,7 @@ groups:
       - alert: HighNodeNetworkTransmitKilobytesRate
         expr: node_network_transmit_kilobytes_rate:instance_device > 500_000
         for: 2m
-        keep_firing_for: 1h
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
@@ -129,7 +129,7 @@ groups:
       # node up time | threshold: 365 days
       - alert: NodeUptimeTooLong
         expr: time() - node_boot_time_seconds > 86400 * 365
-        keep_firing_for: 7d
+        keep_firing_for: 10m
         labels:
           severity: warning
           component: node
