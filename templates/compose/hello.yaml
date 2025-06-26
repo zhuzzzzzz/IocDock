@@ -5,6 +5,8 @@ services:
     - /bin/sh
     - -c
     - "echo hello; sleep infinity"
+    labels:
+      service-type: custom
     deploy:
       mode: replicated
       replicas: 3

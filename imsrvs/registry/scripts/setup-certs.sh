@@ -14,7 +14,7 @@ common_name=${REGISTRY_COMMON_NAME:-`IocManager config REGISTRY_COMMON_NAME`}
 cert_docker_dir=${REGISTRY_CERT_DOCKER_DIR-:`IocManager config REGISTRY_CERT_DOCKER_DIR`}
 
 sudo mkdir -p /etc/docker/certs.d/${cert_docker_dir}/
-sudo cp ./certs/registry.crt /etc/docker/certs.d/${cert_docker_dir}/
+sudo cp ../certs/registry.crt /etc/docker/certs.d/${cert_docker_dir}/
 
 
 if [[ "$1" != "os-level" ]];then
@@ -27,11 +27,11 @@ DISTRO="${ID,,}"  # lower-case
 case "${DISTRO}" in
   ubuntu|debian)
     mkdir -p /usr/local/share/ca-certificates/
-    sudo cp ./certs/registry.crt /usr/local/share/ca-certificates/${common_name}.crt
+    sudo cp ../certs/registry.crt /usr/local/share/ca-certificates/${common_name}.crt
     sudo update-ca-certificates --fresh
     ;;
   centos|rhel|ol)
-    sudo cp certs/domain.crt /etc/pki/ca-trust/source/anchors/myregistrydomain.com.crt
+    sudo cp ../certs/domain.crt /etc/pki/ca-trust/source/anchors/myregistrydomain.com.crt
     sudo update-ca-trust
     ;;
   *)

@@ -220,12 +220,12 @@ class SwarmManager:
             print(f'SwarmManager: Failed to create deployment directory for "registry" as it is running.')
         else:
             src_path = os.path.join(SERVICES_PATH, 'registry')
-            dest_path = os.path.join(top_path, 'registry')
             # write shell variable file
-            file_path = os.path.join(src_path, REGISTRY_SHELL_VAR_FILE)
+            file_path = os.path.join(src_path, 'scripts', REGISTRY_SHELL_VAR_FILE)
             with open(file_path, "w") as f:
                 f.write(f'REGISTRY_COMMON_NAME={REGISTRY_COMMON_NAME}\n')
                 f.write(f'REGISTRY_CERT_DOCKER_DIR={REGISTRY_CERT_DOCKER_DIR}\n')
+            dest_path = os.path.join(top_path, 'registry')
             # copy all deployment files
             dir_copy(src_path, dest_path, verbose=verbose)
             print(f'SwarmManager: Create deployment directory for "registry".')
@@ -246,12 +246,12 @@ class SwarmManager:
             print(f'SwarmManager: Failed to create deployment directory for "alertManager" as it is running.')
         else:
             src_path = os.path.join(SERVICES_PATH, 'alertManager')
-            dest_path = os.path.join(top_path, 'alertManager')
             # write shell variable file
             file_path = os.path.join(src_path, 'scripts', ALERT_MANAGER_SHELL_VAR_FILE)
             with open(file_path, "w") as f:
                 f.write(f'ALERT_MANAGER_MASTER_IP={ALERT_MANAGER_MASTER_IP}\n')
                 f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_PORT}\n')
+            dest_path = os.path.join(top_path, 'alertManager')
             dir_copy(src_path, dest_path, verbose=verbose)
             print(f'SwarmManager: Create deployment directory for "alertManager".')
 

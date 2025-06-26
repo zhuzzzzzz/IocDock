@@ -42,3 +42,6 @@ services:
       target: /etc/alertmanager
       type: bind
       read_only: true
+    - source: ../../../alertManager-data
+      target: /alertmanager
+      type: bind

@@ -29,7 +29,7 @@ services:
       target: /etc/prometheus
       type: bind
       read_only: true
-    - source: ~/prometheus-data
+    - source: ../../../prometheus-data
       target: /prometheus
       type: bind
     - source: /etc/localtime
