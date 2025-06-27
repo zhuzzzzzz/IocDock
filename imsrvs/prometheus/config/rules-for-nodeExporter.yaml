@@ -2,12 +2,12 @@ groups:
   - name: nodeExporter-monitoring
     rules:
     
-      # cpu | threshold: 70% on average 
+      # cpu | threshold: 50% on average(warning), 80% on average(critical)
       - record: node_cpu_average_usage_percent:instance
         expr: (1- (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[2m])))) * 100
         
       - alert: HighNodeCpuAverageUsagePercent
-        expr: node_cpu_average_usage_percent:instance > 70
+        expr: node_cpu_average_usage_percent:instance > 50
         for: 2m
         keep_firing_for: 10m
         labels:
@@ -16,9 +16,20 @@ groups:
         annotations:
           summary: "HighNodeCpuAverageUsagePercent for node {{ $labels.instance }}"
           description: 
-            "Node {{ $labels.instance }} has used {{ $value }}% over all of its cpu cores(threshold: 70%)."
+            "Node {{ $labels.instance }} has used {{ $value }}% over all of its cpu cores(threshold: 50%)."
+      - alert: HighNodeCpuAverageUsagePercent
+        expr: node_cpu_average_usage_percent:instance > 80
+        for: 2m
+        keep_firing_for: 10m
+        labels:
+          severity: critical
+          component: node
+        annotations:
+          summary: "HighNodeCpuAverageUsagePercent for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has used {{ $value }}% over all of its cpu cores(threshold: 80%)."
             
-      # memory | threshold: 70% of maximum memory 
+      # memory | threshold: 50% of maximum memory(warning), 80% of maximum memory(critical)
       - record: node_memory_usage_percent:instance
         expr: |2
             ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
@@ -26,7 +37,7 @@ groups:
             node_memory_MemTotal_bytes) * 100
         
       - alert: HighNodeMemoryUasgePercent
-        expr: node_memory_usage_percent:instance > 70
+        expr: node_memory_usage_percent:instance > 50
         for: 2m
         keep_firing_for: 10m
         labels:
@@ -35,7 +46,18 @@ groups:
         annotations:
           summary: "HighNodeMemoryUasgePercent for node {{ $labels.instance }}"
           description: 
-            "Node {{ $labels.instance }} has used {{ $value }}% of its max memory(threshold: 70%)."
+            "Node {{ $labels.instance }} has used {{ $value }}% of its max memory(threshold: 50%)."
+      - alert: HighNodeMemoryUasgePercent
+        expr: node_memory_usage_percent:instance > 80
+        for: 2m
+        keep_firing_for: 10m
+        labels:
+          severity: critical
+          component: node
+        annotations:
+          summary: "HighNodeMemoryUasgePercent for node {{ $labels.instance }}"
+          description: 
+            "Node {{ $labels.instance }} has used {{ $value }}% of its max memory(threshold: 80%)."
             
       # file system usage | threshold: 70% of maximum capacity
       - record: node_file_system_usage_percent:instance_device
