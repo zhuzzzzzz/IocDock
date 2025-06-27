@@ -1219,28 +1219,27 @@ def gen_swarm_files(iocs, verbose):
                 continue
             else:
                 ioc_settings['image'] = temp_ioc.get_config(section='IOC', option='image')
-            if not temp_ioc.get_config(section='DEPLOY', option='cpu-reserve'):
-                ioc_settings['cpu-reserve'] = ''
-            else:
-                ioc_settings['cpu-reserve'] = temp_ioc.get_config(section='DEPLOY', option='cpu-reserve')
-            if not temp_ioc.get_config(section='DEPLOY', option='memory-reserve'):
-                ioc_settings['memory-reserve'] = ''
-            else:
-                ioc_settings['memory-reserve'] = temp_ioc.get_config(section='DEPLOY', option='memory-reserve')
-            if not temp_ioc.get_config(section='DEPLOY', option='cpu-limit'):
-                ioc_settings['cpu-limit'] = RESOURCE_IOC_CPU_LIMIT
-            else:
-                ioc_settings['cpu-limit'] = temp_ioc.get_config(section='DEPLOY', option='cpu-limit')
-            if not temp_ioc.get_config(section='DEPLOY', option='memory-limit'):
-                ioc_settings['memory-limit'] = RESOURCE_IOC_MEMORY_LIMIT
-            else:
-                ioc_settings['memory-limit'] = temp_ioc.get_config(section='DEPLOY', option='memory-limit')
-            # resources reservations
+            # get resources settings
+            ioc_settings['cpu-reserve'] = temp_ioc.get_config(section='DEPLOY', option='cpu-reserve')
+            ioc_settings['memory-reserve'] = temp_ioc.get_config(section='DEPLOY', option='memory-reserve')
+            ioc_settings['cpu-limit'] = temp_ioc.get_config(section='DEPLOY', option='cpu-limit')
+            ioc_settings['memory-limit'] = temp_ioc.get_config(section='DEPLOY', option='memory-limit')
+            # make resources dict
             reservations_dict = {}
+            limits_dict = {}
+            resources_dict = {}
             if ioc_settings['cpu-reserve']:
                 reservations_dict['cpus'] = ioc_settings['cpu-reserve']
             if ioc_settings['memory-reserve']:
                 reservations_dict['memory'] = ioc_settings['memory-reserve']
+            if ioc_settings['cpu-limit']:
+                limits_dict['cpus'] = ioc_settings['cpu-limit']
+            if ioc_settings['memory-limit']:
+                limits_dict['memory'] = ioc_settings['memory-limit']
+            if reservations_dict:
+                resources_dict['reservations'] = reservations_dict
+            if limits_dict:
+                resources_dict['limits'] = limits_dict
             # labels
             labels_to_add = {}
             for label_line in multi_line_parse(temp_ioc.get_config(section='DEPLOY', option='labels')):
@@ -1297,18 +1296,11 @@ def gen_swarm_files(iocs, verbose):
                         'delay': '10s',
                         'failure_action': 'rollback',
                     },
-                'resources':
-                    {
-                        'limits': {
-                            'cpus': ioc_settings['cpu-limit'],
-                            'memory': ioc_settings['memory-limit'],
-                        },
-                    }
             }
         }
         # reservations dict.
-        if reservations_dict:
-            temp_yaml['deploy']['resources']['reservations'] = reservations_dict
+        if resources_dict:
+            temp_yaml['deploy']['resources'] = resources_dict
         # labels dict
         if labels_to_add:
             temp_yaml['labels'].update(labels_to_add)

@@ -42,7 +42,8 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			./IocManager.py set "$item" -s db -o "load = ramper.db, name=$item" $verbose
 			./IocManager.py set "$item" -o " host = swarm" $verbose
 			./IocManager.py set "$item" -o " image = $ioc_image " $verbose
-			./IocManager.py set "$item" -s deploy -o "memory-reserve=100M" $verbose
+			./IocManager.py set "$item" -s deploy -o "cpu-limit=0.8" $verbose
+			./IocManager.py set "$item" -s deploy -o "memory-limit=1G" $verbose
 			./IocManager.py set "$item" -s deploy -o "labels=test=true" $verbose
 			# add set options here..
 			

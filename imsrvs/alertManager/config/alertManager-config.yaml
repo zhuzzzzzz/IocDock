@@ -16,7 +16,7 @@ route:
   - matchers:
     - alertname=~"ContainerOffline|ServiceOffline|InstanceServiceOffline"
     - component=~"container|service"
-    group_by: [service_type, service]
+    group_by: [alertname, service_type]
     receiver: test-mail
     routes:
     # for severity=info
@@ -65,7 +65,7 @@ route:
     - all-time
   # for other performance metrics and severity=waring.
   - matchers: 
-    - severity="waring"
+    - severity="warning"
     group_by: [component, severity, service, service_type]
     receiver: test-mail-send-resolve
     group_wait: 30s
