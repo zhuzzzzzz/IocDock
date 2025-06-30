@@ -203,7 +203,7 @@ class IOC:
             else:
                 print(f'IOC.__init__: Start initializing at "{dir_path}".')
         if not dir_path or not os.path.isdir(dir_path):
-            print(f'IOC.__init__: Incorrect initialization parameters: dir_path="{dir_path}".')
+            print(f'IOC.__init__: Invalid initialization parameters: dir_path="{dir_path}".')
             return
 
         self.read_mode = read_mode

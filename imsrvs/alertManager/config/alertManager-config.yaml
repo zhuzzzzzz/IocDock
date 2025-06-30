@@ -10,7 +10,7 @@ route:
   receiver: default-mail
   group_wait: 30s
   group_interval: 5m
-  repeat_interval: 1h
+  repeat_interval: 30m
   routes:
   # for container offline or service offline.
   - matchers:
@@ -26,7 +26,12 @@ route:
       - all-time
     # for severity!=info
     - matchers:
-      - severity!="info"
+      - severity="warning"
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 30m
+    - matchers:
+      - severity="critical"
       group_wait: 30s
       group_interval: 1m
       repeat_interval: 10m
@@ -48,7 +53,7 @@ route:
       receiver: test-mail
       group_wait: 30s
       group_interval: 1m
-      repeat_interval: 10m
+      repeat_interval: 30m
     # for severity=critical
     - matchers:
       - severity="critical"
@@ -70,7 +75,7 @@ route:
     receiver: test-mail-send-resolve
     group_wait: 30s
     group_interval: 1m
-    repeat_interval: 10m
+    repeat_interval: 30m
   # for other performance metrics and severity=critical.
   - matchers: 
     - severity="critical"
