@@ -38,7 +38,7 @@ route:
   # for scrape job lost.
   - matchers:
     - component="rule"
-    group_by: [job]
+    group_by: [alertname]
     receiver: test-mail
     routes:
     # for severity=info
@@ -49,7 +49,6 @@ route:
     # for severity=warning
     - matchers:
       - severity="warning"
-      group_by: [job, instance]
       receiver: test-mail
       group_wait: 30s
       group_interval: 1m
