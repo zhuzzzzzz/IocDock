@@ -6,7 +6,7 @@ groups:
       - alert: ScrapeJobDown
         expr: up == 0
         for: 1m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: rule
@@ -19,7 +19,7 @@ groups:
       - alert: ScrapeJobLost
         expr: absent(up{job='prometheus'}) == 1
         for: 1m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: rule
@@ -31,7 +31,7 @@ groups:
       - alert: ScrapeJobDockerDaemonLost
         expr: absent(up{job='docker-daemon'}) == 1
         for: 1m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: rule
@@ -43,7 +43,7 @@ groups:
       - alert: ScrapeJobNodeExporterLost
         expr: absent(up{job='node-exporter'}) == 1
         for: 1m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: rule
@@ -55,7 +55,7 @@ groups:
       - alert: ScrapeJobCadvisorLost
         expr: absent(up{job='cadvisor-swarm'}) == 1
         for: 1m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: rule

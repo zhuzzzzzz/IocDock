@@ -5,7 +5,7 @@ groups:
       # log buffer
       - alert: LogEntriesGreaterThanBuffer
         expr: irate(logger_log_entries_size_greater_than_buffer_total[5m]) > 0
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: info
           component: dockerd
@@ -17,7 +17,7 @@ groups:
       # log read
       - alert: ContainerLogReadFailed
         expr: irate(logger_log_read_operations_failed_total[5m]) > 0
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: info
           component: dockerd
@@ -29,7 +29,7 @@ groups:
       # log write
       - alert: ContainerLogWriteFailed
         expr: irate(logger_log_write_operations_failed_total[5m]) > 0
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: info
           component: dockerd

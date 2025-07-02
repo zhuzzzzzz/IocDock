@@ -11,7 +11,7 @@ groups:
       - alert: HighContainerCpuCoreUsagePercent
         expr: container_cpu_core_usage_percent:name_service_instance > 50
         for: 2m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -23,7 +23,7 @@ groups:
       - alert: HighContainerCpuCoreUsagePercent
         expr: container_cpu_core_usage_percent:name_service_instance > 80
         for: 2m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: container
@@ -43,7 +43,7 @@ groups:
       - alert: HighContainerMemoryUsagePercent
         expr: container_memory_usage_percent:name_service_instance > 50
         for: 2m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -55,7 +55,7 @@ groups:
       - alert: HighContainerMemoryUsagePercent
         expr: container_memory_usage_percent:name_service_instance > 80
         for: 2m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: container
@@ -74,7 +74,7 @@ groups:
       - alert: HighContainerBlkioRateRead
         expr: container_blkio_rate_read:name_service_instance_device > 10_000
         for: 3m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -94,7 +94,7 @@ groups:
       - alert: HighContainerBlkioRateWrite
         expr: container_blkio_rate_write:name_service_instance_device > 10_000
         for: 3m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -115,7 +115,7 @@ groups:
       - alert: HighContainerFileSystemUsagePercent
         expr: container_fs_usage_percent:name_service_instance_device > 70
         for: 2m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -134,7 +134,7 @@ groups:
       - alert: HighContainerFileSystemRateRead
         expr: container_fs_rate_read:name_service_instance_device > 10_000
         for: 3m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -154,7 +154,7 @@ groups:
       - alert: HighContainerFileSystemRateWrite
         expr: container_fs_rate_write:name_service_instance_device > 10_000
         for: 3m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -174,7 +174,7 @@ groups:
       - alert: ContainerOffline
         expr: container_last_beat_seconds:name_service_instance > 30
         for: 30s
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: info
           component: container
@@ -192,7 +192,7 @@ groups:
       - alert: ServiceOffline
         expr: service_last_beat_seconds:service > 30
         for: 30s
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: critical
           component: service
@@ -209,7 +209,7 @@ groups:
       - alert: InstanceServiceOffline
         expr: service_last_beat_seconds:instance_service > 30
         for: 30s
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: service
@@ -239,7 +239,7 @@ groups:
       - alert: HighContainerNetworkErrorRate
         expr: container_network_error_rate:name_service_instance > 10
         for: 3m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
@@ -258,7 +258,7 @@ groups:
       - alert: HighContainerNetworkPacketDropRate
         expr: container_network_packet_drop_rate:name_service_instance > 10
         for: 3m
-        keep_firing_for: 10m
+        keep_firing_for: 5m
         labels:
           severity: warning
           component: container
