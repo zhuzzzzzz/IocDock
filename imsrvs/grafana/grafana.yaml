@@ -22,6 +22,12 @@ services:
     - source: ../../../grafana-data
       target: /var/lib/grafana
       type: bind
+    - source: ./dashboards
+      target: /etc/grafana/provisioning/dashboards
+      type: bind
+    - source: ./datasources
+      target: /etc/grafana/provisioning/datasources
+      type: bind
     - source: /etc/localtime
       target: /etc/localtime
       type: bind

@@ -1,0 +1,30 @@
+services:
+  srv-loki:
+    image: m.daocloud.io/docker.io/grafana/loki
+    command: 
+    - -config.file=/etc/loki/local-config.yaml
+    labels:
+      service-type: local
+      prometheus-job: loki
+    ports:
+    - target: 3100
+      published: 3100
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.labels.loki==true
+    volumes:
+    - source: ./config/loki-config.yaml
+      target: /etc/loki/local-config.yaml
+      type: bind
+    - source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+      read_only: true
