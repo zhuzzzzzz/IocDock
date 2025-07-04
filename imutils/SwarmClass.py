@@ -185,7 +185,6 @@ class SwarmManager:
             print(f'Operation exit.')
             return
 
-    # copy compose file to swarm dir from template dir for global and local services.
     @staticmethod
     def gen_global_services(verbose):
         #
@@ -207,53 +206,59 @@ class SwarmManager:
                 print(
                     f'SwarmManager: Failed to create deployment file for "{item}" as its template file dose not exist.')
 
-    # copy configuration file to swarm dir from template dir for given services.
     @staticmethod
     def gen_local_services(verbose):
         #
         top_path = os.path.join(MOUNT_PATH, 'swarm')
+        excluded_item = []
 
-        # 目前使用硬编码方式，后续可通过 LocalServicesList 变量实现动态添加
-        # copy registry
+        # setup registry
         temp_service = SwarmService('registry', service_type='local')
         if temp_service.is_deployed:  # check whether the directory being mounted.
-            print(f'SwarmManager: Failed to create deployment directory for "registry" as it is running.')
+            excluded_item.append('registry')
         else:
-            src_path = os.path.join(SERVICES_PATH, 'registry')
             # write shell variable file
-            file_path = os.path.join(src_path, 'scripts', REGISTRY_SHELL_VAR_FILE)
+            file_path = os.path.join(SERVICES_PATH, 'registry', 'scripts', REGISTRY_SHELL_VAR_FILE)
             with open(file_path, "w") as f:
                 f.write(f'REGISTRY_COMMON_NAME={REGISTRY_COMMON_NAME}\n')
                 f.write(f'REGISTRY_CERT_DOCKER_DIR={REGISTRY_CERT_DOCKER_DIR}\n')
-            dest_path = os.path.join(top_path, 'registry')
-            # copy all deployment files
-            dir_copy(src_path, dest_path, verbose=verbose)
-            print(f'SwarmManager: Create deployment directory for "registry".')
 
-        # copy prometheus
-        temp_service = SwarmService('prometheus', service_type='local')
-        if temp_service.is_deployed:  # check whether the directory being mounted.
-            print(f'SwarmManager: Failed to create deployment directory for "prometheus" as it is running.')
-        else:
-            src_path = os.path.join(SERVICES_PATH, 'prometheus')
-            dest_path = os.path.join(top_path, 'prometheus')
-            dir_copy(src_path, dest_path, verbose=verbose)
-            print(f'SwarmManager: Create deployment directory for "prometheus".')
-
-        # copy alertManager
+        # setup alertManager
         temp_service = SwarmService('alertManager', service_type='local')
-        if temp_service.is_deployed:  # check whether the directory being mounted.
-            print(f'SwarmManager: Failed to create deployment directory for "alertManager" as it is running.')
+        if temp_service.is_deployed:
+            excluded_item.append('alertManager')
         else:
-            src_path = os.path.join(SERVICES_PATH, 'alertManager')
             # write shell variable file
-            file_path = os.path.join(src_path, 'scripts', ALERT_MANAGER_SHELL_VAR_FILE)
+            file_path = os.path.join(SERVICES_PATH, 'alertManager', 'scripts', ALERT_MANAGER_SHELL_VAR_FILE)
             with open(file_path, "w") as f:
                 f.write(f'ALERT_MANAGER_MASTER_IP={ALERT_MANAGER_MASTER_IP}\n')
                 f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_PORT}\n')
-            dest_path = os.path.join(top_path, 'alertManager')
-            dir_copy(src_path, dest_path, verbose=verbose)
-            print(f'SwarmManager: Create deployment directory for "alertManager".')
+
+        # setup grafana
+        temp_service = SwarmService('grafana', service_type='local')
+        if temp_service.is_deployed:
+            excluded_item.append('grafana')
+        else:
+            src_path = os.path.join(SERVICES_PATH, 'grafana', 'datasources')
+            file_path = os.path.join(src_path, 'loki.yaml')
+            os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100/" {file_path}')
+            file_path = os.path.join(src_path, 'prometheus.yaml')
+            os.system(f'sed -i -r "s/url: .*/url: http:\/\/{ALERT_MANAGER_MASTER_IP}:9090/" {file_path}')
+
+        # copy directory of all local services defined.
+        for item in LocalServicesList:
+            temp_service = SwarmService(item, service_type='local')
+            src_path = os.path.join(SERVICES_PATH, item)
+            if os.path.isdir(src_path):
+                if item in excluded_item or temp_service.is_deployed:
+                    print(f'SwarmManager: Failed to create deployment directory for "{item}" as it is running.')
+                else:
+                    dest_path = os.path.join(top_path, item)
+                    dir_copy(src_path, dest_path, verbose=verbose)
+                    print(f'SwarmManager: Create deployment directory for "{item}".')
+            else:
+                print(f'SwarmManager: Failed to create deployment directory for "{item}" '
+                      f'as there is no valid dir exists in repository.')
 
     @staticmethod
     def get_deployed_swarm_services():

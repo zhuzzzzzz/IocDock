@@ -15,6 +15,7 @@ LocalServicesList = [
     "registry",
     "prometheus",
     "alertManager",
+    "loki",
     "grafana",
     "portainerServer",
     "portainerAgent",
