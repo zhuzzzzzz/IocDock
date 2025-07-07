@@ -4,5 +4,7 @@ providers:
   orgId: 1
   folder: ''
   type: file
+  updateIntervalSeconds: 0
+  allowUiUpdates: false
   options:
     path: /etc/grafana/provisioning/dashboards

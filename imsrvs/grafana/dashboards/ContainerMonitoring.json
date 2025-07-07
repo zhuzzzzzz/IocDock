@@ -37,7 +37,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -88,6 +88,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "max(swarm_manager_leader)",
           "legendFormat": "__auto",
@@ -102,7 +106,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -153,6 +157,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "max(swarm_manager_nodes{state='ready'})",
           "legendFormat": "__auto",
@@ -167,7 +175,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -218,6 +226,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "max(sum(swarm_manager_nodes{state!='ready'}) by (instance))",
           "legendFormat": "__auto",
@@ -232,7 +244,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -283,6 +295,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "sum(engine_daemon_container_states_containers{state='running'})",
           "legendFormat": "__auto",
@@ -297,7 +313,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -348,6 +364,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "max(swarm_manager_tasks_total{state='running'})",
           "legendFormat": "__auto",
@@ -362,7 +382,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -413,6 +433,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "max(sum by (instance) (swarm_manager_tasks_total{state=~'orphaned|pending|rejected'}))",
           "legendFormat": "__auto",
@@ -427,7 +451,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -478,6 +502,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "count(container_last_seen{service_type='ioc'})",
           "legendFormat": "__auto",
@@ -492,7 +520,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -543,6 +571,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "count(sum by (service) (container_last_seen{service_type=\"custom\"}))",
           "legendFormat": "__auto",
@@ -557,7 +589,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -608,6 +640,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "count(sum by (service) (container_last_seen{service_type=~\"global|local\"}))",
           "legendFormat": "__auto",
@@ -622,7 +658,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -674,6 +710,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "sum(ALERTS{severity='info'})",
           "legendFormat": "__auto",
@@ -689,7 +729,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -741,6 +781,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "sum(ALERTS{severity='warning'})",
           "legendFormat": "__auto",
@@ -756,7 +800,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -809,6 +853,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${PrometheusSource}"
+          },
           "editorMode": "code",
           "expr": "sum(ALERTS{severity='critical'})",
           "legendFormat": "__auto",
@@ -824,7 +872,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "CPU usage percentage of one single core.",
       "fieldConfig": {
@@ -912,7 +960,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_cpu_core_usage_percent:name_service_instance",
@@ -928,7 +976,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1016,7 +1064,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_memory_usage_percent:name_service_instance",
@@ -1045,7 +1093,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1129,7 +1177,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_fs_rate_read:name_service_instance_device",
@@ -1145,7 +1193,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1229,7 +1277,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_fs_rate_write:name_service_instance_device",
@@ -1258,7 +1306,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1342,7 +1390,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_blkio_rate_read:name_service_instance_device",
@@ -1358,7 +1406,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1442,7 +1490,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_blkio_rate_write:name_service_instance_device",
@@ -1471,7 +1519,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1551,7 +1599,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_network_kilobytes_rate_receive:name_service_instance",
@@ -1567,7 +1615,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1647,7 +1695,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_network_kilobytes_rate_transmit:name_service_instance",
@@ -1663,7 +1711,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1743,7 +1791,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_network_error_rate:name_service_instance",
@@ -1759,7 +1807,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ceqkpfw2pmqdcd"
+        "uid": "${PrometheusSource}"
       },
       "description": "",
       "fieldConfig": {
@@ -1839,7 +1887,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ceqkpfw2pmqdcd"
+            "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
           "expr": "container_network_packet_drop_rate:name_service_instance",
@@ -1858,7 +1906,21 @@
   "schemaVersion": 41,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "text": "Prometheus",
+          "value": "PBFA97CFB590B2093"
+        },
+        "description": "",
+        "name": "PrometheusSource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "Prometheus",
+        "type": "datasource"
+      }
+    ]
   },
   "time": {
     "from": "now-1h",
@@ -1879,5 +1941,5 @@
   "timezone": "browser",
   "title": "Container Monitoring",
   "uid": "61d7d5b8-5725-46bb-b1e3-02992d1da286",
-  "version": 80
+  "version": 1
 }
