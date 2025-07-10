@@ -1,6 +1,6 @@
 services:
   srv-alloy:
-    image: m.daocloud.io/docker.io/grafana/alloy
+    image: m.daocloud.io/docker.io/grafana/alloy:v1.9.2
     command: 
     - run 
     - --server.http.listen-addr=0.0.0.0:12345 

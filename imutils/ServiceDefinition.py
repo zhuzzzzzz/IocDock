@@ -18,8 +18,8 @@ LocalServicesList = [
     "alertManager",
     "loki",
     "grafana",
-    "portainerServer",
-    "portainerAgent",
+    # "portainerServer",
+    # "portainerAgent",
 ]
 
 #

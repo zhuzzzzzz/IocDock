@@ -196,17 +196,34 @@ class SwarmManager:
         try_makedirs(os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config'))
         #
 
+        excluded_item = []
+
+        # setup alloy
+        temp_service = SwarmService('alloy', service_type='global')
+        if temp_service.is_deployed:  # check whether the directory being mounted.
+            excluded_item.append('alloy')
+        else:
+            if 'config.alloy' in os.listdir(GLOBAL_SERVICES_CONFIG_PATH):
+                template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'config.alloy')
+                #
+                os.system(f'sed -i -r '
+                          f'"s/url = .*/url = \\\"http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100\/loki\/api\/v1\/push\\\"/" '
+                          f'{template_path}')
+                #
+                cmd = (f'sed -i -r '
+                       f'"s/regex = \\\".*\|test\\\"/regex = \\\"{PREFIX_STACK_NAME}\|test\\\"/" '
+                       f'{template_path}')
+                # print(cmd)
+                os.system(cmd)
+                file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'config.alloy')
+                file_copy(template_path, file_path, mode='r', verbose=verbose)
+
         for item in GlobalServicesList:
             temp_service = SwarmService(item, service_type='global')
             if f'{item}.yaml' in os.listdir(GLOBAL_SERVICES_PATH):
-                if temp_service.is_deployed:
+                if item in excluded_item or temp_service.is_deployed:
                     print(f'SwarmManager: Failed to create deployment file for "{item}" as it is running.')
                 else:
-                    if item == 'alloy' and 'config.alloy' in os.listdir(GLOBAL_SERVICES_CONFIG_PATH):
-                        # copy config file for alloy
-                        template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'config.alloy')
-                        file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'config.alloy')
-                        file_copy(template_path, file_path, mode='r', verbose=verbose)
                     # copy yaml file
                     template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{item}.yaml')
                     file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
