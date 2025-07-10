@@ -1,0 +1,80 @@
+logging {
+  level  = "debug"
+}
+
+discovery.docker "default" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "10s"
+}
+
+discovery.relabel "default" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_stack_namespace"]
+    regex = "(.*)"
+    target_label = "stack"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/(.*)"
+    target_label = "name"
+  }
+  
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
+    regex = "(.*)"
+    target_label = "service"
+  }
+  
+  rule {
+    source_labels = ["__meta_docker_container_label_service_type"]
+    regex = "(.*)"
+    target_label = "service_type"
+  }
+}
+
+loki.source.docker "default" {
+  host = "unix:///var/run/docker.sock"
+  targets = discovery.docker.default.targets
+  labels = {"platform" = "docker"}
+  relabel_rules = discovery.relabel.default.rules
+  forward_to = [loki.relabel.default.receiver]
+  refresh_interval = "10s"
+}
+
+loki.relabel "default" {
+  forward_to = [loki.process.default.receiver]
+  
+  rule {
+    source_labels = ["stack"]
+    regex = "dals|test"
+    action = "keep"
+  }
+  
+  rule {
+    regex = "stack"
+    action = "labeldrop"
+  }
+  
+  rule {
+    regex = "service_name"
+    action = "labeldrop"
+  }
+}
+
+// process the log entry contents
+loki.process "default" {
+  forward_to = [loki.write.local.receiver]
+
+  //stage.label_drop {
+    //values = [ "service_name" ]
+  //}
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://dals_srv-loki:3100/loki/api/v1/push"
+  }
+}

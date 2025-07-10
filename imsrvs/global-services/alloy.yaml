@@ -1,0 +1,34 @@
+services:
+  srv-alloy:
+    image: m.daocloud.io/docker.io/grafana/alloy
+    command: 
+    - run 
+    - --server.http.listen-addr=0.0.0.0:12345 
+    - --storage.path=/var/lib/alloy/data 
+    - /etc/alloy/config.alloy
+    labels:
+      service-type: global
+      prometheus-job: alloy
+    ports:
+    - target: 12345
+      published: 12345
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      placement:
+        constraints:
+        - node.platform.os==linux
+    volumes:
+    - source: ./config/config.alloy
+      target: /etc/alloy/config.alloy
+      type: bind
+    - source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      type: bind
+    - source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+      read_only: true

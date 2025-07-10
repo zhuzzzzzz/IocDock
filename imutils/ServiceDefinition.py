@@ -7,6 +7,7 @@ GlobalServicesList = [
     "iocLogServer",
     "cAdvisor",
     "nodeExporter",
+    "alloy",
 ]
 
 #

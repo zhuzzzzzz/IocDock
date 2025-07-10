@@ -193,15 +193,25 @@ class SwarmManager:
         try_makedirs(os.path.join(top_path, LOG_FILE_DIR))
         #
         try_makedirs(os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR))
+        try_makedirs(os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config'))
         #
 
         for item in GlobalServicesList:
+            temp_service = SwarmService(item, service_type='global')
             if f'{item}.yaml' in os.listdir(GLOBAL_SERVICES_PATH):
-                # copy yaml file
-                template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{item}.yaml')
-                file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
-                file_copy(template_path, file_path, mode='r', verbose=verbose)
-                print(f'SwarmManager: Create deployment file for "{item}".')
+                if temp_service.is_deployed:
+                    print(f'SwarmManager: Failed to create deployment file for "{item}" as it is running.')
+                else:
+                    if item == 'alloy' and 'config.alloy' in os.listdir(GLOBAL_SERVICES_CONFIG_PATH):
+                        # copy config file for alloy
+                        template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'config.alloy')
+                        file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'config.alloy')
+                        file_copy(template_path, file_path, mode='r', verbose=verbose)
+                    # copy yaml file
+                    template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{item}.yaml')
+                    file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
+                    file_copy(template_path, file_path, mode='r', verbose=verbose)
+                    print(f'SwarmManager: Create deployment file for "{item}".')
             else:
                 print(
                     f'SwarmManager: Failed to create deployment file for "{item}" as its template file dose not exist.')
