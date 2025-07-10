@@ -1,0 +1,36 @@
+### 构建IOC运行环境的容器镜像:
+
+docker build -t ioc-exec:dev .
+或
+docker build -t ioc-exec:beta .
+docker build -t ioc-exec:prod .
+
+
+### 准备
+0. 准备EPICS base的docker镜像, 并设置Dockerfile中变量BASE_IMAGE, 使其对应于所选择的镜像
+
+1. 安装EPICS supports
+	0) 所有工作在SUPPORT目录内完成, 将所有需要安装模块的项目文件解压至SUPPORT目录
+	1) 检查各模块/configure/RELEASE文件, 注释掉不需要的路径变量
+	2) 对部分模块需要单独修改文件配置, 例如asyn模块需在CONFIG_SITE中设置TIRPC=YES
+	3) 编辑脚本automake.sh, 设置变量modules_to_install, 按顺序设置需要安装哪些模块
+	4) 编辑脚本checkDependency.sh, 设置变量module_dict, 设置需要安装的模块的依赖关系; 设置变量path_name, 设置被依赖模块的路径名称及对应在Makefile中的包名称
+	5) 运行脚本automake.sh安装目录内模块(Dockerfile内自动完成)
+
+2. 编译IOC可执行文件
+	0) 所有工作在IOC/ioc-tools目录内完成
+	1) 编辑脚本ioc-generator.py, 设置IOC的基本信息以及需要为IOC安装的模块(若设置了sequencer, 则需要进一步在python脚本内提供关于seq的配置信息)
+	2) 运行脚本ioc-generator.py, 完成IOC可执行文件的创建以及编译(Dockerfile内自动完成)
+
+
+	
+### 测试
+============== ioc-exec:xxx ==============
+1. 检查各个模块是否能够成功安装
+	SUPPORT/test-for-automake.sh
+2. 测试IOC是否能够正常创建编译
+	ioc-tools/test-for-ioc-generator.sh
+3. 测试IOC项目能否启动且含有system命令
+	cd IOC启动目录; ./st.cmd
+	
+

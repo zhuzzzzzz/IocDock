@@ -1,0 +1,10 @@
+
+
+
+# files to be tracked
+!Dockerfile
+!README
+!setENV.sh
+!.bash_aliases
+!base-7.0.8.1.tar.gz
+

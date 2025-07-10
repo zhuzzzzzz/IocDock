@@ -1,0 +1,15 @@
+
+# files to be tracked.
+!automake.sh
+!checkDependency.sh
+!ModulesDependency.txt
+!test-for-automake.sh
+!asyn.zip
+!autosave.zip
+!caPutLog.zip
+!iocStats.zip
+!modbus.zip
+!s7nodave.zip
+!seq.zip
+!StreamDevice.zip
+!BACnet.zip

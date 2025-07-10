@@ -1,0 +1,89 @@
+
+dependency sequence for installation of each module.
+====================================
+
+seq(2.2.9)
+======
+	<-	EPICS_BASE
+
+
+autosave(R5-10-2)
+======
+	<-	EPICS_BASE
+	
+
+caPutLog(R4.0)
+======
+	<-	EPICS_BASE
+
+
+iocStats(3.2.0)
+======
+	<-	EPICS_BASE
+	<-	SNCSEQ (optional for testIocStatsApp test application)
+
+
+sscan(R2-11-6)
+======
+	<-	EPICS_BASE
+	<-	SNCSEQ (optional only for scanProgress)
+
+
+calc(R3-7-5)
+======
+	<-	EPICS_BASE
+	<-	SSCAN (optional for swait)
+	<-	SNCSEQ (optional for editSseq.st)
+
+
+asyn(R4-44-2)
+======
+	<-	EPICS_BASE
+	<-	IPAC (optional for Greensprings IP488)
+	<-	SNCSEQ (optional for testIPServer)
+	<-	CALC  (optional for sCalcout support)
+	<-	SSCAN  (optional, If CALC was built with SSCAN support then SSCAN must be defined for testEpicsApp)
+
+
+StreamDevice(2.8.24)
+======
+	<-	EPICS_BASE
+	<-	ASYN
+	<-	CALC (optional for sCalcout record)
+	<-	PCRE (optional for regular expression matching)
+
+	
+busy(R1-7-4)
+======
+	<-	EPICS_BASE
+	<-	ASYN *(optional for asyn device support)
+	<-	AUTOSAVE (optional for test application only)
+
+
+
+areaDetector
+======
+	<-	EPICS_BASE
+	<-	ASYN
+	<-	AUTOSAVE
+	<-	BUSY
+	<-	CALC
+	<-	SSCAN
+	<-	DEVIOCSTATS (optional)
+	<-	ALIVE (optional)
+		
+		
+
+	
+
+
+
+
+
+
+
+
+
+
+
+

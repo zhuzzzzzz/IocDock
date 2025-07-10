@@ -1,0 +1,14 @@
+# python files
+__pycache__/
+.idea/
+
+# test 
+test/
+
+# ignore EPICS base
+base/*
+!base/.gitignore
+
+# ignore uncollected EPICS modules
+ioc-exec/SUPPORT/*
+!ioc-exec/SUPPORT/.gitignore
