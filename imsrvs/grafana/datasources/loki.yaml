@@ -7,7 +7,7 @@ datasources:
   type: loki
   access: proxy
   orgId: 1
-  url: http://dals_srv-loki:3100
+  url: http://iasf_srv-loki:3100
   basicAuth: false
   isDefault: false
   editable: true 

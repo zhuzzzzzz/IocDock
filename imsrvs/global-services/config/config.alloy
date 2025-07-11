@@ -38,7 +38,7 @@ discovery.relabel "default" {
 loki.source.docker "default" {
   host = "unix:///var/run/docker.sock"
   targets = discovery.docker.default.targets
-  labels = {"platform" = "docker"}
+  labels = {"component" = "container"}
   relabel_rules = discovery.relabel.default.rules
   forward_to = [loki.relabel.default.receiver]
   refresh_interval = "10s"
@@ -49,7 +49,7 @@ loki.relabel "default" {
   
   rule {
     source_labels = ["stack"]
-    regex = "dals|test"
+    regex = "iasf|test"
     action = "keep"
   }
   
@@ -75,6 +75,6 @@ loki.process "default" {
 
 loki.write "local" {
   endpoint {
-    url = "http://dals_srv-loki:3100/loki/api/v1/push"
+    url = "http://iasf_srv-loki:3100/loki/api/v1/push"
   }
 }

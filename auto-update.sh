@@ -41,7 +41,7 @@ if [ $? -ne 0 ]; then
     echo "Failed. Failed to get \"MOUNT_PATH\" in configuration file." >&2
     exit 1 
 fi
-file_path=/etc/profile.d/IocManagerInstaller.sh
+file_path=/etc/profile.d/IocDockSetup.sh
 echo "export MANAGER_PATH=$script_dir" > $file_path
 echo "export REPOSITORY_PATH=$repository_path" >> $file_path
 echo "export MOUNT_PATH=$mount_path" >> $file_path
@@ -60,11 +60,13 @@ ln -sf $script_dir/IocManager.py /usr/bin/IocManager
 
 
 # set nfs mounting.
-# /etc/exports
+# sudo vi /etc/exports
 # /home/ubuntu/nfs-dir/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
+# sudo exportfs -a
 # mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
-# /etc/fstab
+# vi /etc/fstab
 # server:/srv/nfs  /mnt/nfs_share  nfs  rw,_netdev,vers=4  0  0
+# sudo mount -a
 
 # finished.
 echo "Update finished. To make some settings to take effect, you may need to re-open the shell or to reboot the system."

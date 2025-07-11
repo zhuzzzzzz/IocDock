@@ -22,6 +22,9 @@ services:
         constraints:
         - node.platform.os==linux
     volumes:
+    - source: ../../../alloy-data
+      target: /var/lib/alloy/data
+      type: bind
     - source: ./config/config.alloy
       target: /etc/alloy/config.alloy
       type: bind

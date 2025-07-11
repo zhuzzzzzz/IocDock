@@ -5,7 +5,7 @@ script_dir=$(dirname $script_abs)
 
 base_version=7.0.8.1
 release_prefix=image.dals
-release_version=beta-0.2.3
+release_version=beta-0.2.2
 
 
 # Check if the script is running as root.

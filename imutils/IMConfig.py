@@ -78,8 +78,8 @@ DEFAULT_MODULES = 'autosave, caputlog'
 # directory, file and path.
 ## ---------------------- ##
 
-MOUNT_DIR = 'ioc-for-docker'  # top directory for nfs mounting
-# MOUNT_DIR = 'IocDock-data'
+# MOUNT_DIR = 'ioc-for-docker'  # top directory for nfs mounting
+MOUNT_DIR = 'IocDock-data'
 SWARM_DIR = 'swarm'  # top directory for swarm deploying
 LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
 
@@ -92,7 +92,7 @@ MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH,
 ## ---- ##
 
 # managed stack name in swarm
-PREFIX_STACK_NAME = 'dals'
+PREFIX_STACK_NAME = 'iasf'
 
 ###########################
 # IOC deployment settings #
