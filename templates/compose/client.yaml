@@ -1,0 +1,41 @@
+networks:
+  hostnet:
+    external: true
+    name: host
+services:
+  srv-client:
+    networks:
+    - hostnet
+    labels:
+      service-type: custom
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      mode: replicated
+      replicas: 3
+      restart_policy:
+        window: 10s
+      update_config:
+        delay: 10s
+        failure_action: rollback
+        parallelism: 1
+    working_dir: /opt/EPICS/base-7.0.8.1/bin/linux-x86_64
+    entrypoint:
+    - bash
+    - -c
+    - export HOSTNAME=$$(cat /etc/hostname);
+      . ~/.bash_aliases; 
+      date; 
+      sleep infinity;
+    image: image.dals/base:beta-0.2.2
+    volumes:
+    - read_only: true
+      source: /etc/localtime
+      target: /etc/localtime
+      type: bind
+    - read_only: true
+      source: /etc/hostname
+      target: /etc/hostname
+      type: bind

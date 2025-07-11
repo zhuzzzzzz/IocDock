@@ -1,10 +1,12 @@
 #!/usr/bin/python3
 
+import random
 import os.path
 import argparse
+import subprocess
 import configparser
 
-from imutils.IMConfig import get_manager_path, IOC_CONFIG_FILE, IOC_BACKUP_DIR
+from imutils.IMConfig import get_manager_path, IOC_CONFIG_FILE, IOC_BACKUP_DIR, PREFIX_STACK_NAME
 from imutils.IMFunc import operation_log, condition_parse
 from imutils.IMUtil import create_ioc, set_ioc, get_filtered_ioc, remove_ioc, execute_ioc, rename_ioc, update_ioc, \
     execute_swarm, execute_service, edit_ioc, execute_config
@@ -239,6 +241,13 @@ if __name__ == '__main__':
     parser_config.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
     parser_config.set_defaults(func='parse_config')
 
+    #
+    parser_config = subparsers.add_parser('client', help='Call EPICS client library to connect PV in swarm.',
+                                          formatter_class=argparse.RawTextHelpFormatter)
+    parser_config.add_argument('cmd', type=str, help='command.')
+    parser_config.add_argument('arguments', type=str, nargs='*', help='arguments.')
+    parser_config.set_defaults(func='parse_client')
+
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
@@ -248,6 +257,8 @@ if __name__ == '__main__':
     operation_log()
 
     # print(f'{args}')
+    if not hasattr(args, 'verbose'):
+        args.verbose = False
     if args.verbose:
         print(args)
     if args.func == 'parse_create' or args.func == 'parse_set':
@@ -335,5 +346,25 @@ if __name__ == '__main__':
     if args.func == 'parse_config':
         # ./iocManager.py config
         execute_config(args)
+    if args.func == 'parse_client':
+        # ./iocManager.py client
+        result = subprocess.run(
+            ['docker', 'ps', '--format', '{{.ID}}',
+             '--filter', f'label=com.docker.swarm.service.name={PREFIX_STACK_NAME}_srv-client', ],
+            capture_output=True,
+            text=True
+        )
+        if result.stderr:
+            print(f'Failed. Exit code "{result.returncode}". {result.stderr}.')
+            exit(1)
+        if not result.stdout:
+            print(f'Failed. Container that matches '
+                  f'label="com.docker.swarm.service.name={PREFIX_STACK_NAME}_srv-client" was not running.')
+            exit(1)
+        container_list = list(filter(None, result.stdout.split('\n')))
+        arguments = ' '.join(args.arguments)
+        cmd_str = f'docker exec {random.choice(container_list)} ./{args.cmd} {arguments}'
+        print(f'executing "{cmd_str}".')
+        os.system(cmd_str)
     if args.verbose:
         print()

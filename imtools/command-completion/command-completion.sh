@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set exec list swarm service remove rename edit config"
+	sub_command_opts="create set exec list swarm service remove rename edit config client"
 	
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw"
@@ -93,6 +93,9 @@ _mycommand_completion() {
 			"edit")
 			prompt="" # "edit" should specify an IOC project firstly.
 			prompt="$ioc_list $prompt"
+			;;
+			"client")
+			prompt="caget caput cainfo camonitor" 
 			;;
 			*)
 			return 1
