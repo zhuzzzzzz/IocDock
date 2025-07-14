@@ -38,7 +38,7 @@ discovery.relabel "default" {
 loki.source.docker "default" {
   host = "unix:///var/run/docker.sock"
   targets = discovery.docker.default.targets
-  labels = {"component" = "container"}
+  labels = {"component" = "container", "instance" = sys.env("HOSTNAME")}
   relabel_rules = discovery.relabel.default.rules
   forward_to = [loki.relabel.default.receiver]
   refresh_interval = "10s"

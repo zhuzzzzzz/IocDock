@@ -13,8 +13,7 @@ services:
         limits:
           cpus: "1"
           memory: 1G
-      mode: replicated
-      replicas: 3
+      mode: global
       restart_policy:
         window: 10s
       update_config:

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -ex
+
+echo "$@"
+
+export HOSTNAME=$(cat /etc/hostname)
+
+set -- /bin/alloy "$@"
+
+exec "$@"
