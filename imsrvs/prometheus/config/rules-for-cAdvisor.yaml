@@ -6,7 +6,7 @@ groups:
       - record: container_cpu_core_usage_percent:name_service_instance
         expr: |2
           (sum by (name, service, service_type, instance)
-          (rate(container_cpu_usage_seconds_total{stack=~'dals|test'}[2m]))) * 100
+          (rate(container_cpu_usage_seconds_total{stack=~'iasf|test'}[2m]))) * 100
           
       - alert: HighContainerCpuCoreUsagePercent
         expr: container_cpu_core_usage_percent:name_service_instance > 50
@@ -36,9 +36,9 @@ groups:
       # memory | threshold: 50% of assigned memory(warning), 80% of assigned memory(critical)
       - record: container_memory_usage_percent:name_service_instance
         expr: |2
-            (container_memory_working_set_bytes{stack=~'dals|test'}  
+            (container_memory_working_set_bytes{stack=~'iasf|test'}  
           / on(name, service, service_type, instance) 
-            container_spec_memory_limit_bytes{stack=~'dals|test'}) * 100
+            container_spec_memory_limit_bytes{stack=~'iasf|test'}) * 100
             
       - alert: HighContainerMemoryUsagePercent
         expr: container_memory_usage_percent:name_service_instance > 50
@@ -68,7 +68,7 @@ groups:
       # blkio read | threshold: 10 MB/s
       - record: container_blkio_rate_read:name_service_instance_device
         expr: |2
-          (sum(rate(container_blkio_device_usage_total{stack=~'dals|test',operation='Read'}[2m]))
+          (sum(rate(container_blkio_device_usage_total{stack=~'iasf|test',operation='Read'}[2m]))
           by (name, service, service_type, instance, device)) / 1_000
 
       - alert: HighContainerBlkioRateRead
@@ -88,7 +88,7 @@ groups:
       # blkio write | threshold: 10 MB/s
       - record: container_blkio_rate_write:name_service_instance_device
         expr: |2
-          (sum(rate(container_blkio_device_usage_total{stack=~'dals|test',operation='Write'}[2m]))
+          (sum(rate(container_blkio_device_usage_total{stack=~'iasf|test',operation='Write'}[2m]))
           by (name, service, instance, service_type, device)) / 1_000
 
       - alert: HighContainerBlkioRateWrite
@@ -108,9 +108,9 @@ groups:
       # file system usage | threshold: 70% of maximum capacity
       - record: container_fs_usage_percent:name_service_instance_device
         expr: |2
-            (container_fs_usage_bytes{stack=~'dals|test'}
+            (container_fs_usage_bytes{stack=~'iasf|test'}
           / on(name, service, service_type, instance, device) 
-            container_fs_limit_bytes{stack=~'dals|test'}) * 100
+            container_fs_limit_bytes{stack=~'iasf|test'}) * 100
 
       - alert: HighContainerFileSystemUsagePercent
         expr: container_fs_usage_percent:name_service_instance_device > 70
@@ -128,7 +128,7 @@ groups:
       # file system read | threshold: 10 MB/s
       - record: container_fs_rate_read:name_service_instance_device
         expr: |2
-          (sum(rate(container_fs_reads_bytes_total{stack=~'dals|test'}[2m])) 
+          (sum(rate(container_fs_reads_bytes_total{stack=~'iasf|test'}[2m])) 
           by (name, service, service_type, instance, device)) / 1_000
 
       - alert: HighContainerFileSystemRateRead
@@ -148,7 +148,7 @@ groups:
       # file system write | threshold: 10 MB/s
       - record: container_fs_rate_write:name_service_instance_device
         expr: |2
-          (sum(rate(container_fs_writes_bytes_total{stack=~'dals|test'}[2m])) 
+          (sum(rate(container_fs_writes_bytes_total{stack=~'iasf|test'}[2m])) 
           by (name, service, service_type, instance, device)) / 1_000
           
       - alert: HighContainerFileSystemRateWrite
@@ -169,7 +169,7 @@ groups:
       - record: container_last_beat_seconds:name_service_instance
         expr: |2
           sum by (name, service, service_type, instance)
-          (time() - container_last_seen{stack=~'dals|test'})
+          (time() - container_last_seen{stack=~'iasf|test'})
           
       - alert: ContainerOffline
         expr: container_last_beat_seconds:name_service_instance > 30
@@ -187,7 +187,7 @@ groups:
       # service offline | threshold: 60s lost of heartbeat
       - record: service_last_beat_seconds:service
         expr: |2
-          time() - (max(container_last_seen{stack=~'dals|test'}) by (service, service_type))
+          time() - (max(container_last_seen{stack=~'iasf|test'}) by (service, service_type))
           
       - alert: ServiceOffline
         expr: service_last_beat_seconds:service > 30
@@ -204,7 +204,7 @@ groups:
       # instance service offline | threshold: 60s lost of heartbeat
       - record: service_last_beat_seconds:instance_service
         expr: |2
-          time() - (max(container_last_seen{stack=~'dals|test'}) by (service, service_type, instance))
+          time() - (max(container_last_seen{stack=~'iasf|test'}) by (service, service_type, instance))
           
       - alert: InstanceServiceOffline
         expr: service_last_beat_seconds:instance_service > 30
@@ -221,20 +221,20 @@ groups:
       # container network receive rate
       - record: container_network_kilobytes_rate_receive:name_service_instance
         expr: |2
-          (sum(rate(container_network_receive_bytes_total{stack=~'dals|test'}[2m])) 
+          (sum(rate(container_network_receive_bytes_total{stack=~'iasf|test'}[2m])) 
           by (name, service, service_type, instance)) / 1_000
           
       # container network transmit rate
       - record: container_network_kilobytes_rate_transmit:name_service_instance
         expr: |2
-          (sum(rate(container_network_transmit_bytes_total{stack=~'dals|test'}[2m])) 
+          (sum(rate(container_network_transmit_bytes_total{stack=~'iasf|test'}[2m])) 
           by (name, service, service_type, instance)) / 1_000
           
       # container network errors rate | threshold: 10 packets per second
       - record: container_network_error_rate:name_service_instance
         expr: |2
           sum by (name, service, service_type, instance)
-          (rate(container_network_receive_errors_total{stack=~'dals|test'}[2m]) + rate(container_network_transmit_errors_total{stack=~'dals|test'}[2m]))
+          (rate(container_network_receive_errors_total{stack=~'iasf|test'}[2m]) + rate(container_network_transmit_errors_total{stack=~'iasf|test'}[2m]))
           
       - alert: HighContainerNetworkErrorRate
         expr: container_network_error_rate:name_service_instance > 10
@@ -253,7 +253,7 @@ groups:
       - record: container_network_packet_drop_rate:name_service_instance
         expr: |2
           sum by (name, service, service_type, instance)
-          (rate(container_network_receive_packets_dropped_total{stack=~'dals|test'}[2m]) + rate(container_network_transmit_packets_dropped_total{stack=~'dals|test'}[2m]))
+          (rate(container_network_receive_packets_dropped_total{stack=~'iasf|test'}[2m]) + rate(container_network_transmit_packets_dropped_total{stack=~'iasf|test'}[2m]))
           
       - alert: HighContainerNetworkPacketDropRate
         expr: container_network_packet_drop_rate:name_service_instance > 10

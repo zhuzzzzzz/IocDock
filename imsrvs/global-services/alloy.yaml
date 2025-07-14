@@ -13,6 +13,7 @@ services:
     ports:
     - target: 12345
       published: 12345
+      mode: host # bypass the routing mesh
     deploy:
       mode: global
       resources:

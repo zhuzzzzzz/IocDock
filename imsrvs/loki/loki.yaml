@@ -9,6 +9,7 @@ services:
     ports:
     - target: 3100
       published: 3100
+      mode: host # bypass the routing mesh
     deploy:
       mode: replicated
       replicas: 1

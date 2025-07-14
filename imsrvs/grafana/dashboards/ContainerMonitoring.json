@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -482,6 +482,7 @@
         "x": 0,
         "y": 7
       },
+      "hideTimeOverride": false,
       "id": 25,
       "options": {
         "minVizHeight": 75,
@@ -507,12 +508,13 @@
             "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
-          "expr": "count(container_last_seen{service_type='ioc'})",
+          "expr": "count(container_last_seen{service_type='ioc'}) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
+      "timeFrom": "5m",
       "title": "Swarm Application",
       "transparent": true,
       "type": "gauge"
@@ -576,12 +578,13 @@
             "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
-          "expr": "count(sum by (service) (container_last_seen{service_type=\"custom\"}))",
+          "expr": "count(sum by (service) (container_last_seen{service_type=\"custom\"})) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
+      "timeFrom": "5m",
       "title": "Swarm Application",
       "transparent": true,
       "type": "gauge"
@@ -645,12 +648,13 @@
             "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
-          "expr": "count(sum by (service) (container_last_seen{service_type=~\"global|local\"}))",
+          "expr": "count(sum by (service) (container_last_seen{service_type=~\"global|local\"})) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
+      "timeFrom": "5m",
       "title": "Swarm Application",
       "transparent": true,
       "type": "gauge"
@@ -667,7 +671,6 @@
           },
           "displayName": "severity=info",
           "mappings": [],
-          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -715,7 +718,7 @@
             "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
-          "expr": "sum(ALERTS{severity='info'})",
+          "expr": "sum(ALERTS{severity='info'}) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -738,7 +741,6 @@
           },
           "displayName": "severity=warning",
           "mappings": [],
-          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -786,7 +788,7 @@
             "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
-          "expr": "sum(ALERTS{severity='warning'})",
+          "expr": "sum(ALERTS{severity='warning'}) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -809,7 +811,6 @@
           },
           "displayName": "severity=critical",
           "mappings": [],
-          "noValue": "-",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -858,7 +859,7 @@
             "uid": "${PrometheusSource}"
           },
           "editorMode": "code",
-          "expr": "sum(ALERTS{severity='critical'})",
+          "expr": "sum(ALERTS{severity='critical'}) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"

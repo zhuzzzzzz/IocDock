@@ -204,6 +204,7 @@ class SwarmManager:
             excluded_item.append('alloy')
         else:
             if 'config.alloy' in os.listdir(GLOBAL_SERVICES_CONFIG_PATH):
+                #
                 template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'config.alloy')
                 #
                 os.system(f'sed -i -r '
@@ -217,6 +218,10 @@ class SwarmManager:
                 os.system(cmd)
                 file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'config.alloy')
                 file_copy(template_path, file_path, mode='r', verbose=verbose)
+                #
+                template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'run.alloy')
+                file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'run.alloy')
+                file_copy(template_path, file_path, mode='rx', verbose=verbose)
 
         for item in GlobalServicesList:
             temp_service = SwarmService(item, service_type='global')
@@ -249,6 +254,17 @@ class SwarmManager:
             with open(file_path, "w") as f:
                 f.write(f'REGISTRY_COMMON_NAME={REGISTRY_COMMON_NAME}\n')
                 f.write(f'REGISTRY_CERT_DOCKER_DIR={REGISTRY_CERT_DOCKER_DIR}\n')
+
+        # setup prometheus
+        temp_service = SwarmService('prometheus', service_type='local')
+        if temp_service.is_deployed:  # check whether the directory being mounted.
+            excluded_item.append('prometheus')
+        else:
+            # write shell variable file
+            file_path = os.path.join(SERVICES_PATH, 'prometheus', 'config', 'rules-for-cAdvisor.yaml')
+            os.system(f'sed -i -r '
+                      f'"s/stack=~\'[^\']*\'/stack=~\'{PREFIX_STACK_NAME}\|test\'/g" '
+                      f'{file_path}')
 
         # setup alertManager
         temp_service = SwarmService('alertManager', service_type='local')
