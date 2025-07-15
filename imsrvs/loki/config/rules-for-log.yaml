@@ -1,0 +1,31 @@
+groups:
+- name: should_fire
+  interval: 10s
+  rules:
+  - record: DetectdDisconnectForIOC
+    expr: |
+      max(sum by (service) (count_over_time({service_type="ioc"} |~ "(?i)disconnect|not connect" [10m])) or vector(0))
+      
+  - record: DetectdWarningForIOC
+    expr: |
+      max(sum by (service) (count_over_time({service_type="ioc"} |~ "(?i)warning" [10m])) or vector(0))
+      
+  - record: DetectdErrorForIOC
+    expr: |
+      max(sum by (service) (count_over_time({service_type="ioc"} |~ "(?i)error" [10m])) or vector(0))
+      
+  - record: DetectdMismatchForIOC
+    expr: |
+      max(sum by (service) (count_over_time({service_type="ioc"} |~ "(?i)not match|mismatch" [10m])) or vector(0))
+      
+  - alert: AlarmDisconnectForIOC
+    expr: DetectdDisconnectForIOC > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: DetectdDisconnectForIOC
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Disconnection issues."
+            

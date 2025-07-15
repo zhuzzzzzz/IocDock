@@ -7,7 +7,7 @@
 }
 ```
 
-#### 设置 docker daemon 监听本地 2375 端口
+#### 设置 docker daemon 监听本地 2375 端口(可选)
 
 ```
 # daemon.json

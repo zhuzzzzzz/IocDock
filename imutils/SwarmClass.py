@@ -286,8 +286,7 @@ class SwarmManager:
             file_path = os.path.join(src_path, 'loki.yaml')
             os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100/" {file_path}')
             file_path = os.path.join(src_path, 'prometheus.yaml')
-            os.system(f'sed -i -r "s/url: .*/url: http:\/\/{ALERT_MANAGER_MASTER_IP}:9090/" {file_path}')
-
+            os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-prometheus:9090/" {file_path}')
         # copy directory of all local services defined.
         for item in LocalServicesList:
             temp_service = SwarmService(item, service_type='local')

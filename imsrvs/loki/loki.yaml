@@ -25,6 +25,9 @@ services:
     - source: ./config/loki-config.yaml
       target: /etc/loki/local-config.yaml
       type: bind
+    - source: ./config/rules-for-log.yaml
+      target: /tmp/scratch
+      type: bind
     - source: /etc/localtime
       target: /etc/localtime
       type: bind

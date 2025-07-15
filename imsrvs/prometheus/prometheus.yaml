@@ -1,12 +1,9 @@
-networks:
-  hostnet:
-    external: true
-    name: host
 services:
   srv-prometheus:
     image: m.daocloud.io/docker.io/prom/prometheus:v3.3.1
-    networks:
-    - hostnet
+    ports:
+    - target: 9090
+      published: 9090
     labels:
       service-type: local
       prometheus-job: prometheus
@@ -20,11 +17,12 @@ services:
         constraints:
         - node.platform.os==linux
         - node.labels.prometheus==true
+    user: root
     volumes:
-#    - source: /var/run/docker.sock
-#      target: /var/run/docker.sock
-#      type: bind
-#      read_only: true
+    - source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      type: bind
+      read_only: true
     - source: ./config
       target: /etc/prometheus
       type: bind

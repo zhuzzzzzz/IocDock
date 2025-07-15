@@ -45,8 +45,17 @@ pattern_ingester:
     loki_address: localhost:3100
 
 ruler:
-  enable_alertmanager_discovery: true
+  storage:
+    type: local
+    local:
+      directory: /tmp/rules
+  rule_path: /tmp/scratch
+  alertmanager_url: http://localhost
+  ring:
+    kvstore:
+      store: inmemory
   enable_api: true
+  enable_alertmanager_discovery: true
 
 frontend:
   encoding: protobuf
