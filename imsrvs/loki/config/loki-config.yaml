@@ -24,6 +24,7 @@ query_range:
         max_size_mb: 100
 
 limits_config:
+  discover_service_name: []
   metric_aggregation_enabled: true
   allow_structured_metadata: true
   volume_enabled: true
@@ -48,20 +49,21 @@ ruler:
   storage:
     type: local
     local:
-      directory: /tmp/rules
-  rule_path: /tmp/scratch
-  alertmanager_url: http://localhost
+      directory: /tmp/loki/rules
+  remote_write:
+    enabled: true
+    clients:
+      prometheus:
+        url: http://iasf_srv-prometheus:9090/api/v1/write
+  alertmanager_url: http://192.168.1.51:9093
   ring:
     kvstore:
       store: inmemory
-  enable_api: true
-  enable_alertmanager_discovery: true
 
 frontend:
   encoding: protobuf
 
 compactor:
-  working_directory: /tmp/loki/retention
   delete_request_store: filesystem
   retention_enabled: true
   
