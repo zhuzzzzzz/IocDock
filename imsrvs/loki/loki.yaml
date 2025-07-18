@@ -21,12 +21,13 @@ services:
         constraints:
         - node.platform.os==linux
         - node.labels.loki==true
+    user: root
     volumes:
     - source: ./config/loki-config.yaml
       target: /etc/loki/local-config.yaml
       type: bind
-    - source: ./config/rules-for-log.yaml
-      target: /tmp/scratch
+    - source: ./rules/fake
+      target: /tmp/loki/rules/fake
       type: bind
     - source: /etc/localtime
       target: /etc/localtime

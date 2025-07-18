@@ -277,6 +277,16 @@ class SwarmManager:
                 f.write(f'ALERT_MANAGER_MASTER_IP={ALERT_MANAGER_MASTER_IP}\n')
                 f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_PORT}\n')
 
+        # setup loki
+        temp_service = SwarmService('loki', service_type='local')
+        if temp_service.is_deployed:
+            excluded_item.append('loki')
+        else:
+            file_path = os.path.join(SERVICES_PATH, 'loki', 'config', 'loki.yaml')
+            os.system(
+                f'sed -i -r "s/url: .*_srv-prometheus/url: http:\/\/{PREFIX_STACK_NAME}_srv-prometheus/" {file_path}')
+            os.system(f'sed -i -r "s/alertmanager_url: .*/alertmanager_url: http://{ALERT_MANAGER_MASTER_IP}:9093"')
+
         # setup grafana
         temp_service = SwarmService('grafana', service_type='local')
         if temp_service.is_deployed:
@@ -287,6 +297,7 @@ class SwarmManager:
             os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100/" {file_path}')
             file_path = os.path.join(src_path, 'prometheus.yaml')
             os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-prometheus:9090/" {file_path}')
+
         # copy directory of all local services defined.
         for item in LocalServicesList:
             temp_service = SwarmService(item, service_type='local')

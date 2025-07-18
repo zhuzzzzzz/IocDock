@@ -14,7 +14,8 @@ rule_files:
 alerting:
   alertmanagers:
     - dockerswarm_sd_configs:
-      - host: tcp://127.0.0.10:2375
+      - host: unix:///var/run/docker.sock
+#      - host: tcp://127.0.0.10:2375
         role: nodes
       relabel_configs:
         - source_labels: [__meta_dockerswarm_node_hostname]

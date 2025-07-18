@@ -1,0 +1,93 @@
+groups:
+- name: ioc-shell
+  interval: 10s
+  rules:
+  - record: MismatchCountForIOC
+    expr: |
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not match|mismatch" [1d]))
+      
+  - record: DisconnectCountForIOC
+    expr: |
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not connect|disconnect|can't connect" [1d]))
+      
+  - record: TimeoutCountForIOC
+    expr: |
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" [1d]))
+      
+  - record: NoReplyCountForIOC
+    expr: |
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not reply|no reply" [1d]))
+      
+  - record: WarningCountForIOC
+    expr: |
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)warn|warning" [1d]))
+      
+  - record: ErrorCountForIOC
+    expr: |
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)error" [1d]))
+      
+  - alert: MismatchDetectedForIOC
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not match|mismatch" [5m])) > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: Mismatch Detected in logs from IOC shell
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Mismatch issues with protocol."
+            
+  - alert: DisconnectDetectedForIOC
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not connect|disconnect|can't connect" [5m])) > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: Disconnect Detected in logs from IOC shell
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Connection issues."
+  
+  - alert: TimeoutDetectedForIOC
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" [5m])) > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: Timeout Detected in logs from IOC shell
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Connection issues."
+  
+  - alert: NoReplyDetectedForIOC
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not reply|no reply" [5m])) > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: No Reply Detected in logs from IOC shell
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Connection issues."
+            
+  - alert: WarningDetectedForIOC
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)warn|warning" [5m])) > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: Warning Detected in logs from IOC shell
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Warning issues."
+  
+  - alert: ErrorDetectedForIOC
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)error" [5m])) > 0
+    keep_firing_for: 5m
+    labels:
+      severity: warning
+      component: ioc
+    annotations:
+      summary: Error Detected in logs from IOC shell
+      description: 
+            "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Error issues."

@@ -68,9 +68,6 @@ loki.relabel "default" {
 loki.process "default" {
   forward_to = [loki.write.local.receiver]
 
-  //stage.label_drop {
-    //values = [ "service_name" ]
-  //}
 }
 
 loki.write "local" {
