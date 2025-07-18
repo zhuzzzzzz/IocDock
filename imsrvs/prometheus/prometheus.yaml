@@ -34,6 +34,14 @@ services:
       target: /etc/localtime
       type: bind
       read_only: true
+    - source: /etc/hostname
+      target: /etc/hostname
+      type: bind
+      read_only: true
+    - source: ./scripts/run-prometheus.sh
+      target: /run-prometheus.sh
+      type: bind
+    entrypoint: /run-prometheus.sh
     command:
     - "--config.file=/etc/prometheus/prometheus-config.yaml"
     - "--storage.tsdb.path=/prometheus"
