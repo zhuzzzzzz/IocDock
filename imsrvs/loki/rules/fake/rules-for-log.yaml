@@ -12,7 +12,7 @@ groups:
       
   - record: TimeoutCountForIOC
     expr: |
-      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" [1d]))
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" != "save_restoreSet_CallbackTimeout" [1d]))
       
   - record: NoReplyCountForIOC
     expr: |
@@ -49,7 +49,7 @@ groups:
             "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Connection issues."
   
   - alert: TimeoutDetectedForIOC
-    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" [5m])) > 0
+    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" != "save_restoreSet_CallbackTimeout" [5m])) > 0
     keep_firing_for: 5m
     labels:
       severity: warning

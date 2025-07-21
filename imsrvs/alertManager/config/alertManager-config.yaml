@@ -12,6 +12,28 @@ route:
   group_interval: 5m
   repeat_interval: 30m
   routes:
+  # for log line detection.
+  - matchers:
+    - component=~"ioc"
+    group_by: [component, service, severity]
+    receiver: test-mail
+    routes:
+    # for severity=info
+    - matchers:
+      - severity="info"
+      mute_time_intervals:
+      - all-time
+    # for severity!=info
+    - matchers:
+      - severity="warning"
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 30m
+    - matchers:
+      - severity="critical"
+      group_wait: 30s
+      group_interval: 1m
+      repeat_interval: 10m
   # for container offline or service offline.
   - matchers:
     - alertname=~"ContainerOffline|ServiceOffline|InstanceServiceOffline"
@@ -78,7 +100,7 @@ route:
   # for other performance metrics and severity=critical.
   - matchers: 
     - severity="critical"
-    group_by: [component, severity, service, service_type]
+    group_by: [component, service, service_type, severity]
     receiver: test-mail-send-resolve
     group_wait: 30s
     group_interval: 1m

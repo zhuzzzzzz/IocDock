@@ -275,7 +275,16 @@ class SwarmManager:
             file_path = os.path.join(SERVICES_PATH, 'alertManager', 'scripts', ALERT_MANAGER_SHELL_VAR_FILE)
             with open(file_path, "w") as f:
                 f.write(f'ALERT_MANAGER_MASTER_IP={ALERT_MANAGER_MASTER_IP}\n')
-                f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_PORT}\n')
+                f.write(f'ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_GOSSIP_PORT}\n')
+            # set smtp account
+            file_path = os.path.join(SERVICES_PATH, 'alertManager', 'config', 'alertManager-config.yaml')
+            os.system(f'sed -i -r "s/smtp_from: .*/smtp_from: {ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS}/" {file_path}')
+            os.system(f'sed -i -r "s/smtp_smarthost: .*/smtp_smarthost: {ALERT_MANAGER_SMTP_SMART_HOST}/" {file_path}')
+            os.system(f'sed -i -r '
+                      f'"s/smtp_auth_username: .*/smtp_auth_username: {ALERT_MANAGER_SMTP_AUTH_USERNAME}/" {file_path}')
+            file_path = os.path.join(SERVICES_PATH, 'alertManager', 'config', 'smtp_password')
+            if not os.path.isfile(file_path):
+                print(f'SwarmManager: Warning! Password file "smtp_password" not exists in "config" dir.')
 
         # setup loki
         temp_service = SwarmService('loki', service_type='local')
