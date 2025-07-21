@@ -23,6 +23,9 @@ services:
         - node.labels.loki==true
     user: root
     volumes:
+    - source: ../../../loki-data
+      target: /tmp/loki
+      type: bind
     - source: ./config/loki-config.yaml
       target: /etc/loki/local-config.yaml
       type: bind

@@ -2,7 +2,7 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
-  log_level: info
+  log_level: warn
 
 common:
   instance_addr: 127.0.0.1
@@ -28,21 +28,21 @@ limits_config:
   metric_aggregation_enabled: true
   allow_structured_metadata: true
   volume_enabled: true
-  retention_period: 360h
+  retention_period: 24h
   retention_stream:
   - selector: '{service_type="ioc"}'
     priority: 1
-    period: 8760h
+    period: 168h
 
 schema_config:
   configs:
-    - from: 2025-01-01
-      store: tsdb
-      object_store: filesystem
-      schema: v13
-      index:
-        prefix: index_
-        period: 24h
+  - from: 2025-01-01
+    store: tsdb
+    object_store: filesystem
+    schema: v13
+    index:
+      prefix: index_
+      period: 24h
 
 pattern_ingester:
   enabled: true
