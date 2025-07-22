@@ -1,6 +1,6 @@
 services:
   srv-hello:
-    image: m.daocloud.io/docker.io/busybox
+    image: m.daocloud.io/docker.io/busybox:1.37.0
     entrypoint: 
     - /bin/sh
     - -c
