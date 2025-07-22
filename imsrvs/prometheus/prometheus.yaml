@@ -1,6 +1,6 @@
 services:
   srv-prometheus:
-    image: m.daocloud.io/docker.io/prom/prometheus:v3.3.1
+    image: m.daocloud.io/docker.io/prom/prometheus:v3.5.0
     ports:
     - target: 9090
       published: 9090
@@ -47,3 +47,4 @@ services:
     - "--storage.tsdb.path=/prometheus"
     - "--web.enable-lifecycle"
     - "--web.enable-remote-write-receiver"
+    - "--storage.tsdb.retention.time=30d"

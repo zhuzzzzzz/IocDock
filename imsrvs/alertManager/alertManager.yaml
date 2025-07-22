@@ -30,6 +30,10 @@ services:
       target: /etc/localtime
       type: bind
       read_only: true
+    - source: /etc/hostname
+      target: /etc/hostname
+      type: bind
+      read_only: true
     - source: ./scripts
       target: /scripts
       type: bind

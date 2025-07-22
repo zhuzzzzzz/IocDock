@@ -284,7 +284,12 @@ class SwarmManager:
                       f'"s/smtp_auth_username: .*/smtp_auth_username: {ALERT_MANAGER_SMTP_AUTH_USERNAME}/" {file_path}')
             file_path = os.path.join(SERVICES_PATH, 'alertManager', 'config', 'smtp_password')
             if not os.path.isfile(file_path):
-                print(f'SwarmManager: Warning! Password file "smtp_password" not exists in "config" dir.')
+                if ALERT_MANAGER_SMTP_AUTH_PASSWORD:
+                    with open(file_path, "w") as f:
+                        f.write(ALERT_MANAGER_SMTP_AUTH_PASSWORD)
+                else:
+                    print(f'SwarmManager: Warning! For alertManager: Password file "smtp_password" not exist '
+                          f'and "ALERT_MANAGER_SMTP_AUTH_PASSWORD" not set in IMConfig.py.')
 
         # setup loki
         temp_service = SwarmService('loki', service_type='local')
