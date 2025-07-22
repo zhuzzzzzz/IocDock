@@ -28,7 +28,7 @@ services:
       . ~/.bash_aliases; 
       date; 
       sleep infinity;
-    image: image.dals/base:beta-0.2.2
+    image: registry.iasf/base:beta-0.2.2
     volumes:
     - read_only: true
       source: /etc/localtime

@@ -1,6 +1,6 @@
 services:
   srv-registry:
-    image: m.daocloud.io/docker.io/registry:3.0.0
+    image: registry.iasf/registry:3.0.0
     labels:
       service-type: local
       prometheus-job: registry

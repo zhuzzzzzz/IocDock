@@ -1,6 +1,6 @@
 services:
   srv-alloy:
-    image: m.daocloud.io/docker.io/grafana/alloy:v1.9.2
+    image: registry.iasf/alloy:v1.9.2
     entrypoint: /run.alloy
     command: 
     - run 

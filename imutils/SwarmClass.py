@@ -15,21 +15,24 @@ class SwarmManager:
         self.services = {item: SwarmService(name=item, service_type='ioc') for item in
                          os.listdir(REPOSITORY_PATH) if os.path.isdir(os.path.join(REPOSITORY_PATH, item))}
         for ss in GlobalServicesList:
-            if ss in self.services.keys():
-                print(f'SwarmManager: Warning! Service "{ss}" defined in GlobalServicesList '
-                      f'has the same name with existing services, skipped.')
-                continue
-            self.services[ss] = SwarmService(name=ss, service_type='global')
-        for ss in LocalServicesList:
-            if ss in self.services.keys():
-                print(f'SwarmManager: Warning! Service "{ss}" defined in LocalServicesList '
-                      f'has the same name with existing services, skipped.')
-                continue
-            self.services[ss] = SwarmService(name=ss, service_type='local')
-        for ss in CustomServicesList:
-            name, compose_file = ss
+            name = ss[0]
             if name in self.services.keys():
-                print(f'SwarmManager: Warning! Service "{ss}" defined in CustomServicesList '
+                print(f'SwarmManager: Warning! Service "{name}" defined in GlobalServicesList '
+                      f'has the same name with existing services, skipped.')
+                continue
+            self.services[name] = SwarmService(name=name, service_type='global')
+        for ss in LocalServicesList:
+            name = ss[0]
+            if name in self.services.keys():
+                print(f'SwarmManager: Warning! Service "{name}" defined in LocalServicesList '
+                      f'has the same name with existing services, skipped.')
+                continue
+            self.services[name] = SwarmService(name=name, service_type='local')
+        for ss in CustomServicesList:
+            name = ss[0]
+            compose_file = ss[1]
+            if name in self.services.keys():
+                print(f'SwarmManager: Warning! Service "{name}" defined in CustomServicesList '
                       f'has the same name with existing services, skipped.')
                 continue
             self.services[name] = SwarmService(name=name, service_type='custom', compose_file=compose_file)
@@ -50,12 +53,7 @@ class SwarmManager:
         try_makedirs(REPOSITORY_PATH, verbose=False)
         services_list = [item for item in os.listdir(REPOSITORY_PATH) if
                          os.path.isdir(os.path.join(REPOSITORY_PATH, item))]
-        for ss in GlobalServicesList + LocalServicesList:
-            if ss in services_list:
-                continue
-            else:
-                services_list.append(ss)
-        for ss in CustomServicesList:
+        for ss in GlobalServicesList + LocalServicesList + CustomServicesList:
             if ss[0] in services_list:
                 continue
             else:
@@ -224,19 +222,24 @@ class SwarmManager:
                 file_copy(template_path, file_path, mode='rx', verbose=verbose)
 
         for item in GlobalServicesList:
-            temp_service = SwarmService(item, service_type='global')
-            if f'{item}.yaml' in os.listdir(GLOBAL_SERVICES_PATH):
-                if item in excluded_item or temp_service.is_deployed:
-                    print(f'SwarmManager: Failed to create deployment file for "{item}" as it is running.')
+            name = item[0]
+            image = item[1] if len(item) > 1 else None
+            temp_service = SwarmService(name, service_type='global')
+            if f'{name}.yaml' in os.listdir(GLOBAL_SERVICES_PATH):
+                if name in excluded_item or temp_service.is_deployed:
+                    print(f'SwarmManager: Failed to create deployment file for "{name}" as it is running.')
                 else:
+                    template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{name}.yaml')
+                    # set image with prefix if provided
+                    if image:
+                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\/{image}/" {template_path}')
                     # copy yaml file
-                    template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{item}.yaml')
-                    file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{item}.yaml')
+                    file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{name}.yaml')
                     file_copy(template_path, file_path, mode='r', verbose=verbose)
-                    print(f'SwarmManager: Create deployment file for "{item}".')
+                    print(f'SwarmManager: Create deployment file for "{name}".')
             else:
                 print(
-                    f'SwarmManager: Failed to create deployment file for "{item}" as its template file dose not exist.')
+                    f'SwarmManager: Failed to create deployment file for "{name}" as its template file dose not exist.')
 
     @staticmethod
     def gen_local_services(verbose):
@@ -317,17 +320,23 @@ class SwarmManager:
 
         # copy directory of all local services defined.
         for item in LocalServicesList:
-            temp_service = SwarmService(item, service_type='local')
-            src_path = os.path.join(SERVICES_PATH, item)
+            name = item[0]
+            image = item[1] if len(item) > 1 else None
+            temp_service = SwarmService(name, service_type='local')
+            src_path = os.path.join(SERVICES_PATH, name)
             if os.path.isdir(src_path):
-                if item in excluded_item or temp_service.is_deployed:
-                    print(f'SwarmManager: Failed to create deployment directory for "{item}" as it is running.')
+                if name in excluded_item or temp_service.is_deployed:
+                    print(f'SwarmManager: Failed to create deployment directory for "{name}" as it is running.')
                 else:
-                    dest_path = os.path.join(top_path, item)
+                    template_path = os.path.join(src_path, f'{name}.yaml')
+                    # set image with prefix if provided
+                    if image:
+                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\/{image}/" {template_path}')
+                    dest_path = os.path.join(top_path, name)
                     dir_copy(src_path, dest_path, verbose=verbose)
-                    print(f'SwarmManager: Create deployment directory for "{item}".')
+                    print(f'SwarmManager: Create deployment directory for "{name}".')
             else:
-                print(f'SwarmManager: Failed to create deployment directory for "{item}" '
+                print(f'SwarmManager: Failed to create deployment directory for "{name}" '
                       f'as there is no valid dir exists in repository.')
 
     @staticmethod

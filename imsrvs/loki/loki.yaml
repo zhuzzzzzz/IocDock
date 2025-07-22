@@ -1,6 +1,6 @@
 services:
   srv-loki:
-    image: m.daocloud.io/docker.io/grafana/loki:3.5.2
+    image: registry.iasf/loki:3.5.2
     command: 
     - -config.file=/etc/loki/local-config.yaml
     labels:

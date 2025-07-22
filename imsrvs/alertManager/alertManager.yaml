@@ -4,7 +4,7 @@ networks:
     name: host
 services:
   srv-alertManager:
-    image: m.daocloud.io/docker.io/prom/alertmanager:v0.28.1
+    image: registry.iasf/alertmanager:v0.28.1
     entrypoint: /scripts/start-alertmanager.sh
     command:
     - "--config.file=/etc/alertmanager/alertManager-config.yaml"

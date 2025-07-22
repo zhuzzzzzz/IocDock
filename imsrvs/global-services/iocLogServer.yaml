@@ -28,7 +28,7 @@ services:
       echo export EPICS_IOC_LOG_FILE_NAME=$$EPICS_IOC_LOG_FILE_NAME; 
       echo run iocLogServer...; 
       iocLogServer;
-    image: image.dals/base:beta-0.2.2
+    image: registry.iasf/base:beta-0.2.2
     tty: true
     volumes:
     - source: ../iocLog
