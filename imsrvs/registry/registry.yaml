@@ -16,7 +16,7 @@ services:
         - node.labels.registry==true
     ports:
     - target: 5000
-      published: 443
+      published: 443 # use routing mesh
     - target: 5001
       published: 5001
       mode: host # bypass the routing mesh

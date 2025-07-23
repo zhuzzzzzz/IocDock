@@ -9,8 +9,9 @@
 
 
 # set variables below to change generating configureation.
-base_image="image.dals/base:beta-0.2.2"
-ioc_image="image.dals/ioc-exec:beta-0.2.2"
+image_prefix=`./IocManager.py config REGISTRY_COMMON_NAME`
+base_image="$image_prefix/base:beta-0.2.2"
+ioc_image="$image_prefix/ioc-exec:beta-0.2.2"
 create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "worker_test_5")
 
 

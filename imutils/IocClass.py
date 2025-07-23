@@ -1290,6 +1290,12 @@ def gen_swarm_files(iocs, verbose):
             'labels': {'service-type': 'ioc', },
             'deploy': {
                 'replicas': 1,
+                'placement':
+                    {
+                        'constraints': [
+                            'node.role==worker',
+                        ],
+                    },
                 'update_config':
                     {
                         'parallelism': 1,
