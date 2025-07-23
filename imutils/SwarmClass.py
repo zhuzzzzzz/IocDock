@@ -565,7 +565,8 @@ class SwarmService:
             else:
                 print(f'SwarmService("{self.name}").deploy_service: Service deploying ... ')
                 command = (f'cd {self.dir_path}; '
-                           f'docker stack deploy --compose-file {self.service_file} {PREFIX_STACK_NAME} --detach')
+                           f'docker stack deploy --compose-file {self.service_file} {PREFIX_STACK_NAME} '
+                           f'--detach --with-registry-auth')
                 os.system(command)
         else:
             print(f'SwarmService("{self.name}").deploy_service: Failed to deploy, service is not available.')

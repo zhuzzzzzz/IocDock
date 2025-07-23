@@ -15,6 +15,8 @@ image_dict["loki:3.5.2"]="m.daocloud.io/docker.io/grafana/loki:3.5.2"
 image_dict["busybox:1.37.0"]="m.daocloud.io/docker.io/busybox:1.37.0"
 
 
+set -x
+
 for key in "${!image_dict[@]}"; do
     value=${image_dict[$key]}
     docker pull $value

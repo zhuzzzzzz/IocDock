@@ -4,16 +4,8 @@ script_abs=$(readlink -f "$0")
 script_dir=$(dirname $script_abs)
 
 base_version=7.0.8.1
-release_prefix=image.dals
+release_prefix=`IocManager config REGISTRY_COMMON_NAME`
 release_version=beta-0.2.2
-
-
-# Check if the script is running as root.
-if [ "$EUID" -ne 0 ]; then
-    echo "This script must be run as root. "
-    exit 1
-fi
-
 
 # Build image for EPICS base.
 cd base
