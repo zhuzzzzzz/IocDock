@@ -1,21 +1,61 @@
-# IocManager
+# IocDock
 
-IOC项目管理工具, 用于生成并管理所有基于容器框架运行的IOC项目.
+**为加速器控制系统设计的 IOC(Input/Output Controller) 应用程序容器化部署管理系统.**   
+**基于 EPICS 架构的 IOC 部署管理平台, 为控制系统运行的 IOC 项目提供开发构建、部署运维、监控管理等各方面的自动化功能.**
 
-### 工具说明
+- 控制系统服务器集群运行环境构建及管理
+- IOC 项目管理
+- IOC 容器镜像构建
+- 基于容器编排的 IOC 自动化部署及管理
+- 基于 Prometheus 的运行指标监控与报警
+- 基于 Loki 的运行日志监控与报警
 
-#### python package required
+## Getting Started
 
-全局安装必要的python包
-```sudo pip install docker tabulate ```
+### 准备部署环境
 
-#### 更新IOC项目管理工具
+#### 工具安装
 
-在需要进行版本更新时, 按如下操作:
+```shell
+# 选择一台管理主机, 拉取代码以安装部署管理系统
+git clone https://github.com/zhuzzzzzz/IocDock.git
 
-1. 执行 ```git remote update```, ```git pull origin master``` 更新并拉取最新的git项目代码并切换至指定版本.
-2. 阅读根目录内自动升级脚本 ```auto-update.sh``` 中说明文档部分(Instructions部分), 按说明文档执行操作.
-3. 执行 ```sudo ./auto-update.sh``` 命令完成工具更新.
+# 安装依赖的 python 包
+pip install -r requirments.txt
+
+# 安装工具
+sudo ./install.sh
+
+# 重启以应用部分设置
+reboot
+```
+
+#### 集群搭建
+
+#### 验证部署环境
+
+```shell
+# 运行以下命令显示集群信息, 若无报错则搭建成功
+
+# 服务信息
+IocManager swarm --show-digest
+
+# 节点信息
+IocManager swarm --show-nodes --detail
+```
+
+### 准备运行环境
+
+### 部署测试 IOC
+
+### 验证部署情况
+
+## IOC 项目开发与部署
+
+## 运维环境配置说明
+
+## old
+##############################################################
 
 #### 工作流程参考
 
