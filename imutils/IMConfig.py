@@ -13,49 +13,55 @@ def get_manager_path() -> str:
         raise IMInitError(f'System environment variable "$MANAGER_PATH" is not defined.')
 
 
-###################
-## Tool settings ##
+########################
+## Tool Path Settings ##
 #######################################################################################################################
 
-## directory ##
+## directories ##
+
 REPOSITORY_DIR = 'ioc-repository'
-TEMPLATES_DIR = 'templates'
+
 TOOLS_DIR = 'imtools'
+
 SERVICES_DIR = 'imsrvs'
 GLOBAL_SERVICE_FILE_DIR = 'global-services'
-SNAPSHOT_DIR = 'ioc-snapshot'
+
 # MOUNT_DIR = 'ioc-for-docker'
 MOUNT_DIR = 'IocDock-data'  # top directory for nfs mounting
 SWARM_DIR = 'swarm'  # top directory for swarm deploying
 LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+
 IOC_BACKUP_DIR = 'ioc-backup'  # backup directory for IOC project files
+
 SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
 
-## file ##
+## files ##
 IOC_CONFIG_FILE = 'ioc.ini'
 IOC_STATE_INFO_FILE = '.info.ini'
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
-OPERATION_LOG_FILE = 'OperationLog'
+SWARM_INVENTORY_FILE = 'swarm-inventory'
 
 ## path ##
 MANAGER_PATH = os.path.normpath(get_manager_path())
 REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
 TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
+ANSIBLE_PATH = os.path.join(TOOLS_PATH, 'ansible')
+ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, 'inventory')
 SERVICES_PATH = os.path.join(MANAGER_PATH, SERVICES_DIR)
 GLOBAL_SERVICES_PATH = os.path.join(SERVICES_PATH, GLOBAL_SERVICE_FILE_DIR)
 GLOBAL_SERVICES_CONFIG_PATH = os.path.join(GLOBAL_SERVICES_PATH, 'config')
-SNAPSHOT_PATH = os.path.join(MANAGER_PATH, SNAPSHOT_DIR)
-TEMPLATE_PATH = os.path.join(MANAGER_PATH, TEMPLATES_DIR)
+SNAPSHOT_PATH = os.path.join(MANAGER_PATH, 'ioc-snapshot')
+TEMPLATE_PATH = os.path.join(MANAGER_PATH, 'templates')
 COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'compose')
 DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
-OPERATION_LOG_PATH = os.path.join(TOOLS_PATH, OPERATION_LOG_FILE)
+OPERATION_LOG_PATH = os.path.join(TOOLS_PATH, 'OperationLog')
 MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
 
 ## others ##
 OPERATION_LOG_NUM = 3000  # entry numbers of OperationLog
 
-#######################
-## Managing settings ##
+###########################
+## IOC Managing Settings ##
 #######################################################################################################################
 
 STATE_NORMAL = 'normal'  # IOC state string
@@ -68,6 +74,18 @@ OTHER_SUFFIX = ('.im',)
 
 MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
 DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly created IOC projects
+
+###########################
+## Node Managing Settings ##
+#######################################################################################################################
+
+SWARM_MANAGER_NODES = {
+    # "hostname": "ip address"
+}
+
+SWARM_WORKER_NODES = {
+    # "hostname": "ip address"
+}
 
 ############################
 ## Global Deploy settings ##

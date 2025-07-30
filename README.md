@@ -28,6 +28,9 @@ sudo ./install.sh
 
 # 重启以应用部分设置
 reboot
+
+# 运行以下命令, 若无报错则搭建成功
+IocManager list
 ```
 
 #### 集群搭建
@@ -36,11 +39,7 @@ reboot
 
 ```shell
 # 运行以下命令显示集群信息, 若无报错则搭建成功
-
-# 服务信息
 IocManager swarm --show-digest
-
-# 节点信息
 IocManager swarm --show-nodes --detail
 ```
 
@@ -52,7 +51,7 @@ IocManager swarm --show-nodes --detail
 
 ## IOC 项目开发与部署
 
-## 运维环境配置说明
+## 运维环境配置与管理
 
 ## old
 ##############################################################
