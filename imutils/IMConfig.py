@@ -39,7 +39,6 @@ SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
 IOC_CONFIG_FILE = 'ioc.ini'
 IOC_STATE_INFO_FILE = '.info.ini'
 IOC_SERVICE_FILE = 'compose-swarm.yaml'
-SWARM_INVENTORY_FILE = 'swarm-inventory'
 
 ## path ##
 MANAGER_PATH = os.path.normpath(get_manager_path())
@@ -47,14 +46,16 @@ REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
 TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
 ANSIBLE_PATH = os.path.join(TOOLS_PATH, 'ansible')
 ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, 'inventory')
+CLUSTER_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, 'cluster')
+DEFAULT_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, 'default')
 SERVICES_PATH = os.path.join(MANAGER_PATH, SERVICES_DIR)
 GLOBAL_SERVICES_PATH = os.path.join(SERVICES_PATH, GLOBAL_SERVICE_FILE_DIR)
-GLOBAL_SERVICES_CONFIG_PATH = os.path.join(GLOBAL_SERVICES_PATH, 'config')
+GLOBAL_SERVICES_CONFIG_FILE_PATH = os.path.join(GLOBAL_SERVICES_PATH, 'config')
 SNAPSHOT_PATH = os.path.join(MANAGER_PATH, 'ioc-snapshot')
 TEMPLATE_PATH = os.path.join(MANAGER_PATH, 'templates')
 COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'compose')
 DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
-OPERATION_LOG_PATH = os.path.join(TOOLS_PATH, 'OperationLog')
+OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, 'OperationLog')
 MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
 
 ## others ##
@@ -75,17 +76,24 @@ OTHER_SUFFIX = ('.im',)
 MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
 DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly created IOC projects
 
-###########################
+############################
 ## Node Managing Settings ##
 #######################################################################################################################
 
-SWARM_MANAGER_NODES = {
-    # "hostname": "ip address"
+CLUSTER_MANAGER_NODES = {
+    # "hostname": "ip address",
+    'host2': '192.168.1.110',
 }
-
-SWARM_WORKER_NODES = {
-    # "hostname": "ip address"
+CLUSTER_WORKER_NODES = {
+    # "hostname": "ip address",
+    'host0': '192.168.1.108',
+    'host1': '192.168.1.115',
 }
+DEFAULT_NODES = {
+    # "hostname": "ip address",
+    'nfs': '192.168.1.50'
+}
+REMOTE_USER_NAME = 'zhu'
 
 ############################
 ## Global Deploy settings ##

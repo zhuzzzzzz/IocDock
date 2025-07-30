@@ -201,9 +201,9 @@ class SwarmManager:
         if temp_service.is_deployed:  # check whether the directory being mounted.
             excluded_item.append('alloy')
         else:
-            if 'config.alloy' in os.listdir(GLOBAL_SERVICES_CONFIG_PATH):
+            if 'config.alloy' in os.listdir(GLOBAL_SERVICES_CONFIG_FILE_PATH):
                 #
-                template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'config.alloy')
+                template_path = os.path.join(GLOBAL_SERVICES_CONFIG_FILE_PATH, 'config.alloy')
                 #
                 os.system(f'sed -i -r '
                           f'"s/url = .*/url = \\\"http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100\/loki\/api\/v1\/push\\\"/" '
@@ -217,7 +217,7 @@ class SwarmManager:
                 file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'config.alloy')
                 file_copy(template_path, file_path, mode='r', verbose=verbose)
                 #
-                template_path = os.path.join(GLOBAL_SERVICES_CONFIG_PATH, 'run.alloy')
+                template_path = os.path.join(GLOBAL_SERVICES_CONFIG_FILE_PATH, 'run.alloy')
                 file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, 'config', 'run.alloy')
                 file_copy(template_path, file_path, mode='rx', verbose=verbose)
 
