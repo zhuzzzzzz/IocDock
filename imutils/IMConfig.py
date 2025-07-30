@@ -59,7 +59,7 @@ OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, 'OperationLog')
 MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
 
 ## others ##
-OPERATION_LOG_NUM = 3000  # entry numbers of OperationLog
+OPERATION_LOG_NUM = 1000  # entry numbers of OperationLog
 
 ###########################
 ## IOC Managing Settings ##
