@@ -206,11 +206,11 @@ class SwarmManager:
                 template_path = os.path.join(GLOBAL_SERVICES_CONFIG_FILE_PATH, 'config.alloy')
                 #
                 os.system(f'sed -i -r '
-                          f'"s/url = .*/url = \\\"http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100\/loki\/api\/v1\/push\\\"/" '
+                          f'"s/url = .*/url = \\"http:\\/\\/{PREFIX_STACK_NAME}_srv-loki:3100\\/loki\\/api\\/v1\\/push\\"/" '
                           f'{template_path}')
                 #
                 cmd = (f'sed -i -r '
-                       f'"s/regex = \\\".*\|test\\\"/regex = \\\"{PREFIX_STACK_NAME}\|test\\\"/" '
+                       f'"s/regex = \\".*\\|test\\"/regex = \\"{PREFIX_STACK_NAME}\\|test\\"/" '
                        f'{template_path}')
                 # print(cmd)
                 os.system(cmd)
@@ -232,7 +232,7 @@ class SwarmManager:
                     template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{name}.yaml')
                     # set image with prefix if provided
                     if image:
-                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\/{image}/" {template_path}')
+                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}')
                     # copy yaml file
                     file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{name}.yaml')
                     file_copy(template_path, file_path, mode='r', verbose=verbose)
@@ -266,7 +266,7 @@ class SwarmManager:
             # write shell variable file
             file_path = os.path.join(SERVICES_PATH, 'prometheus', 'config', 'rules-for-cAdvisor.yaml')
             os.system(f'sed -i -r '
-                      f'"s/stack=~\'[^\']*\'/stack=~\'{PREFIX_STACK_NAME}\|test\'/g" '
+                      f'"s/stack=~\'[^\']*\'/stack=~\'{PREFIX_STACK_NAME}\\|test\'/g" '
                       f'{file_path}')
 
         # setup alertManager
@@ -301,10 +301,10 @@ class SwarmManager:
         else:
             file_path = os.path.join(SERVICES_PATH, 'loki', 'config', 'loki-config.yaml')
             os.system(f'sed -i -r '
-                      f'"s/url: .*_srv-prometheus/url: http:\/\/{PREFIX_STACK_NAME}_srv-prometheus/" '
+                      f'"s/url: .*_srv-prometheus/url: http:\\/\\/{PREFIX_STACK_NAME}_srv-prometheus/" '
                       f'{file_path}')
             os.system(f'sed -i -r '
-                      f'"s/alertmanager_url: .*/alertmanager_url: http:\/\/{ALERT_MANAGER_MASTER_IP}:9093/" '
+                      f'"s/alertmanager_url: .*/alertmanager_url: http:\\/\\/{ALERT_MANAGER_MASTER_IP}:9093/" '
                       f'{file_path}')
 
         # setup grafana
@@ -314,9 +314,9 @@ class SwarmManager:
         else:
             src_path = os.path.join(SERVICES_PATH, 'grafana', 'datasources')
             file_path = os.path.join(src_path, 'loki.yaml')
-            os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-loki:3100/" {file_path}')
+            os.system(f'sed -i -r "s/url: .*/url: http:\\/\\/{PREFIX_STACK_NAME}_srv-loki:3100/" {file_path}')
             file_path = os.path.join(src_path, 'prometheus.yaml')
-            os.system(f'sed -i -r "s/url: .*/url: http:\/\/{PREFIX_STACK_NAME}_srv-prometheus:9090/" {file_path}')
+            os.system(f'sed -i -r "s/url: .*/url: http:\\/\\/{PREFIX_STACK_NAME}_srv-prometheus:9090/" {file_path}')
 
         # copy directory of all local services defined.
         for item in LocalServicesList:
@@ -331,7 +331,7 @@ class SwarmManager:
                     template_path = os.path.join(src_path, f'{name}.yaml')
                     # set image with prefix if provided
                     if image:
-                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\/{image}/" {template_path}')
+                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}')
                     dest_path = os.path.join(top_path, name)
                     dir_copy(src_path, dest_path, verbose=verbose)
                     print(f'SwarmManager: Create deployment directory for "{name}".')

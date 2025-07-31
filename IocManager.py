@@ -12,6 +12,11 @@ from imutils.IMUtil import create_ioc, set_ioc, get_filtered_ioc, remove_ioc, ex
     execute_swarm, execute_service, edit_ioc, execute_config
 
 if __name__ == '__main__':
+
+    import warnings
+    warnings.simplefilter('always')  # 强制所有警告每次均显示[3,7](@ref)
+    warnings.simplefilter('error', category=SyntaxWarning)  # 将SyntaxWarning转为异常[7](@ref)
+
     # argparse
     parser = argparse.ArgumentParser(description='Manager of IOC projects for docker deploying.',
                                      formatter_class=argparse.RawTextHelpFormatter)
