@@ -1,7 +1,7 @@
 import os
 import yaml
 import imutils.IMConfig as IMConfig
-from imutils.IMFunc import try_makedirs
+from imutils.IMFunc import try_makedirs, file_remove
 
 
 def set_up_ssh_connection(verbose=False):
@@ -24,37 +24,47 @@ def gen_inventory_files(verbose=False):
     try_makedirs(IMConfig.ANSIBLE_INVENTORY_PATH, verbose=verbose)
 
     # for cluster
-    yaml_data = {}
-    # for swarm manager nodes
-    group_name = 'manager'
-    group_dict = {}
-    hosts_dict = {host: {'ansible_ssh_host': ip} for host, ip in IMConfig.CLUSTER_MANAGER_NODES.items()}
-    vars_dict = {'ansible_ssh_user': IMConfig.REMOTE_USER_NAME}
-    group_dict['hosts'] = hosts_dict
-    group_dict['vars'] = vars_dict
-    yaml_data[group_name] = group_dict
-    # for swarm worker nodes
-    group_name = 'worker'
-    group_dict = {}
-    hosts_dict = {host: {'ansible_ssh_host': ip} for host, ip in IMConfig.CLUSTER_WORKER_NODES.items()}
-    vars_dict = {'ansible_ssh_user': IMConfig.REMOTE_USER_NAME}
-    group_dict['hosts'] = hosts_dict
-    group_dict['vars'] = vars_dict
-    yaml_data[group_name] = group_dict
-    with open(IMConfig.CLUSTER_INVENTORY_FILE_PATH, "w", encoding="utf-8") as f:
-        yaml.dump(yaml_data, f, allow_unicode=True, sort_keys=False)
+    if IMConfig.CLUSTER_MANAGER_NODES or IMConfig.CLUSTER_WORKER_NODES:
+        yaml_data = {}
+        # for swarm manager nodes
+        if IMConfig.CLUSTER_MANAGER_NODES:
+            group_name = 'manager'
+            group_dict = {}
+            hosts_dict = {host: {'ansible_ssh_host': ip} for host, ip in IMConfig.CLUSTER_MANAGER_NODES.items()}
+            vars_dict = {'ansible_ssh_user': IMConfig.REMOTE_USER_NAME}
+            group_dict['hosts'] = hosts_dict
+            group_dict['vars'] = vars_dict
+            yaml_data[group_name] = group_dict
+        # for swarm worker nodes
+        if IMConfig.CLUSTER_WORKER_NODES:
+            group_name = 'worker'
+            group_dict = {}
+            hosts_dict = {host: {'ansible_ssh_host': ip} for host, ip in IMConfig.CLUSTER_WORKER_NODES.items()}
+            vars_dict = {'ansible_ssh_user': IMConfig.REMOTE_USER_NAME}
+            group_dict['hosts'] = hosts_dict
+            group_dict['vars'] = vars_dict
+            yaml_data[group_name] = group_dict
+        with open(IMConfig.CLUSTER_INVENTORY_FILE_PATH, "w", encoding="utf-8") as f:
+            yaml.dump(yaml_data, f, allow_unicode=True, sort_keys=False)
+    else:
+        if os.path.isfile(IMConfig.CLUSTER_INVENTORY_FILE_PATH):
+            file_remove(IMConfig.CLUSTER_INVENTORY_FILE_PATH, verbose=verbose)
 
     # for other nodes
-    yaml_data = {}
-    group_name = 'ungrouped'
-    group_dict = {}
-    hosts_dict = {host: {'ansible_ssh_host': ip} for host, ip in IMConfig.DEFAULT_NODES.items()}
-    vars_dict = {'ansible_ssh_user': IMConfig.REMOTE_USER_NAME}
-    group_dict['hosts'] = hosts_dict
-    group_dict['vars'] = vars_dict
-    yaml_data[group_name] = group_dict
-    with open(IMConfig.DEFAULT_INVENTORY_FILE_PATH, "w", encoding="utf-8") as f:
-        yaml.dump(yaml_data, f, allow_unicode=True, sort_keys=False)
+    if IMConfig.DEFAULT_NODES:
+        yaml_data = {}
+        group_name = 'ungrouped'
+        group_dict = {}
+        hosts_dict = {host: {'ansible_ssh_host': ip} for host, ip in IMConfig.DEFAULT_NODES.items()}
+        vars_dict = {'ansible_ssh_user': IMConfig.REMOTE_USER_NAME}
+        group_dict['hosts'] = hosts_dict
+        group_dict['vars'] = vars_dict
+        yaml_data[group_name] = group_dict
+        with open(IMConfig.DEFAULT_INVENTORY_FILE_PATH, "w", encoding="utf-8") as f:
+            yaml.dump(yaml_data, f, allow_unicode=True, sort_keys=False)
+    else:
+        if os.path.isfile(IMConfig.DEFAULT_INVENTORY_FILE_PATH):
+            file_remove(IMConfig.DEFAULT_INVENTORY_FILE_PATH, verbose=verbose)
 
 
 if __name__ == '__main__':
