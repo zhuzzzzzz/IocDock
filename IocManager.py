@@ -254,7 +254,10 @@ if __name__ == '__main__':
         exit()
 
     # log current operation.
-    operation_log()
+    try:
+        operation_log()
+    except Exception as e:
+        print(f'IocManager: Failed to execute operation_log(), {e}')
 
     # print(f'{args}')
     if not hasattr(args, 'verbose'):

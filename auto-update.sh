@@ -46,9 +46,8 @@ echo "export MANAGER_PATH=$script_dir" > $file_path
 echo "export REPOSITORY_PATH=$repository_path" >> $file_path
 echo "export MOUNT_PATH=$mount_path" >> $file_path
 
-
 # set log file permission.
-file_path=$(./IocManager.py config OPERATION_LOG_PATH)
+file_path=$(./IocManager.py config OPERATION_LOG_FILE_PATH)
 if [ $? -eq 0 ]; then
     chown $current_user:$current_user $file_path
     chmod g+w $file_path
