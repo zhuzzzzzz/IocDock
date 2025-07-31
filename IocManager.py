@@ -13,9 +13,9 @@ from imutils.IMUtil import create_ioc, set_ioc, get_filtered_ioc, remove_ioc, ex
 
 if __name__ == '__main__':
 
-    import warnings
-    warnings.simplefilter('always')  # 强制所有警告每次均显示[3,7](@ref)
-    warnings.simplefilter('error', category=SyntaxWarning)  # 将SyntaxWarning转为异常[7](@ref)
+    # import warnings
+    # warnings.simplefilter('always')
+    # warnings.simplefilter('error', category=SyntaxWarning)
 
     # argparse
     parser = argparse.ArgumentParser(description='Manager of IOC projects for docker deploying.',
