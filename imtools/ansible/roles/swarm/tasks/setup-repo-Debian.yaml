@@ -1,0 +1,59 @@
+- name: apt update
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name:
+      - ca-certificates
+      - curl
+
+#- name: add docker's official GPG key
+#  ansible.builtin.apt_key:
+#    url: "https://download.docker.com/linux/debian/gpg"
+#    state: absent
+#  register: apt_key_result
+#  until: apt_key_result is success
+#  retries: 99
+
+- name: add docker's official GPG key
+  ansible.builtin.shell: |
+    sudo install -m 0755 -d /etc/apt/keyrings && \
+    sudo curl -m 3 -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+  args:
+    executable: /bin/bash
+  register: key_result
+  until: key_result.rc is falsy
+  retries: 99
+
+- name: add the repository to apt sources
+  ansible.builtin.shell: |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+    https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  args:
+    executable: /bin/bash
+  register: source_result
+  failed_when: source_result.stderr is truthy
+
+- name: apt update and install docker packages
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+
+- name: post-installation steps for docker engine
+  ansible.builtin.shell:
+    "sudo groupadd docker; sudo usermod -aG docker {{ansible_ssh_user}}"
+  args:
+    executable: /bin/bash
+  register: post_installation_result
+  failed_when: source_result.stderr is truthy
+
+#- debug:
+#    var:
+#      key_result

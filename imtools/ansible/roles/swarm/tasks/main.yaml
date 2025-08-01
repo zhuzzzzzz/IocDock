@@ -1,0 +1,5 @@
+---
+
+# setup docker repository
+- include_tasks: "setup-repo-{{ ansible_os_family }}.yaml"
+  when: not skip_repo
