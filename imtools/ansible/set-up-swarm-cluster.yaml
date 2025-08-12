@@ -1,7 +1,8 @@
-- name: "Provision Docker Swarm Cluster"
+- name: test role
   hosts: all
   become: true
+  gather_facts: true
   vars:
     ansible_ssh_user: ubuntu
   roles:
-    - { role: docker-swarm }
+    - setup-swarm

@@ -1,0 +1,6 @@
+---
+# create remote user
+- include_tasks: "install-docker-engine-{{ ansible_distribution }}.yaml"
+  when: not skip_install_docker_engine
+
+# set up ssh connection

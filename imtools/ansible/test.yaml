@@ -1,8 +1,0 @@
-- name: test role
-  hosts: all
-  become: true
-  vars:
-    skip_repo: false
-    ansible_ssh_user: ubuntu
-  roles:
-    - swarm

@@ -1,0 +1,57 @@
+- name: check if "Swarm Mode" is already enabled
+  shell: docker info
+  changed_when: false
+  register: docker_info
+
+- name: leave "Swarm Mode" if set docker_swarm_init_new_cluster
+  ansible.builtin.shell:
+    docker swarm leave --force
+  when: "docker_info.stdout.find('Swarm: active') != -1
+    and docker_swarm_init_new_cluster is truthy"
+
+- name: refresh docker_info
+  shell: docker info
+  changed_when: false
+  register: docker_info
+
+- name: init "Swarm Mode" on the first manager
+  ansible.builtin.shell: |
+    docker swarm init \
+    --advertise-addr {{ docker_swarm_addr }}
+  when: "docker_info.stdout.find('Swarm: active') == -1
+    and inventory_hostname == groups['manager'][0]"
+
+- name: get worker join command
+  shell: docker swarm join-token worker
+  changed_when: false
+  register: docker_worker_token
+  delegate_to: "{{ groups['manager'][0] }}"
+  delegate_facts: true
+  when: "'worker' in group_names"
+
+- name: get manager join command
+  shell: docker swarm join-token manager
+  changed_when: false
+  register: docker_manager_token
+  delegate_to: "{{ groups['manager'][0] }}"
+  delegate_facts: true
+  when: "'manager' in group_names
+    and inventory_hostname != groups['manager'][0]"
+
+- name: join swarm as worker nodes
+  shell:
+    "{{ docker_worker_token['stdout_lines'][-1] }}"
+  changed_when: false
+  when: "docker_info.stdout.find('Swarm: active') == -1
+    and docker_info.stdout.find('Swarm: pending') == -1
+    and 'worker' in group_names
+    and 'manager' not in group_names"
+
+- name: join swarm as manager nodes
+  shell:
+    "{{ docker_manager_token['stdout_lines'][-1] }}"
+  changed_when: false
+  when: "docker_info.stdout.find('Swarm: active') == -1
+    and docker_info.stdout.find('Swarm: pending') == -1
+    and 'manager' in group_names
+    and inventory_hostname != groups['manager'][0]"

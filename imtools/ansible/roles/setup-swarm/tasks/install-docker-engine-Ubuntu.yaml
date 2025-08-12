@@ -6,14 +6,6 @@
       - ca-certificates
       - curl
 
-#- name: add docker's official GPG key
-#  ansible.builtin.apt_key:
-#    url: "https://download.docker.com/linux/debian/gpg"
-#    state: absent
-#  register: apt_key_result
-#  until: apt_key_result is success
-#  retries: 99
-
 - name: add docker's official GPG key
   ansible.builtin.shell: |
     sudo install -m 0755 -d /etc/apt/keyrings && \
@@ -54,6 +46,3 @@
   register: post_installation_result
   failed_when: source_result.stderr is truthy
 
-#- debug:
-#    var:
-#      key_result

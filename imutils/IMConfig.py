@@ -83,6 +83,7 @@ DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly cr
 CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
     # 'host2': '192.168.1.110',
+    'host2': '192.168.1.104',
 }
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",

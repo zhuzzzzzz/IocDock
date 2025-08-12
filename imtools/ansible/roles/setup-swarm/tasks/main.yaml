@@ -1,0 +1,12 @@
+---
+# install docker engine
+- include_tasks: "install-docker-engine-{{ ansible_distribution }}.yaml"
+  when: not skip_install_docker_engine
+
+# set up docker engine
+- include_tasks: "setup-docker-engine.yaml"
+  when: not skip_setup_docker_engine
+
+# set up swarm cluster
+- include_tasks: "setup-swarm-cluster.yaml"
+  when: not skip_setup_swarm_cluster
