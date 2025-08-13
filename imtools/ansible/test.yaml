@@ -1,0 +1,8 @@
+- name: test role
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    ansible_ssh_user: ubuntu
+  roles:
+    - setup-cluster

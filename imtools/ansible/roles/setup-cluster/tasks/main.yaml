@@ -1,6 +1,16 @@
 ---
 # create remote user
-- include_tasks: "install-docker-engine-{{ ansible_distribution }}.yaml"
-  when: not skip_install_docker_engine
+- include_tasks: "create-remote-user.yaml"
+  when: not skip_create_remote_user
 
 # set up ssh connection
+- include_tasks: "set-up-ssh-connection.yaml"
+  when: not skip_create_remote_user
+
+# set up basic environment
+- include_tasks: "set-up-basic-environment.yaml"
+  when: not skip_set_up_basic_environment
+
+# set up cluster
+- include_tasks: "set-up-cluster.yaml"
+  when: not skip_set_up_cluster

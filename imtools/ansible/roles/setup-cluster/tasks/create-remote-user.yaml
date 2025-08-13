@@ -1,0 +1,8 @@
+- name: add user account and set password
+  vars:
+    pwdhash: "{{ create_password | password_hash }}"
+  ansible.builtin.user:
+    name: "{{ for_user }}"
+    shell: /bin/bash
+    password: "{{ pwdhash }}"
+    password_lock: false

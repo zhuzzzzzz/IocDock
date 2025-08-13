@@ -1,0 +1,42 @@
+- name: delete local key if set force_refresh_key_pair
+  ansible.builtin.file:
+    path: '~/.ssh/id_rsa'
+    state: absent
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: force_refresh_key_pair
+
+- name: get public key file status
+  ansible.builtin.stat:
+    path: '~/.ssh/id_rsa.pub'
+  delegate_to: localhost
+  become: false
+  register: public_key_stat
+  run_once: true
+
+- name: get private key file status
+  ansible.builtin.stat:
+    path: '~/.ssh/id_rsa'
+  delegate_to: localhost
+  become: false
+  register: private_key_stat
+  run_once: true
+
+- name: gen key pair if not exist
+  ansible.builtin.shell: ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+  when: "not public_key_stat.stat.exists or not private_key_stat.stat.exists"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: set authorized key taken from file
+  ansible.posix.authorized_key:
+    user: "{{ for_user }}"
+    state: present
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+  become: false
+  vars:
+    ansible_ssh_user: "{{ for_user }}"
+    ansible_ssh_password: "{{ create_password }}"
+    ansible_ssh_host_key_checking: false

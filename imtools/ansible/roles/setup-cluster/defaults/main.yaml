@@ -1,0 +1,17 @@
+skip_create_remote_user: false
+skip_set_up_basic_environment: false
+skip_set_up_cluster: false
+
+ansible_ssh_user: root
+
+## create user
+for_user: zhu
+create_password: 'default'
+
+## set up ssh connection
+force_refresh_key_pair: false
+
+## set up basic environment
+
+## set up cluster
+# for this section, you should set vars in vars/main.yaml

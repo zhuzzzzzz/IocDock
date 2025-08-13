@@ -40,7 +40,7 @@
 
 - name: post-installation steps for docker engine
   ansible.builtin.shell:
-    "sudo groupadd docker; sudo usermod -aG docker {{ansible_ssh_user}}"
+    "sudo groupadd docker; sudo usermod -aG docker {{ansible_ssh_user}}; sudo usermod -aG docker {{for_user}}"
   args:
     executable: /bin/bash
   register: post_installation_result

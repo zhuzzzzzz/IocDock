@@ -1,0 +1,3 @@
+- name: include setup-swarm role
+  include_role:
+    name: setup-swarm

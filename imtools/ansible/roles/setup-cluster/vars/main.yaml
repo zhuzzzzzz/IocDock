@@ -1,13 +1,14 @@
-skip_install_docker_engine: false # if true, skip the installation of the docker engine
-skip_setup_docker_engine: false # if true, skip the setup of the docker engine
-skip_setup_swarm_cluster: false # if true, skip the setup of the swarm cluster
+## set up swarm cluster
+skip_install_docker_engine: true # if true, skip the installation of the docker engine
+skip_setup_docker_engine: true # if true, skip the setup of the docker engine
+skip_setup_swarm_cluster: true # if true, skip the setup of the swarm cluster
 
-## Docker Daemon configuration
+# Docker Daemon configuration
 docker_daemon_config: {
   "metrics-addr": "0.0.0.0:9323"
 }
 
-## Docker Swarm configuration
+# Docker Swarm configuration
 # You can set any interface that is supposed to listen by docker engine
 # e.g. docker_swarm_interface: "eth1"
 docker_swarm_interface: "{{ ansible_default_ipv4['interface'] }}"
