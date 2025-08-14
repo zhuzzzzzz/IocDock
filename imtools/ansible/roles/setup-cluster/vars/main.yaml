@@ -1,7 +1,7 @@
 ## set up swarm cluster
-skip_install_docker_engine: true # if true, skip the installation of the docker engine
-skip_setup_docker_engine: true # if true, skip the setup of the docker engine
-skip_setup_swarm_cluster: true # if true, skip the setup of the swarm cluster
+skip_install_docker_engine: false # if true, skip the installation of the docker engine
+skip_setup_docker_engine: false # if true, skip the setup of the docker engine
+skip_setup_swarm_cluster: false # if true, skip the setup of the swarm cluster
 
 # Docker Daemon configuration
 docker_daemon_config: {

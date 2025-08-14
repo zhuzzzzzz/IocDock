@@ -1,0 +1,12 @@
+- name: set up timezone
+  ansible.builtin.shell:
+    "sudo timedatectl set-timezone Asia/Shanghai"
+  args:
+    executable: /bin/bash
+
+- name: disable firewall
+  ansible.builtin.shell:
+    "sudo systemctl stop ufw; sudo systemctl disable ufw"
+  args:
+    executable: /bin/bash
+  when: disable_firewall and ansible_distribution == 'Ubuntu'

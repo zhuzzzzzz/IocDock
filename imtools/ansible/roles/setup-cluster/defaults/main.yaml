@@ -7,11 +7,13 @@ ansible_ssh_user: root
 ## create user
 for_user: zhu
 create_password: 'default'
+add_to_sudo_list: true
 
 ## set up ssh connection
 force_refresh_key_pair: false
 
 ## set up basic environment
+disable_firewall: true
 
 ## set up cluster
 # for this section, you should set vars in vars/main.yaml

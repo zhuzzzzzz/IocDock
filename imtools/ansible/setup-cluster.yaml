@@ -1,0 +1,11 @@
+- name: run the role for cluster setup
+  hosts:
+    - manager
+    - worker
+  become: true
+  gather_facts: true
+  vars:
+    ansible_ssh_user: ubuntu
+    ansible_ssh_host_key_checking: false
+  roles:
+    - setup-cluster

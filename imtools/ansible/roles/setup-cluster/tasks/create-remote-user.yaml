@@ -6,3 +6,15 @@
     shell: /bin/bash
     password: "{{ pwdhash }}"
     password_lock: false
+
+- name: add user to sudo list for Debian OS
+  ansible.builtin.shell: "sudo usermod -aG sudo {{ for_user }}"
+  args:
+    executable: /bin/bash
+  when: ansible_os_family=="Debian"
+
+- name: add user to sudo list for Non-Debian OS
+  ansible.builtin.shell: "sudo usermod -aG wheel {{ for_user }}"
+  args:
+    executable: /bin/bash
+  when: ansible_os_family!="Debian"

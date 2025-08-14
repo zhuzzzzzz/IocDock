@@ -82,19 +82,18 @@ DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly cr
 
 CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
-    # 'host2': '192.168.1.110',
-    'host2': '192.168.1.104',
+    'manager0': '192.168.1.104',
+    'manager1': '192.168.1.105',
 }
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",
-    'host0': '192.168.1.102',
-    'host1': '192.168.1.101',
+    'worker0': '192.168.1.101',
+    'worker1': '192.168.1.102',
 }
 DEFAULT_NODES = {
     # "hostname": "ip address",
     # 'nfs': '192.168.1.50'
 }
-REMOTE_USER_NAME = 'zhu'
 
 ############################
 ## Global Deploy settings ##
