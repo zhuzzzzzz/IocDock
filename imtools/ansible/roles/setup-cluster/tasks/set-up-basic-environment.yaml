@@ -1,3 +1,13 @@
+#- debug:
+#    var:
+#      hostvars['manager0']
+#  run_once: true
+
+- name: set hostname
+  ansible.builtin.hostname:
+    name: "{{inventory_hostname}}"
+  when: set_hostname
+
 - name: set up timezone
   ansible.builtin.shell:
     "sudo timedatectl set-timezone Asia/Shanghai"
@@ -10,3 +20,34 @@
   args:
     executable: /bin/bash
   when: disable_firewall and ansible_distribution == 'Ubuntu'
+
+- name: disable apt auto update
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99-disable-updates.conf
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Download-Upgradeable-Packages "0";
+      APT::Periodic::AutocleanInterval "0";
+      APT::Periodic::Unattended-Upgrade "0";
+  when: disable_package_auto_update and ansible_os_family == 'Debian'
+
+- name: hold snap updates indefinitely
+  ansible.builtin.shell: sudo snap set system refresh.hold=forever
+  args:
+    executable: /bin/bash
+  changed_when: false
+  when: disable_package_auto_update and ansible_os_family == 'Debian'
+
+- name: Disable yum-cron
+  systemd:
+    name: yum-cron
+    state: stopped
+    enabled: no
+  when: disable_package_auto_update and ansible_os_family == 'RedHat' and ansible_distribution_major_version < '8'
+
+- name: Disable dnf-automatic
+  systemd:
+    name: dnf-automatic.timer
+    state: stopped
+    enabled: no
+  when: disable_package_auto_update and ansible_os_family == 'RedHat' and ansible_distribution_major_version >= '8'

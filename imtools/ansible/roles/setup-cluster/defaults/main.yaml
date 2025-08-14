@@ -13,7 +13,9 @@ add_to_sudo_list: true
 force_refresh_key_pair: false
 
 ## set up basic environment
+set_hostname: false
 disable_firewall: true
+disable_package_auto_update: true
 
 ## set up cluster
 # for this section, you should set vars in vars/main.yaml
