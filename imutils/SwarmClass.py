@@ -7,6 +7,7 @@ from tabulate import tabulate
 from imutils.IMConfig import *
 from imutils.IMFunc import relative_and_absolute_path_to_abs, try_makedirs, file_copy, dir_copy
 from imutils.ServiceDefinition import GlobalServicesList, LocalServicesList, CustomServicesList
+from imutils.AnsibleClient import ansible_socket_client
 
 
 class SwarmManager:
@@ -71,22 +72,25 @@ class SwarmManager:
             print()
 
     def show_info(self):
+        socket_result_service = ansible_socket_client("service info", verbose=False)
         raw_print = [["Name", "ServiceName", "Type", "Replicas", "Status"], ]
         custom_print = []
         local_print = []
         global_print = []
         ioc_print = []
         for item in self.services.values():
+            socket_info_service = socket_result_service.get(item.name, None)
+            t_l = [item.name, item.service_name, item.service_type,
+                   socket_info_service.get('replicas') if socket_info_service else item.replicas,
+                   socket_info_service.get('status') if socket_info_service else item.current_state]
             if item.service_type == 'ioc':
-                ioc_print.append([item.name, item.service_name, item.service_type, item.replicas, item.current_state])
+                ioc_print.append(t_l)
             if item.service_type == 'global':
-                global_print.append(
-                    [item.name, item.service_name, item.service_type, item.replicas, item.current_state])
+                global_print.append(t_l)
             if item.service_type == 'local':
-                local_print.append([item.name, item.service_name, item.service_type, item.replicas, item.current_state])
+                local_print.append(t_l)
             if item.service_type == 'custom':
-                custom_print.append(
-                    [item.name, item.service_name, item.service_type, item.replicas, item.current_state])
+                custom_print.append(t_l)
         ioc_print.sort(key=lambda x: x[0])
         global_print.sort(key=lambda x: x[0])
         local_print.sort(key=lambda x: x[0])
@@ -232,7 +236,8 @@ class SwarmManager:
                     template_path = os.path.join(GLOBAL_SERVICES_PATH, f'{name}.yaml')
                     # set image with prefix if provided
                     if image:
-                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}')
+                        os.system(
+                            f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}')
                     # copy yaml file
                     file_path = os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, f'{name}.yaml')
                     file_copy(template_path, file_path, mode='r', verbose=verbose)
@@ -331,7 +336,8 @@ class SwarmManager:
                     template_path = os.path.join(src_path, f'{name}.yaml')
                     # set image with prefix if provided
                     if image:
-                        os.system(f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}')
+                        os.system(
+                            f'sed -i -r 'f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}')
                     dest_path = os.path.join(top_path, name)
                     dir_copy(src_path, dest_path, verbose=verbose)
                     print(f'SwarmManager: Create deployment directory for "{name}".')

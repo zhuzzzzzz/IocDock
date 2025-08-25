@@ -7,6 +7,7 @@ from imutils.IMError import IMValueError
 from imutils.IocClass import IOC, gen_swarm_files, get_all_ioc, repository_backup, restore_backup
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import try_makedirs, condition_parse
+from imutils.AnsibleClient import ansible_socket_client
 
 
 # accepts iterable for input
@@ -223,12 +224,20 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             continue
         else:
             index_reserved.append(i)
+
+    socket_result_ioc = ansible_socket_client("ioc info", verbose=verbose)
+    socket_result_service = ansible_socket_client("service info", verbose=verbose)
+
     # print results.
     ioc_print = []
     description_print = [["IOC", "Description"], ]
     panel_print = [["IOC", "Host", "Description", "State", "Status",
                     "DeployStatus", "SnapshotConsistency", "RuningConsistency"], ]
     for i in index_reserved:
+        #
+        socket_info_ioc = socket_result_ioc.get(ioc_list[i].name, None)
+        socket_info_service = socket_result_service.get(ioc_list[i].name, None)
+        #
         if show_info:
             ioc_list[i].show_config()
         elif show_panel:
@@ -236,14 +245,18 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             if len(desc) > 37:
                 desc = desc[:37] + '...'
             temp_service = SwarmService(name=ioc_list[i].name, service_type='ioc')
-            panel_print.append([ioc_list[i].name, ioc_list[i].get_config("host"),
-                                desc,
-                                ioc_list[i].state_manager.get_config("state"),
-                                ioc_list[i].state_manager.get_config("status"),
-                                temp_service.current_state,
-                                ioc_list[i].check_snapshot_consistency(print_info=False)[1],
-                                ioc_list[i].check_running_consistency(print_info=False)[1],
-                                ])
+            t_l = [ioc_list[i].name,
+                   ioc_list[i].get_config("host"),
+                   desc,
+                   ioc_list[i].state_manager.get_config("state"),
+                   ioc_list[i].state_manager.get_config("status"),
+                   socket_info_service.get('status') if socket_info_service else temp_service.current_state,
+                   socket_info_ioc.get('snapshot_consistency') if socket_info_ioc else
+                   ioc_list[i].check_snapshot_consistency(print_info=False)[1],
+                   socket_info_ioc.get('running_consistency') if socket_info_ioc else
+                   ioc_list[i].check_running_consistency(print_info=False)[1],
+                   ]
+            panel_print.append(t_l)
         elif show_description:
             desc = ioc_list[i].get_config("description")
             if len(desc) > 100:

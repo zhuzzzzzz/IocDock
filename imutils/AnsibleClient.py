@@ -43,22 +43,40 @@ def receive_message(sock, header_len=4):
         return None
 
 
-def ansible_socket_client(req):
+def client_check_connection():
+    connection = False
+    socket_path = "/tmp/IocDock.sock"
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        sock.connect(socket_path)
+    except Exception as e:
+        print(f"Exception occurred while trying to connect socket server: {e}")
+    else:
+        connection = True
+    finally:
+        sock.close()
+    return connection
+
+
+def ansible_socket_client(req_to_send, verbose=True):
     response = {}
     socket_path = "/tmp/IocDock.sock"
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(socket_path)
-        send_message(sock, req)
+        send_message(sock, req_to_send)
         response = receive_message(sock)
         if response and response != 'invalid request':
             response = json.loads(response)
     except Exception as e:
-        print(f"Exception occurred while running socket clinet: {e}")
+        if verbose:
+            print(f"Exception occurred while running socket clinet: {e}")
     finally:
         sock.close()
     return response
 
 
 if __name__ == "__main__":
-    print(ansible_socket_client("ioc info"))
+    if client_check_connection():
+        print(ansible_socket_client("ioc info"))
+    print(ansible_socket_client("service info"))
