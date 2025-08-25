@@ -45,5 +45,25 @@ def gen_inventory_files(verbose=False):
             file_remove(IMConfig.DEFAULT_INVENTORY_FILE_PATH, verbose=verbose)
 
 
+def ping():
+    os.system(f'ansible all -m ping -i {IMConfig.ANSIBLE_INVENTORY_PATH}')
+
+
+def ansible_touch_dir(dir_name, host_pattern):
+    base_path = os.path.normpath(os.path.join(IMConfig.MANAGER_PATH, '..'))
+    dir_path = os.path.join(base_path, dir_name)
+    os.system(f'ansible {host_pattern} -m file -a "dest={base_path} mode=775 state=directory" '
+              f'-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}')
+    os.system(f'ansible {host_pattern} -m file -a "dest={dir_path} mode=777 state=directory" '
+              f'-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}')
+
+
+def ansible_create_file(file_path, contents, host_pattern):
+    os.system(f'ansible {host_pattern} -m copy -a "content=\'{contents}\' dest={file_path}" '
+              f'-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}')
+
+
 if __name__ == '__main__':
     gen_inventory_files(verbose=True)
+    ansible_create_file('/tmp/test', 'abc', 'manager1')
+    ping()

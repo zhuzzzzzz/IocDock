@@ -6,6 +6,7 @@
   gather_facts: true
   vars:
     ansible_ssh_user: ubuntu
+    for_user: zhu
     ansible_ssh_host_key_checking: false
   roles:
     - setup-cluster

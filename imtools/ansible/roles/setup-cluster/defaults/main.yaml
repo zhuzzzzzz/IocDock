@@ -5,7 +5,7 @@ skip_set_up_cluster: false
 ansible_ssh_user: root
 
 ## create user
-for_user: zhu
+for_user: default
 create_password: 'default'
 add_to_sudo_list: true
 

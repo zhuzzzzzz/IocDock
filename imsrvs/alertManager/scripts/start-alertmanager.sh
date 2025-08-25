@@ -4,7 +4,7 @@ set -e
 
 . /scripts/AlertManagerVar
 
-. /var/tmp/IocDock/NodeInfo
+. /tmp/NodeInfo
 
 if [[ "$ALERT_MANAGER_MASTER_IP" == "$NODE_IP" ]]; then
     set -- /bin/alertmanager --cluster.listen-address=$ALERT_MANAGER_MASTER_IP_PORT "$@"
