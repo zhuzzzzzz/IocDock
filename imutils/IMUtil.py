@@ -225,8 +225,9 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
         else:
             index_reserved.append(i)
 
-    socket_result_ioc = ansible_socket_client("ioc info", verbose=verbose)
-    socket_result_service = ansible_socket_client("service info", verbose=verbose)
+    if show_panel:
+        socket_result_ioc = ansible_socket_client("ioc info", verbose=verbose)
+        socket_result_service = ansible_socket_client("service info", verbose=verbose)
 
     # print results.
     ioc_print = []
@@ -234,13 +235,13 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
     panel_print = [["IOC", "Host", "Description", "State", "Status",
                     "DeployStatus", "SnapshotConsistency", "RuningConsistency"], ]
     for i in index_reserved:
-        #
-        socket_info_ioc = socket_result_ioc.get(ioc_list[i].name, None)
-        socket_info_service = socket_result_service.get(ioc_list[i].name, None)
-        #
         if show_info:
             ioc_list[i].show_config()
         elif show_panel:
+            #
+            socket_info_ioc = socket_result_ioc.get(ioc_list[i].name, None)
+            socket_info_service = socket_result_service.get(ioc_list[i].name, None)
+            #
             desc = ioc_list[i].get_config("description")
             if len(desc) > 37:
                 desc = desc[:37] + '...'
