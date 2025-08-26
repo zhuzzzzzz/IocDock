@@ -5,7 +5,7 @@
 
 # set up ssh connection
 - include_tasks: "set-up-ssh-connection.yaml"
-  when: not skip_create_remote_user
+  when: not skip_set_up_ssh_connection
 
 # set up basic environment
 - include_tasks: "set-up-basic-environment.yaml"

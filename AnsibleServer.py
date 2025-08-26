@@ -9,7 +9,7 @@ import json
 import docker
 from datetime import datetime
 
-from imutils.IMConfig import ANSIBLE_PATH, SOCKET_PATH
+from imutils.IMConfig import SOCKET_PATH
 from imutils.IMUtil import get_all_ioc
 from imutils.SwarmClass import SwarmManager
 from imutils.AnsibleClient import send_message, receive_message
@@ -80,7 +80,6 @@ class RepeatingTimer:
 class IocDockServer:
     def __init__(self):
 
-        self.refresh_interval = 10
         self.pull_interval = 10
 
         self.ioc_list = get_all_ioc()
@@ -105,6 +104,7 @@ class IocDockServer:
                 'status': item.state_manager.get_config("status"),
                 'snapshot_consistency': item.check_snapshot_consistency()[1],
                 'running_consistency': item.check_running_consistency()[1],
+                'update_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     def get_service_info(self):
@@ -113,6 +113,7 @@ class IocDockServer:
             self.service_info[item.name] = {
                 'status': item.current_state,
                 'replicas': item.replicas,
+                'update_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     def get_node_info(self):
@@ -125,6 +126,7 @@ class IocDockServer:
                 'role': node.attrs['Spec']['Role'],
                 'availability': node.attrs['Spec']['Availability'],
                 'labels': node.attrs['Spec']['Labels'],
+                'update_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     def start_task(self, name):
@@ -147,16 +149,13 @@ class IocDockServer:
         status_info = {}
         for name, task in self.timer_tasks.items():
             status_info[name] = {
-                'running': task.is_running,
+                'status': 'running' if task.is_running else 'stopped',
                 'interval': task.interval,
                 'function': task.function.__name__,
                 'args': task.args,
                 'kwargs': task.kwargs
             }
         return status_info
-
-    def refresh_data(self):
-        pass
 
 
 class SocketServer:
@@ -220,7 +219,7 @@ class SocketServer:
         if self.serving:
             display_message('Stoping socket server...')
             self.serving = False
-            time.sleep(1.5)
+            self.server_thread.join()
             self.cleanup_socket()
             display_message('Socket server stopped.')
 
@@ -228,11 +227,10 @@ class SocketServer:
         display_message('Stoping all timer tasks...')
         self.dock_server.stop_all_tasks()
         self.stop_listen()
-        self.server_thread.join()
 
     def console_interface(self):
-        help_str = ("Available Commands: status | start [listen|server] | stop [listen|server] | sockets | exit "
-                    "| server [subcommands] ")
+        help_str = ("Available Commands: status | start [listen|server] | stop [listen|server] | sockets "
+                    "| debug [on|off] | exit | server [subcommands] ")
         print(help_str)
         while True:
             try:
@@ -249,6 +247,10 @@ class SocketServer:
                     self.stop_listen()
                 elif command == "sockets":
                     print(self.listen_sockets)
+                elif command == "debug on":
+                    self.connection_debug = True
+                elif command == "debug off":
+                    self.connection_debug = False
                 elif command == "exit":
                     self.exit()
                     break

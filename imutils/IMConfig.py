@@ -82,24 +82,29 @@ DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly cr
 
 CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
-    'manager0': '192.168.1.104',
-    'manager1': '192.168.1.105',
+    'ubuntu-server': '192.168.1.50',
+    'ubuntu-new': '192.168.1.51',
+    'swarm-manager': '192.168.1.52',
 }
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",
-    'worker0': '192.168.1.101',
-    'worker1': '192.168.1.102',
+    'swarm-node0': '192.168.1.53',
+    'swarm-node1': '192.168.1.54',
 }
 DEFAULT_NODES = {
     # "hostname": "ip address",
-    # 'nfs': '192.168.1.50'
+    'nfs': '192.168.1.50'
 }
+
+FOR_USER = "zhu"
 
 #############################
 ## Ansible Server Settings ##
 #######################################################################################################################
+
 SOCKET_PATH = "/tmp/IocDock.sock"
-NODE_IP_FILE = "/tmp/NodeInfo"
+
+NODE_IP_FILE = "/tmp/NodeInfo"  # file to store node ip in cluster for services init
 
 ############################
 ## Global Deploy settings ##

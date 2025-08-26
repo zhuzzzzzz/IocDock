@@ -38,8 +38,8 @@ services:
       target: /scripts
       type: bind
       read_only: true
-    - source: /var/tmp/IocDock
-      target: /var/tmp/IocDock
+    - source: /tmp/NodeInfo
+      target: /tmp/NodeInfo
       type: bind
       read_only: true
     - source: ./config

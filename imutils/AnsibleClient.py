@@ -1,6 +1,7 @@
 import json
 import socket
 import struct
+import docker
 
 from imutils.AnsibleUtil import ansible_create_file, ansible_touch_dir
 from imutils.IMConfig import SOCKET_PATH, NODE_IP_FILE
@@ -79,13 +80,21 @@ def ansible_socket_client(req_to_send, verbose=True):
     return response
 
 
-def set_up_ip_file():
-    node_info = ansible_socket_client("node info")
+def set_up_file_and_dir_for_every_host():
+    docker_client = docker.from_env()
+    node_info = {}
+    nodes = docker_client.nodes.list()
+    for node in nodes:
+        node_info[node.attrs['Description']['Hostname']] = {
+            'ip': node.attrs['Status']['Addr'],
+        }
     for node_name, node_info in node_info.items():
         ansible_create_file(NODE_IP_FILE, f'NODE_IP={node_info["ip"]}', node_name)
+        ansible_touch_dir('alloy-data', node_name)
+        ansible_touch_dir('IocDock-data', node_name)
 
 
-def set_up_dir():
+def set_up_dir_according_to_labels():
     node_info = ansible_socket_client("node info")
     for node_name, node_info in node_info.items():
         if node_info.get('labels', None):
@@ -93,13 +102,13 @@ def set_up_dir():
                 if key == 'alertmanager' and value == 'true':
                     ansible_touch_dir('alertManager-data', node_name)
                 elif key == 'grafana' and value == 'true':
-                    pass
+                    ansible_touch_dir('grafana-data', node_name)
                 elif key == 'loki' and value == 'true':
-                    pass
+                    ansible_touch_dir('loki-data', node_name)
                 elif key == 'prometheus' and value == 'true':
-                    pass
+                    ansible_touch_dir('prometheus-data', node_name)
                 elif key == 'registry' and value == 'true':
-                    pass
+                    ansible_touch_dir('registry-data', node_name)
 
 
 if __name__ == "__main__":
@@ -107,4 +116,5 @@ if __name__ == "__main__":
     #     print(ansible_socket_client("ioc info"))
     # print(ansible_socket_client("service info"))
     # print(ansible_socket_client("node info"))
-    set_up_ip_file()
+    set_up_file_and_dir_for_every_host()
+    set_up_dir_according_to_labels()

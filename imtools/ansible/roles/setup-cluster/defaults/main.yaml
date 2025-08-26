@@ -1,8 +1,10 @@
 skip_create_remote_user: false
+skip_set_up_ssh_connection: false
 skip_set_up_basic_environment: false
 skip_set_up_cluster: false
 
 ansible_ssh_user: root
+ansible_ssh_host_key_checking: false
 
 ## create user
 for_user: default

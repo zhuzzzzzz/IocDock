@@ -5,8 +5,14 @@
   become: true
   gather_facts: true
   vars:
-    ansible_ssh_user: ubuntu
+    ansible_ssh_user: zhu
     for_user: zhu
-    ansible_ssh_host_key_checking: false
+    skip_create_remote_user: true
+    skip_set_up_ssh_connection: false
+    skip_set_up_basic_environment: false
+    skip_set_up_cluster: true
+    skip_install_docker_engine: false 
+    skip_setup_docker_engine: false 
+    skip_setup_swarm_cluster: false
   roles:
     - setup-cluster
