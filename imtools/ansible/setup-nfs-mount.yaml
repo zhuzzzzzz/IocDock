@@ -1,0 +1,25 @@
+- name: set up nfs mount
+  hosts:
+    - manager
+    - worker
+  become: true
+  gather_facts: true
+  vars:
+    ansible_ssh_user: zhu
+    nfs_server: 192.168.1.50  # NFS服务器IP
+    nfs_share: /home/zhu/NFS/IocDock-data  # 服务器共享路径
+    mount_point: /home/zhu/docker/IocDock-data  # 本地挂载点
+  tasks:
+    - ansible.builtin.file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: '0777'
+        owner: "{{ ansible_ssh_user }}"
+        group: "{{ ansible_ssh_user }}"
+        recurse: true
+    - ansible.posix.mount:
+        src: "{{ nfs_server }}://{{ nfs_share }}"
+        path: "{{ mount_point }}"
+        opts: rw,_netdev
+        state: mounted
+        fstype: nfs

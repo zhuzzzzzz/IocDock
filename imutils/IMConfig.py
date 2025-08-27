@@ -85,6 +85,7 @@ CLUSTER_MANAGER_NODES = {
     'ubuntu-server': '192.168.1.50',
     'ubuntu-new': '192.168.1.51',
     'swarm-manager': '192.168.1.52',
+    'swarm-manager1': '192.168.1.55',
 }
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",

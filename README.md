@@ -1,7 +1,7 @@
 # IocDock
 
 **为加速器控制系统设计的 IOC(Input/Output Controller) 应用程序容器化部署管理系统.**   
-**基于 EPICS 架构的 IOC 部署管理平台, 为控制系统运行的 IOC 项目提供开发构建、部署运维、监控管理等各方面的自动化功能.**
+**基于 EPICS 架构的 IOC 部署管理平台, 为控制系统提供 IOC 项目开发构建、部署运维、监控管理等各方面的自动化功能.**
 
 - 控制系统服务器集群运行环境构建及管理
 - IOC 项目管理
@@ -25,7 +25,7 @@ pip install -r requirments.txt
 # 安装工具
 sudo ./install.sh
 
-# 重启
+# 重启完成安装
 reboot
 
 # 运行以下命令, 若无报错则搭建成功
@@ -36,55 +36,83 @@ IocManager list
 
 #### 2.1 使用 ansible role 自动化搭建 swarm 集群
 
-    1. 修改配置文件 `imutils/IMConfig.py`, 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称及ip, 设置远程主机预期的工作用户
-    
-    
-    2. 执行 `IocManager cluster --gen-inventory-files` 为上步的配置生成清单文件
-    
-    
-    3. 执行 `ansible/setup-cluster` playbook 以自动初始化集群环境, 根据需要选择其中的执行步骤
-        ```shell
-       # 执行 playbook
-       ansible-playbook setup-cluster -i inventory/ -kK
-        ```
-    
-    4. 执行 `IocManager cluster --ping` 验证创建的集群环境
-    
-    
-    5. 执行 `make-test-project.sh make` 创建测试用 IOC 项目
-    
-    
-    6. 验证 swarm 集群
-    
-        ```shell
-        # 运行以下命令显示集群信息, 若无报错则搭建成功
-        IocManager swarm --show-digest
-        IocManager swarm --show-nodes --detail
-       
-        # 验证测试IOC是否正常运行
-        ```
+1. 修改配置文件 `imutils/IMConfig.py`, 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称, ip, 预期的工作用户
+
+
+2. 为上步的配置生成清单文件
+
+   ```shell
+    IocManager cluster --gen-inventory-files
+   ```
+
+
+3. 执行 playbook 以自动初始化集群环境, 根据需要设置 playbook 变量以选择执行其中的某些步骤
+    ```shell
+     # ansible_ssh_user: zhu  # ansible发起远程连接使用的账户, 通常为具有root权限的用户, 当设置为root时需配置ssh允许root用户密码登录
+     # for_user: zhu  # 预期的工作用户, 若不存在需要创建
+     # create_password: z1728831951  # 工作用户密码
+     # skip_create_remote_user: false  # 是否跳过创建预期的工作用户
+     # skip_set_up_ssh_connection: false  # 是否跳过设置ssh免密登录
+     # skip_set_up_basic_environment: false  # 是否跳过设置基础运行环境
+     # skip_set_up_cluster: false   # 是否跳过创建swarm集群
+     # skip_install_docker_engine: false  # 创建swarm集群时, 是否跳过安装docker及相关依赖
+     # skip_setup_docker_engine: false  # 创建swarm集群时, 是否跳过配置docker引擎
+     # skip_setup_swarm_cluster: false  # 创建swarm集群时, 是否跳过自动初始化swarm集群
+     # docker_swarm_interface: enp0s3  # 创建 swarm 集群时, 首个管理节点向外发布地址使用的网卡
+     # docker_swarm_init_new_cluster: true  # 创建 swarm 集群时, 是否强制重新初始化swarm集群
+     cd imtools/ansible
+     ansible-playbook setup-cluster -i inventory/ -kK
+    ```
+
+4. 验证创建的集群环境
+
+    ```shell
+     # 运行以下命令显示集群信息, 若无报错则搭建成功
+     IocManager cluster --ping 
+     IocManager swarm --show-digest
+     IocManager swarm --show-nodes --detail
+    ```
 
 #### 2.2 部署集群 NFS 服务
 
-集群使用 NFS 共享系统数据及部分应用程序数据. 由于 swarm 编排调度对部署文件的插值均发生在管理端,
-因此要求集群内所有节点的运行环境具有相同路径(在`/home/user_name/docker`目录下).
+集群使用 NFS 来存储和共享系统数据及部分应用的程序数据.
 
-    # set nfs mounting.
-    # sudo vi /etc/exports
-    # /home/ubuntu/nfs-dir/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
-    # sudo exportfs -a
-    # mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
-    # vi /etc/fstab
-    # server:/srv/nfs  /mnt/nfs_share  nfs  rw,_netdev,vers=4  0  0
-    # sudo mount -a
+由于 swarm 的编排调度对服务部署文件的插值均发生在管理端, 因此要求集群内所有节点的运行环境具有与管理节点相同的路径(在
+`/home/user_name/docker/`目录下).
 
-### 部署预置集群服务
+1. 配置 NFS server
 
-### 部署 IOC 服务
+    ```shell
+     sudo vi /etc/exports
+     # /home/zhu/NFS/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
+     # /home/zhu/NFS/registry-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
+     sudo exportfs -a
+    ```
+
+2. 配置 NFS client 
+
+    ```shell
+     # mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
+     vi /etc/fstab
+     # server_ip:/home/zhu/NFS/IocDock-data  /home/zhu/docker/IocDock-data  nfs  rw,_netdev,vers=4  0  0
+     # server_ip:/home/zhu/NFS/registry-data  /home/zhu/docker/registry-data  nfs  rw,_netdev,vers=4  0  0
+     sudo mount -a
+    ```
+
+
+2. 使用 playbook 实现集群主机批量自动化挂载 NFS 服务器(需要编辑 playbook 变量设置挂载细节)
+
+    ```shell
+     cd imtools/ansible
+     ansible-playbook setup-nfs-mount -i inventory/ -K
+    ```
+
+
+### 3. 部署预置的集群服务
+
+### 4. 部署 IOC 服务
 
 ## IOC 项目开发与部署
-
-## 运维环境配置与管理
 
 ## old
 

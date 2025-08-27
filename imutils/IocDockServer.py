@@ -1,5 +1,4 @@
 import os
-import fcntl
 import pprint
 import sys
 import socket

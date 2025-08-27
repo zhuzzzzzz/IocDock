@@ -21,6 +21,17 @@
     executable: /bin/bash
   when: disable_firewall and ansible_distribution == 'Ubuntu'
 
+- name: install nfs client
+  ansible.builtin.apt:
+    update_cache: true
+    name: nfs-common
+  when: ansible_os_family == 'Debian'
+
+- name: install nfs client
+  ansible.builtin.yum:
+    name: nfs-utils
+  when: ansible_os_family == 'RedHat'
+
 - name: disable apt auto update
   ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/99-disable-updates.conf
@@ -51,3 +62,11 @@
     state: stopped
     enabled: no
   when: disable_package_auto_update and ansible_os_family == 'RedHat' and ansible_distribution_major_version >= '8'
+
+- name: prepare working directory
+  ansible.builtin.file:
+    path: "/home/{{ for_user }}/docker"
+    state: directory
+    mode: '0775'
+    owner: "{{ for_user }}"
+    group: "{{ for_user }}"
