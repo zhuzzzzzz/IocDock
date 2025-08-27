@@ -13,7 +13,7 @@
 
 ## Getting Started
 
-### 安装工具
+### 1. 安装工具
 
 ```shell
 # 选择一台管理主机, 拉取代码以安装部署管理系统
@@ -32,38 +32,43 @@ reboot
 IocManager list
 ```
 
-### 搭建集群
+### 2. 构建集群环境
 
-#### 使用预置 ansible role 自动化搭建集群
+#### 2.1 使用 ansible role 自动化搭建 swarm 集群
 
-1. 修改配置文件 `imutils/IMConfig.py`, 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称及ip, 设置预期的工作用户
+    1. 修改配置文件 `imutils/IMConfig.py`, 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称及ip, 设置远程主机预期的工作用户
+    
+    
+    2. 执行 `IocManager cluster --gen-inventory-files` 为上步的配置生成清单文件
+    
+    
+    3. 执行 `ansible/setup-cluster` playbook 以自动初始化集群环境, 根据需要选择其中的执行步骤
+        ```shell
+       # 执行 playbook
+       ansible-playbook setup-cluster -i inventory/ -kK
+        ```
+    
+    4. 执行 `IocManager cluster --ping` 验证创建的集群环境
+    
+    
+    5. 执行 `make-test-project.sh make` 创建测试用 IOC 项目
+    
+    
+    6. 验证 swarm 集群
+    
+        ```shell
+        # 运行以下命令显示集群信息, 若无报错则搭建成功
+        IocManager swarm --show-digest
+        IocManager swarm --show-nodes --detail
+       
+        # 验证测试IOC是否正常运行
+        ```
 
+#### 2.2 部署集群 NFS 服务
 
-2. 执行 `IocManager cluster --gen-inventory-files` 为上步的配置生成清单文件
+集群使用 NFS 共享系统数据及部分应用程序数据. 由于 swarm 编排调度对部署文件的插值均发生在管理端,
+因此要求集群内所有节点的运行环境具有相同路径(在`/home/user_name/docker`目录下).
 
-
-3. 执行 `ansible/setup-cluster` playbook 以自动初始化集群环境, 根据需要选择其中的执行步骤
-    ```shell
-   # 执行 playbook
-   ansible-playbook setup-cluster -i inventory/ -kK
-    ```
-
-4. 执行 `IocManager cluster --ping` 验证创建的集群环境
-
-
-5. 执行 `make-test-project.sh make` 创建测试用 IOC 项目
-
-```shell
-# 运行以下命令显示集群信息, 若无报错则搭建成功
-IocManager swarm --show-digest
-IocManager swarm --show-nodes --detail
-```
-
-### 部署预置集群服务
-
-- 部署集群 NFS 服务
-
-    ```shell
     # set nfs mounting.
     # sudo vi /etc/exports
     # /home/ubuntu/nfs-dir/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
@@ -72,7 +77,8 @@ IocManager swarm --show-nodes --detail
     # vi /etc/fstab
     # server:/srv/nfs  /mnt/nfs_share  nfs  rw,_netdev,vers=4  0  0
     # sudo mount -a
-    ```
+
+### 部署预置集群服务
 
 ### 部署 IOC 服务
 
