@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set exec list swarm service remove rename edit config client"
+	sub_command_opts="create set exec list swarm service remove rename edit config client cluster"
 	
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw"
@@ -33,7 +33,8 @@ _mycommand_completion() {
 	swarm_prompt="--gen-built-in-services --deploy-global-services --deploy-all-iocs --remove-global-services --remove-all-iocs --remove-all-services --show-digest --show-services --show-nodes --show-tokens --backup-swarm --restore-swarm --update-deployed-services"
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
-	
+	#
+	cluster_prompt="--gen-inventory-files --ping --registry-login --set-up-file-and-dir"
 	
 
 	# sub-commands completion.( 2nd position )
@@ -96,6 +97,9 @@ _mycommand_completion() {
 			;;
 			"client")
 			prompt="caget caput cainfo camonitor" 
+			;;
+	    "cluster")
+			prompt="$cluster_prompt"
 			;;
 			*)
 			return 1

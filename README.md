@@ -9,12 +9,11 @@
 - 基于容器编排的 IOC 自动化部署及管理
 - 基于 Prometheus 的运行指标监控与报警
 - 基于 Loki 的运行日志监控与报警
+- 基于 Ansible 的集群自动化配置及运维
 
 ## Getting Started
 
-### 准备部署环境
-
-#### 工具安装
+### 安装工具
 
 ```shell
 # 选择一台管理主机, 拉取代码以安装部署管理系统
@@ -26,16 +25,33 @@ pip install -r requirments.txt
 # 安装工具
 sudo ./install.sh
 
-# 重启以应用部分设置
+# 重启
 reboot
 
 # 运行以下命令, 若无报错则搭建成功
 IocManager list
 ```
 
-#### 集群搭建
+### 搭建集群
 
-#### 验证部署环境
+#### 使用预置 ansible role 自动化搭建集群
+
+1. 修改配置文件 `imutils/IMConfig.py`, 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称及ip, 设置预期的工作用户
+
+
+2. 执行 `IocManager cluster --gen-inventory-files` 为上步的配置生成清单文件
+
+
+3. 执行 `ansible/setup-cluster` playbook 以自动初始化集群环境, 根据需要选择其中的执行步骤
+    ```shell
+   # 执行 playbook
+   ansible-playbook setup-cluster -i inventory/ -kK
+    ```
+
+4. 执行 `IocManager cluster --ping` 验证创建的集群环境
+
+
+5. 执行 `make-test-project.sh make` 创建测试用 IOC 项目
 
 ```shell
 # 运行以下命令显示集群信息, 若无报错则搭建成功
@@ -43,17 +59,29 @@ IocManager swarm --show-digest
 IocManager swarm --show-nodes --detail
 ```
 
-### 准备运行环境
+### 部署预置集群服务
 
-### 部署测试 IOC
+- 部署集群 NFS 服务
 
-### 验证部署情况
+    ```shell
+    # set nfs mounting.
+    # sudo vi /etc/exports
+    # /home/ubuntu/nfs-dir/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
+    # sudo exportfs -a
+    # mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
+    # vi /etc/fstab
+    # server:/srv/nfs  /mnt/nfs_share  nfs  rw,_netdev,vers=4  0  0
+    # sudo mount -a
+    ```
+
+### 部署 IOC 服务
 
 ## IOC 项目开发与部署
 
 ## 运维环境配置与管理
 
 ## old
+
 ##############################################################
 
 #### 工作流程参考

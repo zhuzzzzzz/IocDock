@@ -1,4 +1,5 @@
 import os
+import fcntl
 import pprint
 import sys
 import socket
@@ -16,15 +17,17 @@ from imutils.AnsibleClient import send_message, receive_message
 
 
 def display_message(msg='', with_prompt=False):
-    prompt = "command"
-    prompt = "\033[33m\033[1m" + f"{prompt}> " + "\033[0m"
-    if msg:
-        sys.stdout.write('\033[2K')  # 清除整行
-        sys.stdout.write('\r')  # 光标回到行首
-        sys.stdout.write(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ' + msg + '\n')
     if with_prompt:
+        prompt = "command"
+        prompt = "\033[33m\033[1m" + f"{prompt}> " + "\033[0m"
+        if msg:
+            sys.stdout.write('\033[2K')  # 清除整行
+            sys.stdout.write('\r')  # 光标回到行首
+            sys.stdout.write(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ' + msg + '\n')
         sys.stdout.write(prompt)
         sys.stdout.flush()
+    else:
+        print(msg)
 
 
 class RepeatingTimer:
@@ -159,10 +162,10 @@ class IocDockServer:
 
 
 class SocketServer:
-    def __init__(self, with_cli=True):
+    def __init__(self, with_cli=True, connection_debug=True):
         self.socket_path = SOCKET_PATH
         self.with_cli = with_cli
-        self.connection_debug = False
+        self.connection_debug = connection_debug
 
         self.server_socket = None
         self.listen_sockets = []

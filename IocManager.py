@@ -9,7 +9,7 @@ import configparser
 from imutils.IMConfig import get_manager_path, IOC_CONFIG_FILE, IOC_BACKUP_DIR, PREFIX_STACK_NAME
 from imutils.IMFunc import operation_log, condition_parse
 from imutils.IMUtil import create_ioc, set_ioc, get_filtered_ioc, remove_ioc, execute_ioc, rename_ioc, update_ioc, \
-    execute_swarm, execute_service, edit_ioc, execute_config
+    execute_swarm, execute_service, edit_ioc, execute_config, execute_cluster
 
 if __name__ == '__main__':
 
@@ -253,6 +253,20 @@ if __name__ == '__main__':
     parser_config.add_argument('arguments', type=str, nargs='*', help='arguments.')
     parser_config.set_defaults(func='parse_client')
 
+    #
+    parser_cluster = subparsers.add_parser('cluster', help='Functions for managing cluster.',
+                                           formatter_class=argparse.RawTextHelpFormatter)
+    parser_cluster.add_argument('--gen-inventory-files', action="store_true",
+                                help='generate inventory files of cluster machines for ansible.')
+    parser_cluster.add_argument('--ping', action="store_true",
+                                help='ping all machines in inventory files using ansible.')
+    parser_cluster.add_argument('--registry-login', action="store_true",
+                                help='login into registry for cluster machines.')
+    parser_cluster.add_argument('--set-up-file-and-dir', action="store_true",
+                                help='set up file and dir resources for service deploying.')
+    parser_cluster.add_argument('-v', '--verbose', action="store_true", help='show processing details.')
+    parser_cluster.set_defaults(func='parse_cluster')
+
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
@@ -270,7 +284,7 @@ if __name__ == '__main__':
     if args.verbose:
         print(args)
     if args.func == 'parse_create' or args.func == 'parse_set':
-        # ./iocManager.py create or ./iocManager.py set
+        # ./IocManager.py create or ./IocManager.py set
         conf_temp = configparser.ConfigParser()
         #
         if args.ini_file:
@@ -320,42 +334,42 @@ if __name__ == '__main__':
                 print('-----------------------------//')
         #
         if args.func == 'parse_create':
-            # ./iocManager.py create
+            # ./IocManager.py create
             create_ioc(args.name, args, config=conf_temp, verbose=args.verbose)
         else:
-            # ./iocManager.py set
+            # ./IocManager.py set
             set_ioc(args.name, args, config=conf_temp, verbose=args.verbose)
     if args.func == 'parse_list':
-        # ./iocManager.py list
+        # ./IocManager.py list
         get_filtered_ioc(args.condition, section=args.section, from_list=args.list_from, show_info=args.show_info,
                          show_description=args.show_description, show_panel=args.show_panel, verbose=args.verbose)
     if args.func == 'parse_remove':
-        # ./iocManager.py remove
+        # ./IocManager.py remove
         for item in args.name:
             remove_ioc(item, remove_all=args.remove_all, force_removal=args.force, verbose=args.verbose)
     if args.func == 'parse_execute':
-        # ./iocManager.py exec
+        # ./IocManager.py exec
         execute_ioc(args)
     if args.func == 'parse_rename':
-        # ./iocManager.py rename
+        # ./IocManager.py rename
         rename_ioc(args.name[0], args.name[1], args.verbose)
     if args.func == 'parse_update':
-        # ./iocManager.py update
+        # ./IocManager.py update
         update_ioc(args)
     if args.func == 'parse_swarm':
-        # ./iocManager.py swarm
+        # ./IocManager.py swarm
         execute_swarm(args)
     if args.func == 'parse_service':
-        # ./iocManager.py service
+        # ./IocManager.py service
         execute_service(args)
     if args.func == 'parse_edit':
-        # ./iocManager.py edit
+        # ./IocManager.py edit
         edit_ioc(args)
     if args.func == 'parse_config':
-        # ./iocManager.py config
+        # ./IocManager.py config
         execute_config(args)
     if args.func == 'parse_client':
-        # ./iocManager.py client
+        # ./IocManager.py client
         result = subprocess.run(
             ['docker', 'ps', '--format', '{{.ID}}',
              '--filter', f'label=com.docker.swarm.service.name={PREFIX_STACK_NAME}_srv-client', ],
@@ -374,5 +388,8 @@ if __name__ == '__main__':
         cmd_str = f'docker exec {random.choice(container_list)} ./{args.cmd} {arguments}'
         print(f'executing "{cmd_str}".')
         os.system(cmd_str)
+    if args.func == 'parse_cluster':
+        # ./IocManager.py cluster
+        execute_cluster(args)
     if args.verbose:
         print()

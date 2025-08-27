@@ -1,68 +1,91 @@
 #!/bin/bash
 
-set -ex
+#
+current_user="${SUDO_USER:-$USER}"
+script_abs=$(readlink -f "$0")
+script_dir=$(dirname $script_abs)
 
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    case $ID in
-        ubuntu)
-            ;;
-        centos)
-            ;;
-        *)
-            echo "Failed. Only support for ubuntu and centOS now."
-            exit 1
-            ;;
-    esac
-else
-    echo "Failed. Can't check OS information."
+
+# install shell command completion.
+echo installing shell command completion...
+cd imtools/command-completion
+. install-command-completion.sh
+cd $script_dir
+
+
+# set environment variables.
+echo setting environment variables...
+export MANAGER_PATH=$script_dir
+repository_path=$(./IocManager.py config REPOSITORY_PATH)
+if [ $? -ne 0 ]; then
+    echo "Failed. Failed to get \"REPOSITORY_PATH\" in configuration file." >&2
     exit 1
 fi
+mkdir $repository_path > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    chown $current_user:$current_user $repository_path
+    chmod g+w $repository_path
+fi
+mount_path=$(./IocManager.py config MOUNT_PATH)
+if [ $? -ne 0 ]; then
+    echo "Failed. Failed to get \"MOUNT_PATH\" in configuration file." >&2
+    exit 1
+fi
+file_path=/etc/profile.d/IocDockSetup.sh
+echo "export MANAGER_PATH=$script_dir" > $file_path
+echo "export REPOSITORY_PATH=$repository_path" >> $file_path
+echo "export MOUNT_PATH=$mount_path" >> $file_path
 
-# install docker and python-packeges
-case $ID in
-    ubuntu)
-        # Add Docker's official GPG key:
-        apt-get update
-        apt-get install ca-certificates curl
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-        chmod a+r /etc/apt/keyrings/docker.asc
-        # Add the repository to Apt sources:
-        echo \
-  	      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-          $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        apt-get update
-        #
-        sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-        #
-        groupadd docker
-        usermod -aG docker $USER
-        newgrp docker
-        #
-        apt install python3-pip
-        apt install python3-docker python3-tabulate
-        ;;
-    centos)
-        #
-        dnf -y install dnf-plugins-core
-        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-        dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-        systemctl enable --now docker
-        #
-        groupadd docker
-        usermod -aG docker $USER
-        newgrp docker
-        #
-        pip3 install docker tabulate
-        ;;
-    *)
-        echo "Failed. Only support for ubuntu and centOS now."
-	    exit 1
-        ;;
-esac
+# set log file permission.
+echo setting log file permission...
+file_path=$(./IocManager.py config OPERATION_LOG_FILE_PATH)
+if [ $? -eq 0 ]; then
+    chown $current_user:$current_user $file_path
+    chmod g+w $file_path
+fi
 
+# add command soft link.
+echo making file soft link for command...
+ln -sf $script_dir/IocManager.py /usr/bin/IocManager
+
+# create systemd service file
+echo "trying to stop and disable systemd service if exist..."
+systemctl stop IocDockServer.service
+systemctl disable IocDockServer.service
+SERVICE_FILE=/etc/systemd/system/IocDockServer.service
+echo "creating systemd service unit file..."
+cat > "${SERVICE_FILE}" << EOF
+[Unit]
+Description=IocDockServer with and socket server
+After=network.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=${current_user}
+Group=${current_user}
+WorkingDirectory=${script_dir}
+ExecStart=/usr/bin/python3 -u IocDockServer.py --server
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=IocDockServer
+Environment="MANAGER_PATH=$script_dir"
+Environment="REPOSITORY_PATH=$repository_path"
+Environment="MOUNT_PATH=$mount_path"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+chmod 644 "${SERVICE_FILE}"
+systemctl daemon-reload
+systemctl enable IocDockServer.service
+systemctl start IocDockServer.service
+
+# finished.
+echo installation finished, you may need to re-login or reboot the system.
+#
 
 
 

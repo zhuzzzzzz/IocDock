@@ -7,7 +7,9 @@ from imutils.IMError import IMValueError
 from imutils.IocClass import IOC, gen_swarm_files, get_all_ioc, repository_backup, restore_backup
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import try_makedirs, condition_parse
-from imutils.AnsibleClient import ansible_socket_client
+from imutils.AnsibleClient import ansible_socket_client, set_up_file_and_dir_for_every_host, \
+    set_up_dir_according_to_labels
+from imutils.AnsibleUtil import gen_inventory_files, ping, docker_registry_login
 
 
 # accepts iterable for input
@@ -423,6 +425,18 @@ def execute_config(args):
             print(getattr(IMConfig, args.name))
         else:
             exit(10)
+
+
+def execute_cluster(args):
+    if args.gen_inventory_files:
+        gen_inventory_files(verbose=args.verbose)
+    elif args.ping:
+        ping()
+    elif args.registry_login:
+        docker_registry_login()
+    elif args.set_up_file_and_dir:
+        set_up_file_and_dir_for_every_host()
+        set_up_dir_according_to_labels()
 
 
 if __name__ == '__main__':

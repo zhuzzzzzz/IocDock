@@ -112,9 +112,9 @@ def set_up_dir_according_to_labels():
 
 
 if __name__ == "__main__":
-    # if client_check_connection():
-    #     print(ansible_socket_client("ioc info"))
-    # print(ansible_socket_client("service info"))
-    # print(ansible_socket_client("node info"))
-    set_up_file_and_dir_for_every_host()
-    set_up_dir_according_to_labels()
+    if client_check_connection():
+        print(ansible_socket_client("ioc info"))
+    print(ansible_socket_client("service info"))
+    print(ansible_socket_client("node info"))
+    # set_up_file_and_dir_for_every_host()
+    # set_up_dir_according_to_labels()

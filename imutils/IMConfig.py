@@ -8,7 +8,7 @@ def get_manager_path() -> str:
         if os.path.isdir(manager_path):
             return manager_path
         else:
-            raise IMInitError(f'Invalid system environment variable "$MANAGER_PATH".')
+            raise IMInitError(f'Invalid system environment variable "$MANAGER_PATH": {manager_path}.')
     else:
         raise IMInitError(f'System environment variable "$MANAGER_PATH" is not defined.')
 
