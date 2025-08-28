@@ -138,7 +138,7 @@ REGISTRY_SHELL_VAR_FILE = 'RegistryVar'  # temp file for shell variables
 
 ## alertManager ##
 ALERT_MANAGER_SHELL_VAR_FILE = 'AlertManagerVar'
-ALERT_MANAGER_MASTER_IP = '192.168.1.51'
+ALERT_MANAGER_MASTER_IP = '192.168.1.50'
 ALERT_MANAGER_MASTER_GOSSIP_PORT = '9094'
 ALERT_MANAGER_SMTP_SMART_HOST = "smtp.qiye.aliyun.com:465"
 ALERT_MANAGER_SMTP_AUTH_USERNAME = "zhujunhua@mail.iasf.ac.cn"
