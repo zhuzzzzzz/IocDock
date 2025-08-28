@@ -17,19 +17,19 @@
 
 ```shell
 # 选择一台管理主机, 拉取代码以安装部署管理系统
-git clone https://github.com/zhuzzzzzz/IocDock.git
+$ git clone https://github.com/zhuzzzzzz/IocDock.git
 
 # 安装依赖的 python 包
-pip install -r requirments.txt
+$ pip install -r requirments.txt
 
 # 安装工具
-sudo ./install.sh
+$ sudo ./install.sh
 
 # 重启完成安装
-reboot
+$ reboot
 
 # 运行以下命令, 若无报错则搭建成功
-IocManager list
+$ IocManager list
 ```
 
 ### 2. 构建集群环境
@@ -42,7 +42,7 @@ IocManager list
 2. 为上步的配置生成清单文件
 
    ```shell
-    IocManager cluster --gen-inventory-files
+    $ IocManager cluster --gen-inventory-files
    ```
 
 
@@ -60,17 +60,17 @@ IocManager list
      # skip_setup_swarm_cluster: false  # 创建swarm集群时, 是否跳过自动初始化swarm集群
      # docker_swarm_interface: enp0s3  # 创建 swarm 集群时, 首个管理节点向外发布地址使用的网卡
      # docker_swarm_init_new_cluster: true  # 创建 swarm 集群时, 是否强制重新初始化swarm集群
-     cd imtools/ansible
-     ansible-playbook setup-cluster -i inventory/ -kK
+     $ cd imtools/ansible
+     $ ansible-playbook setup-cluster -i inventory/ -kK
     ```
 
 4. 验证创建的集群环境
 
     ```shell
      # 运行以下命令显示集群信息, 若无报错则搭建成功
-     IocManager cluster --ping 
-     IocManager swarm --show-digest
-     IocManager swarm --show-nodes --detail
+     $ IocManager cluster --ping 
+     $ IocManager swarm --show-digest
+     $ IocManager swarm --show-nodes --detail
     ```
 
 #### 2.2 部署集群 NFS 服务
@@ -83,28 +83,28 @@ IocManager list
 1. 配置 NFS server
 
     ```shell
-     sudo vi /etc/exports
+     $ sudo vi /etc/exports
      # /home/zhu/NFS/IocDock-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
      # /home/zhu/NFS/registry-data 192.168.0.0/24(rw,sync,all_squash,no_subtree_check)
-     sudo exportfs -a
+     $ sudo exportfs -a
     ```
 
 2. 配置 NFS client
 
     ```shell
      # mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
-     vi /etc/fstab
+     $ vi /etc/fstab
      # server_ip:/home/zhu/NFS/IocDock-data  /home/zhu/docker/IocDock-data  nfs  rw,_netdev,vers=4  0  0
      # server_ip:/home/zhu/NFS/registry-data  /home/zhu/docker/registry-data  nfs  rw,_netdev,vers=4  0  0
-     sudo mount -a
+     $ sudo mount -a
     ```
 
 
 2. 使用 playbook 实现集群主机批量自动化挂载 NFS 服务器(需要编辑 playbook 变量设置挂载细节)
 
     ```shell
-     cd imtools/ansible
-     ansible-playbook setup-nfs-mount -i inventory/ -K
+     $ cd imtools/ansible
+     $ ansible-playbook setup-nfs-mount -i inventory/ -K
     ```
 
 ### 3. 部署预置的集群服务
@@ -113,16 +113,16 @@ IocManager list
 
 1. `IMConfig.py` 中修改仓库域名
 
-    ```shell
-     REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'  # common name for registry https server
+    ```python
+   REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'  # common name for registry https server
     ```
 
 2. 生成仓库密钥对, 仓库密码文件
 
     ```shell
-    cd imsrvs/registry/scripts
-    ./make-certs.sh
-    ./make-passwd.sh
+    $ cd imsrvs/registry/scripts
+    $ ./make-certs.sh
+    $ ./make-passwd.sh
    ```
 
 3. 为需要运行 registry 的节点打上标签, 随后更新目录设置. registry 采用 NFS 共享后端, 因此需将所有 registry-data 目录挂载
@@ -130,45 +130,45 @@ IocManager list
 
     ```shell
      # 管理节点初始需要运行一个 registry 实例以共享镜像仓库文件
-     docker node update node_name --label-add registry=true 
-     IocManager cluster --set-up-file-and-dir
-     mount -t nfs nfs_ip:/home/nfs_user/NFS/registry-data /home/for_user/docker/registry-data
+     $ docker node update node_name --label-add registry=true 
+     $ IocManager cluster --set-up-file-and-dir
+     $ mount -t nfs nfs_ip:/home/nfs_user/NFS/registry-data /home/for_user/docker/registry-data
     ```
 
 4. 将服务部署文件导出至共享目录, 并在每个节点运行证书设置脚本
 
     ```shell
-     IocManager swarm --gen-builtin-services 
-     cd /home/for_user/docker/IocDock-data/swarm/registry/scripts
-     ./setup-certs.sh os-level
+     $ IocManager swarm --gen-builtin-services 
+     $ cd /home/for_user/docker/IocDock-data/swarm/registry/scripts
+     $ ./setup-certs.sh os-level
     ```
 
 5. 启动服务, 编辑集群中的 /etc/hosts 以添加仓库域名的 dns 解析条目
 
     ```shell
-     ./prepare-images.sh
-     IocManager service registry --deploy
-     sudo vi /etc/hosts
+     $ ./prepare-images.sh
+     $ IocManager service registry --deploy
+     $ sudo vi /etc/hosts
      # 192.168.1.50 registry.iasf
     ```
 
 6. 准备镜像仓库, 并将集群 docker 登录至该仓库
 
     ```shell
-     cd /home/for_user/docker/IocDock/imsrvs/registry/scripts
-     ./prepare-images.sh
-     cd /home/for_user/docker/IocDock/imtools/image-factory
-     ./build-and-push-images.sh
-     IocManager cluster --registry-login
+     $ cd /home/for_user/docker/IocDock/imsrvs/registry/scripts
+     $ ./prepare-images.sh
+     $ cd /home/for_user/docker/IocDock/imtools/image-factory
+     $ ./build-and-push-images.sh
+     $ IocManager cluster --registry-login
     ```
 
 #### 3.2 部署全局服务(alloy, cAdviosr, nodeExporter, iocLogServer, client)
 
 1. 导出服务, 更新目录设置
     ```shell
-     IocManager swarm --gen-builtin-services 
-     IocManager cluster --set-up-file-and-dir
-     IocManager swarm --deploy-global-services
+     $ IocManager swarm --gen-builtin-services 
+     $ IocManager cluster --set-up-file-and-dir
+     $ IocManager swarm --deploy-global-services
      # alloy 服务地址: 192.168.1.50:12345
      # cAdvisor 服务地址: 192.168.1.50:8080
      # nodeExporter 服务地址: 192.168.1.50:9100
@@ -179,19 +179,19 @@ IocManager list
 
 1. 打上节点标签, 更新目录设置
     ```shell
-     docker node update node_name --label-add prometheus=true 
-     docker node update node_name --label-add loki=true 
-     docker node update node_name --label-add grafana=true 
-     IocManager cluster --set-up-file-and-dir
+     $ docker node update node_name --label-add prometheus=true 
+     $ docker node update node_name --label-add loki=true 
+     $ docker node update node_name --label-add grafana=true 
+     $ IocManager cluster --set-up-file-and-dir
     ```
 
 2. 部署
     ```shell
-     IocManager service prometheus --deploy
+     $ IocManager service prometheus --deploy
      # prometheus 服务地址: 192.168.1.50:9090
-     IocManager service loki --deploy
+     $ IocManager service loki --deploy
      # loki 服务地址: 192.168.1.50:3100
-     IocManager service grafana --deploy
+     $ IocManager service grafana --deploy
      # grafana 服务地址: 192.168.1.50:3000
     ```
 
@@ -212,10 +212,10 @@ IocManager list
 
 3. 打上节点标签, 更新目录设置, 部署
     ```shell
-     IocManager swarm --gen-builtin-services
-     docker node update node_name --label-add alertmanager=true 
-     IocManager cluster --set-up-file-and-dir
-     IocManager service alertManager --deploy
+     $ IocManager swarm --gen-builtin-services
+     $ docker node update node_name --label-add alertmanager=true 
+     $ IocManager cluster --set-up-file-and-dir
+     $ IocManager service alertManager --deploy
      # 192.168.1.50:9093
     ```
 
@@ -225,18 +225,18 @@ IocManager list
 
 1. 运行脚本生成测试 IOC 项目
     ```shell
-     cd docker/IocDock
-     ./make-test-project.sh make
+     $ cd docker/IocDock
+     $ ./make-test-project.sh make
     ```
 
 2. 部署 IOC 项目至工作节点
     ```shell
-     IocManager swarm --deploy-all-iocs
+     $ IocManager swarm --deploy-all-iocs
     ```
 
 3. 查看正在运行的 IOC
     ```shell
-    IocManager list -p
+    $ IocManager list -p
     IOC            Host    Description                               State    Status    DeployStatus            SnapshotConsistency    RuningConsistency
     worker_test_1  swarm   IOC that implements a ramper for test...  normal   exported  Running 9 seconds ago   consistent             consistent
     worker_test_2  swarm   IOC that implements a ramper for test...  normal   exported  Running 10 seconds ago  consistent             consistent
@@ -247,19 +247,238 @@ IocManager list
 
 4. 验证 IOC 的联通性. 至此已完成整个集群搭建. 访问各个服务地址以获取集群指标监控, 日志分析的全部运维管理功能.
     ```shell
-       IocManager client caget ramper:worker_test_1
-       IocManager client caget ramper:worker_test_1
+       $ IocManager client caget ramper:worker_test_1
        executing "docker exec 80ba9296482b ./caget ramper:worker_test_1".
        ramper:worker_test_1           6
     ```
 
 #### 4.2 部署生产环境 IOC 项目
 
-见后文 [IOC 项目的开发与部署](#a).
+如何开发 IOC 项目, 见后文 [IOC 项目的开发与部署](#ioc-development-and-deployment).
+
+IOC 项目创建到部署通常的工作流程如下:
+
+```shell
+# 创建IOC项目
+$ IocManager create ioc_name
+
+# 为IOC项目添加源文件
+$ IocManager exec ioc_name --add-src-file /path/to/dir
+
+# 配置IOC项目
+$ IocManager edit ioc_name
+
+# 为IOC项目生成运行文件
+$ IocManager exec ioc_name --gen-startup-file
+
+# 将IOC项目导出至运行目录
+$ IocManager exec ioc_name --export-for-mount
+
+# 为运行目录内的IOC项目生成swarm部署文件
+$ IocManager exec ioc_name --gen-swarm-file
+
+# 前三步可以合并为一步
+$ IocManager exec ioc_name --deploy
+
+# 启动IOC的swarm容器服务
+$ IocManager Service ioc_name --deploy
+
+# 停止IOC的swarm容器服务
+$ IocManager Service ioc_name --remove
+```
 
 ## 管理 IOC 项目与容器服务
 
-## IOC 项目的开发与部署<a id="a"></a>
+### 管理 IOC
+
+#### 查看 IOC 基本信息
+
+```shell
+# 列出所有IOC
+$ IocManager list
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+
+# 列出所有IOC并显示其描述信息
+$ IocManager list -d
+IOC            Description
+worker_test_1  IOC that implements a ramper for testing.
+worker_test_2  IOC that implements a ramper for testing.
+worker_test_3  IOC that implements a ramper for testing.
+worker_test_4  IOC that implements a ramper for testing.
+worker_test_5  IOC that implements a ramper for testing.
+
+# 列出所有IOC并显示其项目状态
+# SnapshotConsistency表当前仓库文件与快照文件的一致性
+# RunningConsistency表当前仓库文件与运行文件的一致性
+$ IocManager list -p
+IOC            Host    Description                               State    Status    DeployStatus            SnapshotConsistency    RunningConsistency
+worker_test_1  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
+worker_test_2  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
+worker_test_3  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
+worker_test_4  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
+worker_test_5  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
+
+# 使用名称关键字筛选IOC
+$ IocManager list name=1
+worker_test_1
+
+# 使用名称关键字筛选IOC并显示其状态信息与配置信息
+$ IocManager list name=2 -i
+========================== "worker_test_2" ===========================
+[STATE]
+state: normal
+state_info:
+status: exported
+snapshot: tracked
+is_exported: true
+
+[IOC]
+name: worker_test_2
+host: swarm
+image: registry.iasf/ioc-exec:beta-0.2.2
+bin: ST-IOC
+module: autosave, caputlog, status-ioc, status-os
+description: IOC that implements a ramper for testing.
+
+[SRC]
+db_file: ramper.db
+protocol_file:
+others_file:
+
+[DB]
+load: ramper.db, name=worker_test_2
+
+[SETTING]
+report_info: true
+caputlog_json: false
+epics_env:
+
+[DEPLOY]
+labels: test=true
+cpu-limit: 0.8
+memory-limit: 1G
+cpu-reserve:
+memory-reserve:
+constraints:
+
+# 使用SECTION=IOC(默认)的其他配置属性筛选IOC
+$ IocManager list module=asadsa
+
+$ IocManager list module=autosave
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+# module字段和项目名称一样支持模糊匹配, 但不支持正则匹配
+$ IocManager list module=auto
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+
+# 使用不同SECTION配置筛选IOC
+$ IocManager list --section setting report_info=false
+
+$ IocManager list --section setting report_info=true
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+
+# IOC的嵌套筛选
+$ IocManager list module=autosave | xargs IocManager list name=1 -l
+worker_test_1
+$ IocManager list module=autosave | xargs IocManager list name=1 -dl
+IOC            Description
+worker_test_1  IOC that implements a ramper for testing.
+$ IocManager list module=autosave | xargs IocManager list name=1 -pl
+IOC            Host    Description                               State    Status    DeployStatus            SnapshotConsistency    RunningConsistency
+worker_test_1  swarm   IOC that implements a ramper for test...  normal   exported  Running 55 minutes ago  consistent             consistent
+```
+
+#### 创建 IOC
+
+```shell
+# 创建单个或多个IOC项目
+$ IocManager create ioc [ioc1 ioc2 ...]
+
+# 创建时设置某些字段
+$ IocManager create ioc -o host=swarm
+$ IocManager create ioc -s setting -o report_info=false
+
+# 创建时导入已有配置文件
+$ IocManager create ioc -f /path/to/ioc.ini
+
+# 创建时设置内置模块
+$ IocManager create ioc [--caputlog --status-ioc --status-os --autosave]
+
+# 创建时添加配置模板
+$ IocManager create ioc [--add-asyn --add-stream --add-raw]
+```
+
+#### 设置 IOC
+
+```shell
+# 直接修改配置文件
+$ IocManager edit ioc
+
+# 设置某些字段
+$ IocManager set ioc -o host=swarm
+$ IocManager set ioc -s setting -o report_info=false
+
+# 设置时导入已有配置文件
+$ IocManager set ioc -f /path/to/ioc.ini
+
+# 设置内置模块
+$ IocManager set ioc [--caputlog --status-ioc --status-os --autosave]
+
+# 设置添加配置模板
+$ IocManager set ioc [--add-asyn --add-stream --add-raw]
+```
+
+#### 执行 IOC 操作
+
+```shell
+# 为IOC项目添加指定后缀的源文件, 并将配置文件的源文件部分更新
+# 可以给定一个目录, 程序将自动识别其中指定后缀的文件(.db, .proto, .im)
+# 当不指定目录时, 扫描项目源文件目录刷新配置文件
+$ IocManager exec ioc --add-src-file [/path/to/src/file/dir]
+
+# 为IOC项目生成运行文件, 执行此操作将在本地仓库生成一份"可运行的"IOC项目, 注: 可运行但需要配合指定容器才能运行
+$ IocManager exec ioc --gen-startup-file
+
+# 将生成的IOC项目运行文件导出至运行目录, 此目录为主机间共享数据和存储的NFS目录
+# 设置 --force-overwrite 将会清空IOC项目运行时产生的日志文件目录和配置文件目录, 这将刷新IOC项目的运行状态信息
+$ IocManager exec ioc --export-for-mount [--force-overwrite]
+
+# 生成运行文件和导出的联合操作, 也可以设置 --force-overwrite, 仅对导出步骤生效
+$ IocManager exec ioc --generate-and-export [--force-overwrite]
+
+# 为导出的IOC项目生成swarm部署文件
+$ IocManager exec ioc --gen-swarm-file
+
+# 生成运行文件, 导出和生成swarm文件的联合操作, 也可以设置 --force-overwrite, 仅对导出步骤生效
+$ IocManager exec ioc --deploy [--force-overwrite]
+
+# 为IOC项目生成快照文件, 当需要对IOC项目进行修改并对比修改前后的内容时, 可先为IOC项目生成快照文件以供对比和文件恢复
+# 将为ioc.ini和src/内的文件生成一份副本
+$ IocManager exec ioc --add-snapshot-file
+
+# 显示快照文件与仓库文件的差异
+$ IocManager exec ioc --check-snapshot
+
+# 从快照中恢复某文件, 可以指定ioc.ini或src/目录内的任何文件
+$ IocManager exec ioc --restore-snapshot-file [ioc.ini files_in_src_dir]
+
+# 显示运行文件与仓库文件的差异
+$ IocManager exec ioc --check-running
+
+# 为仓库内的所有IOC项目生成备份文件, 可以指定备份路径与备份模式
+# 备份模式 src 仅备份配置文件 ioc.ini 与源文件目录 src/
+# 备份模式 all 还备份配置运行文件目录 settings 和 logs, 这将备份IOC项目的运行状态信息
+$ IocManager exec -b  [--backup-path] [--backup-mode [src|all]]
+
+# 从备份文件还原IOC项目至仓库
+# 设置 --force-overwrite 将会覆盖仓库内已有的同名IOC项目
+$ IocManager exec -r  /path/to/backup/file [--force-overwrite]
+```
+
+### 管理容器服务
+
+### 其他管理项
+
+## IOC 项目的开发与部署<a id="ioc-development-and-deployment"></a>
 
 ## old
 

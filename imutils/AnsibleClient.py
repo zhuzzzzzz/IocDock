@@ -47,14 +47,15 @@ def receive_message(sock, header_len=4):
         return None
 
 
-def client_check_connection():
+def client_check_connection(verbose=False):
     connection = False
     socket_path = SOCKET_PATH
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(socket_path)
     except Exception as e:
-        print(f"Exception occurred while trying to connect socket server: {e}")
+        if verbose:
+            print(f"Exception occurred while trying to connect socket server: {e}")
     else:
         connection = True
     finally:

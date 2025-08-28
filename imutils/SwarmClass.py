@@ -7,7 +7,7 @@ from tabulate import tabulate
 from imutils.IMConfig import *
 from imutils.IMFunc import relative_and_absolute_path_to_abs, try_makedirs, file_copy, dir_copy
 from imutils.ServiceDefinition import GlobalServicesList, LocalServicesList, CustomServicesList
-from imutils.AnsibleClient import ansible_socket_client
+from imutils.AnsibleClient import ansible_socket_client, client_check_connection
 
 
 class SwarmManager:
@@ -72,6 +72,8 @@ class SwarmManager:
             print()
 
     def show_info(self):
+        if not client_check_connection():
+            print(f'Failed to connect to IocDockServer.')
         socket_result_service = ansible_socket_client("service info", verbose=False)
         raw_print = [["Name", "ServiceName", "Type", "Replicas", "Status"], ]
         custom_print = []
