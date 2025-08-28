@@ -50,7 +50,7 @@ IocManager list
     ```shell
      # ansible_ssh_user: zhu  # ansible发起远程连接使用的账户, 通常为具有root权限的用户, 当设置为root时需配置ssh允许root用户密码登录
      # for_user: zhu  # 预期的工作用户, 若不存在需要创建
-     # create_password: z1728831951  # 工作用户密码
+     # create_password: default  # 工作用户密码
      # skip_create_remote_user: false  # 是否跳过创建预期的工作用户
      # skip_set_up_ssh_connection: false  # 是否跳过设置ssh免密登录
      # skip_set_up_basic_environment: false  # 是否跳过设置基础运行环境
@@ -89,7 +89,7 @@ IocManager list
      sudo exportfs -a
     ```
 
-2. 配置 NFS client 
+2. 配置 NFS client
 
     ```shell
      # mount -t nfs ip-addr:/home/ubuntu/nfs-dir/IocDock-data dest-dir
@@ -107,8 +107,114 @@ IocManager list
      ansible-playbook setup-nfs-mount -i inventory/ -K
     ```
 
-
 ### 3. 部署预置的集群服务
+
+#### 3.1 部署 registry
+
+1. `IMConfig.py` 中修改仓库域名
+
+    ```shell
+     REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'  # common name for registry https server
+    ```
+
+2. 生成仓库密钥对, 仓库密码文件
+
+    ```shell
+    cd imsrvs/registry/scripts
+    ./make-certs.sh
+    ./make-passwd.sh
+   ```
+
+3. 为需要运行 registry 的节点打上标签, 随后更新目录设置. registry 采用 NFS 共享后端, 因此需将所有 registry-data 目录挂载
+   NFS
+
+    ```shell
+     # 管理节点初始需要运行一个 registry 实例以共享镜像仓库文件
+     docker node update node_name --label-add registry=true 
+     IocManager cluster --set-up-file-and-dir
+     mount -t nfs nfs_ip:/home/nfs_user/NFS/registry-data /home/for_user/docker/registry-data
+    ```
+
+4. 将服务部署文件导出至共享目录, 并在每个节点运行证书设置脚本
+
+    ```shell
+     IocManager swarm --gen-builtin-services 
+     cd /home/for_user/docker/IocDock-data/swarm/registry/scripts
+     ./setup-certs.sh os-level
+    ```
+
+5. 启动服务, 编辑集群中的 /etc/hosts 以添加仓库域名的 dns 解析条目
+
+    ```shell
+     ./prepare-images.sh
+     IocManager service registry --deploy
+     sudo vi /etc/hosts
+     # 192.168.1.50 registry.iasf
+    ```
+
+6. 准备镜像仓库, 并将集群 docker 登录至该仓库
+
+    ```shell
+     cd /home/for_user/docker/IocDock/imsrvs/registry/scripts
+     ./prepare-images.sh
+     cd /home/for_user/docker/IocDock/imtools/image-factory
+     ./build-and-push-images.sh
+     IocManager cluster --registry-login
+    ```
+
+#### 3.2 部署全局服务(alloy, cAdviosr, nodeExporter, iocLogServer, client)
+
+1. 导出服务, 更新目录设置
+    ```shell
+     IocManager swarm --gen-builtin-services 
+     IocManager cluster --set-up-file-and-dir
+     IocManager swarm --deploy-global-services
+     # alloy 服务地址: 192.168.1.50:12345
+     # cAdvisor 服务地址: 192.168.1.50:8080
+     # nodeExporter 服务地址: 192.168.1.50:9100
+     # iocLogServer 服务地址: 192.168.1.50:7004
+    ```
+
+#### 3.3 部署本地服务(prometheus, loki, grafana)
+
+1. 打上节点标签, 更新目录设置
+    ```shell
+     docker node update node_name --label-add prometheus=true 
+     docker node update node_name --label-add loki=true 
+     docker node update node_name --label-add grafana=true 
+     IocManager cluster --set-up-file-and-dir
+    ```
+
+2. 部署
+    ```shell
+     IocManager service prometheus --deploy
+     # prometheus 服务地址: 192.168.1.50:9090
+     IocManager service loki --deploy
+     # loki 服务地址: 192.168.1.50:3100
+     IocManager service grafana --deploy
+     # grafana 服务地址: 192.168.1.50:3000
+    ```
+
+#### 3.4 部署 alertManager
+
+1. 设置 `IMConfig.py` 中 smtp 发件邮箱相关信息. 密码可以在其中设置密码或使用密码文件来实现
+
+    ```yaml
+     smtp_from: zhujunhua@mail.iasf.ac.cn
+     smtp_smarthost: smtp.qiye.aliyun.com:465
+     smtp_auth_username: zhujunhua@mail.iasf.ac.cn
+     smtp_auth_password_file: /etc/alertmanager/smtp_password
+     smtp_require_tls: false
+    ```
+
+2. 打上节点标签, 更新目录设置, 部署
+    ```shell
+     IocManager swarm --gen-builtin-services
+     docker node update node_name --label-add alertmanager=true 
+     IocManager cluster --set-up-file-and-dir
+     IocManager service alertManager --deploy
+     # 192.168.1.50:9093
+    ```
 
 ### 4. 部署 IOC 服务
 

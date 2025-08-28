@@ -5,9 +5,9 @@
   become: true
   gather_facts: true
   vars:
-    ansible_ssh_user: zhu
+    ansible_ssh_user: root
     for_user: zhu
-    create_password: z1728831951
+    create_password: default
     skip_create_remote_user: false
     skip_set_up_ssh_connection: false
     skip_set_up_basic_environment: false
