@@ -210,7 +210,7 @@ $ IocManager list
 2. 设置 `alertManager/config/alertManager-config.yaml` 以配置报警分级路由, 邮件接收分组等功能.
 
 
-3. 打上节点标签, 更新目录设置, 部署
+3. 打上节点标签, 更新目录设置, 执行部署
     ```shell
      $ IocManager swarm --gen-builtin-services
      $ docker node update node_name --label-add alertmanager=true 
@@ -268,16 +268,7 @@ $ IocManager exec ioc_name --add-src-file /path/to/dir
 # 配置IOC项目
 $ IocManager edit ioc_name
 
-# 为IOC项目生成运行文件
-$ IocManager exec ioc_name --gen-startup-file
-
-# 将IOC项目导出至运行目录
-$ IocManager exec ioc_name --export-for-mount
-
-# 为运行目录内的IOC项目生成swarm部署文件
-$ IocManager exec ioc_name --gen-swarm-file
-
-# 前三步可以合并为一步
+# 为IOC项目生成运行文件, 将IOC项目导出至运行目录, 为运行目录内的IOC项目生成swarm部署文件
 $ IocManager exec ioc_name --deploy
 
 # 启动IOC的swarm容器服务
@@ -427,6 +418,19 @@ $ IocManager set ioc [--caputlog --status-ioc --status-os --autosave]
 $ IocManager set ioc [--add-asyn --add-stream --add-raw]
 ```
 
+#### IOC 的删除及重命名
+
+```shell
+# 删除IOC. 这将在本地仓库中删除IOC项目
+$ IocManager remove ioc
+
+# 彻底删除IOC. 这不仅将在本地仓库中删除IOC项目, 还将删除快照文件及运行目录内的IOC项目
+$ IocManager remove ioc
+
+# 重命名IOC
+$ IocManager rename old_name new_name
+```
+
 #### 执行 IOC 操作
 
 ```shell
@@ -474,9 +478,215 @@ $ IocManager exec -b  [--backup-path] [--backup-mode [src|all]]
 $ IocManager exec -r  /path/to/backup/file [--force-overwrite]
 ```
 
+#### 连接系统内的IOC项目
+
+```shell
+# 系统内在管理节点部署了clinet客户端容器, 可使用该容器代理 EPICS client请求
+$ IocManager client caget pv_name
+$ IocManager client caput pv_name
+$ IocManager client cainfo pv_name
+$ IocManager client camonitor pv_name
+```
+
 ### 管理容器服务
 
-### 其他管理项
+#### swarm ———— 针对集群的管理操作
+
+```shell
+# 为集群内各项预置服务准备部署文件
+$ IocManager swarm --gen-built-in-services
+
+# 部署所有全局服务
+$ IocManager swarm --deploy-global-services
+
+# 移除所有全局服务(慎用)
+$ IocManager swarm --remove-global-services
+
+# 部署所有IOC服务
+$ IocManager swarm --deploy-all-iocs
+
+# 移除所有IOC服务(慎用)
+$ IocManager swarm --remove-all-iocs
+
+# 移除所有服务(慎用)
+$ IocManager swarm --remove-all-services
+
+# 显示系统管理的swarm集群摘要
+$ IocManager swarm --show-digest
+Name           ServiceName             Type    Replicas    Status
+alertManager   iasf_srv-alertManager   local   3/3         Running 4 hours ago
+grafana        iasf_srv-grafana        local   1/1         Running 5 hours ago
+loki           iasf_srv-loki           local   1/1         Running 5 hours ago
+prometheus     iasf_srv-prometheus     local   1/1         Running 5 hours ago
+registry       iasf_srv-registry       local   3/3         Running 5 hours ago
+alloy          iasf_srv-alloy          global  6/6         Running 5 hours ago
+cAdvisor       iasf_srv-cAdvisor       global  6/6         Running 5 hours ago
+client         iasf_srv-client         global  6/6         Running 5 hours ago
+iocLogServer   iasf_srv-iocLogServer   global  6/6         Running 5 hours ago
+nodeExporter   iasf_srv-nodeExporter   global  6/6         Running 5 hours ago
+hello          iasf_srv-hello          custom  -/-         Available. Not deployed
+worker_test_1  iasf_srv-worker_test_1  ioc     1/1         Running 4 hours ago
+worker_test_2  iasf_srv-worker_test_2  ioc     1/1         Running 4 hours ago
+worker_test_3  iasf_srv-worker_test_3  ioc     1/1         Running 4 hours ago
+worker_test_4  iasf_srv-worker_test_4  ioc     1/1         Running 4 hours ago
+worker_test_5  iasf_srv-worker_test_5  ioc     1/1         Running 4 hours ago
+
+# 显示系统内部署的所有swarm服务的详细信息
+$ IocManager swarm --show-services [--details]
+
+# 显示系统内部署的所有集群节点及其详细信息
+$ IocManager swarm --show-nodes --detail
+HOSTNAME         STATUS    AVAILABILITY   MANAGER STATUS   TLS STATUS   ENGINE VERSION
+swarm-manager    Ready     Active         Reachable        Ready        28.3.2
+swarm-manager1   Ready     Active         Reachable        Ready        28.3.3
+swarm-node0      Ready     Active                          Ready        28.3.2
+swarm-node1      Ready     Active                          Ready        28.3.2
+*ubuntu-new*     Ready     Active         Reachable        Ready        28.3.3
+ubuntu-server    Ready     Active         Leader           Ready        28.3.2
+
+------------
+Node Details:
+------------
+swarm-manager(192.168.1.52):    alertmanager=true registry=true
+swarm-manager1(192.168.1.55):   alertmanager=true registry=true
+swarm-node0(192.168.1.53):
+swarm-node1(192.168.1.54):
+ubuntu-new(192.168.1.51):
+ubuntu-server(192.168.1.50):    alertmanager=true grafana=true loki=true prometheus=true registry=true
+
+# 显示swarm集群的新增节点命令
+$ IocManager swarm --show-tokens
+To add a manager to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-0v8iyylqw01rd3h24y9sp4jaw7s7e8hgpqvel14fgkbcqnwtbq-b7hn6yhiui975dousaj051f3y 192.168.1.51:2377
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-0v8iyylqw01rd3h24y9sp4jaw7s7e8hgpqvel14fgkbcqnwtbq-beu0lrrs5lyidiiza2gl6d144 192.168.1.51:2377
+
+# 列出系统内管理的所有swarm服务
+$ IocManager swarm --list-managed-services
+worker_test_3 worker_test_2 worker_test_5 worker_test_4 worker_test_1 client iocLogServer cAdvisor nodeExporter alloy registry prometheus alertManager loki grafana hello
+```
+
+#### swarm集群的备份和恢复
+
+swarm模式下的管理节点使用Raft Consensus Algorithm算法来管理集群状态。
+管理节点的个数没有限制，但管理节点的个数增加使系统更安全可靠，但会影响到整体的系统性能，因此应该将二者折中考虑。
+
+RAFT算法需要管理节点的大多数，也被称为法定人数(quorum)，保持在线，才能就集群状态的更新达成一致。
+如果swarm集群失去了大多数管理者，则不能对swarm集群进行任何管理操作。但即使失去了大多数管理者，已部署的swarm集群任务仍会在工作节点正常运行。
+
+##### 通常情况下的恢复
+
+通常情况下，在故障不损失掉大多数管理节点时，swarm具有故障弹性，可以从任意节点数量的暂时性故障(例如机器崩溃或重启)
+中恢复，即将自动调度重新部署离线的服务使swarm集群达到期望状态。当故障损失掉大多数管理节点的情况下，swarm的故障弹性将失效，
+正在工作的已部署服务会继续运行，但无法执行管理任务。
+
+通常情况下，若有节点故障，最好的恢复方法是将故障的节点重新上线。
+
+- 若无法通过重启故障节点的方式将管理节点恢复至quorum状态，可选择某个正常的管理节点执行如下操作，将swarm集群恢复至只有单个管理节点的初始状态
+  (这个管理节点保存有swarm集群之前的服务和任务信息)，再重新添加新管理节点使集群恢复quorum.
+  ```docker swarm init --force-new-cluster```
+
+若所有的管理节点都无法正常恢复(丢失掉了swarm数据)，可以参考后文的灾难恢复部分
+
+##### swarm集群的灾难恢复
+
+**由于IOC项目及一些预置服务依赖NFS存储和共享运行数据, 而备份不覆盖这方面的数据, 推荐根据 Getting Start 文档重新创建集群
+**
+
+管理节点将swarm状态和管理日志存储在```/var/lib/docker/swarm```目录下，这个目录下也存有用来加密RAFT日志的密钥。
+没有这些密钥将无法恢复swarm集群。
+
+将这个目录恢复至某个docker服务停止的节点，重启docker服务，执行```docker swarm init --force-new-cluster```
+命令完成灾难恢复，将在执行操作的节点上暂时恢复所有swarm状态。
+
+关于当前的恢复操作，管理工具提供了管理命令，可参考后文进行swarm集群的备份与恢复。
+
+```shell
+# 备份swarm集群配置, 备份文件生成在swarm-backup/目录内
+# 需要选择管理节点执行备份, 在执行备份时当前管理节点将暂时关闭docker服务, 备份结束后将恢复
+$ IocManager swarm --backup-swarm
+
+# 恢复swarm集群配置. 
+# 选择任一节点, 指定需要恢复的备份文件, 执行恢复.
+$ IocManager swarm --restore-swarm --backup-file /path/to/backup/file
+
+# 执行灾难恢复时将恢复swarm集群配置, 并在新的集群内(通常是当前节点)上线备份状态下运行的所有服务和任务.
+# 原有的集群节点是否能重新连接取决于节点中相关的swarm状态信息是否仍存在, 当原有节点无法连接时, 应手动删除无法连接的节点并添加新的节点.
+# 完成节点设置后可以使用命令将当前运行的服务重新编排部署至各个节点, 以完成对资源的均衡利用.
+
+# 更新swarm部署状态，将集中在单个服务重新分发至各个节点运行.
+$ IocManager swarm --update-deployed-services
+
+# 由于IOC项目及一些预置服务依赖NFS存储运行数据, 而备份不覆盖这方面的数据, 一般推荐根据 Getting Start 文档重新创建集群.
+```
+
+#### service ———— 针对容器服务的管理操作
+
+```shell
+# 部署服务
+$ IocManager service service_name --deploy
+
+# 移除服务
+$ IocManager service service_name --remove
+
+# 显示服务的配置属性
+$ IocManager service worker_test_1  --show-config
+
+ID:             sgv9u2m4jgrtqagf54k2uspj3
+Name:           iasf_srv-worker_test_1
+Labels:
+ com.docker.stack.image=registry.iasf/ioc-exec:beta-0.2.2
+ com.docker.stack.namespace=iasf
+Service Mode:   Replicated
+ Replicas:      1
+Placement:
+ Constraints:   [node.role==worker]
+UpdateConfig:
+ Parallelism:   1
+ Delay:         10s
+ On failure:    rollback
+ Monitoring Period: 5s
+ Max failure ratio: 0
+ Update order:      stop-first
+RollbackConfig:
+ Parallelism:   1
+ On failure:    pause
+ Monitoring Period: 5s
+ Max failure ratio: 0
+ Rollback order:    stop-first
+ContainerSpec:
+ Image:         registry.iasf/ioc-exec:beta-0.2.2@sha256:dfcd2aa86ad903b9de411efda5dbdb24a513754274809c8d2d3a12ed255dbd21
+Mounts:
+ Target:        /opt/EPICS/RUN/worker_test_1
+  Source:       /home/zhu/docker/IocDock-data/swarm/worker_test_1
+  ReadOnly:     false
+  Type:         bind
+ Target:        /opt/EPICS/RUN/iocLog
+  Source:       /home/zhu/docker/IocDock-data/swarm/worker_test_1
+  ReadOnly:     false
+  Type:         bind
+ Target:        /etc/localtime
+  Source:       /etc/localtime
+  ReadOnly:     true
+  Type:         bind
+Resources:
+ Limits:
+  CPU:          0.8
+  Memory:       1GiB
+Networks: host
+Endpoint Mode:  vip
+
+# 显示服务的运行信息
+$ IocManager service worker_test_1  --show-info
+ID                          NAME                       IMAGE                                                                                                       NODE          DESIRED STATE   CURRENT STATE         ERROR     PORTS
+cgk3th0p4dybpua7sqsbjz9di   iasf_srv-worker_test_1.1   registry.iasf/ioc-exec:beta-0.2.2@sha256:dfcd2aa86ad903b9de411efda5dbdb24a513754274809c8d2d3a12ed255dbd21   swarm-node0   Running         Running 5 hours ago
+
+# 显示服务的实施日志
+$ IocManager service worker_test_1  --show-logs
+```
 
 ## IOC 项目的开发与部署<a id="ioc-development-and-deployment"></a>
 
