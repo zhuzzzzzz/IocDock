@@ -207,7 +207,10 @@ IocManager list
      smtp_require_tls: false
     ```
 
-2. 打上节点标签, 更新目录设置, 部署
+2. 设置 `alertManager/config/alertManager-config.yaml` 以配置报警分级路由, 邮件接收分组等功能.
+
+
+3. 打上节点标签, 更新目录设置, 部署
     ```shell
      IocManager swarm --gen-builtin-services
      docker node update node_name --label-add alertmanager=true 
@@ -218,7 +221,45 @@ IocManager list
 
 ### 4. 部署 IOC 服务
 
-## IOC 项目开发与部署
+#### 4.1 部署测试用 IOC 项目
+
+1. 运行脚本生成测试 IOC 项目
+    ```shell
+     cd docker/IocDock
+     ./make-test-project.sh make
+    ```
+
+2. 部署 IOC 项目至工作节点
+    ```shell
+     IocManager swarm --deploy-all-iocs
+    ```
+
+3. 查看正在运行的 IOC
+    ```shell
+    IocManager list -p
+    IOC            Host    Description                               State    Status    DeployStatus            SnapshotConsistency    RuningConsistency
+    worker_test_1  swarm   IOC that implements a ramper for test...  normal   exported  Running 9 seconds ago   consistent             consistent
+    worker_test_2  swarm   IOC that implements a ramper for test...  normal   exported  Running 10 seconds ago  consistent             consistent
+    worker_test_3  swarm   IOC that implements a ramper for test...  normal   exported  Running 10 seconds ago  consistent             consistent
+    worker_test_4  swarm   IOC that implements a ramper for test...  normal   exported  Running 10 seconds ago  consistent             consistent
+    worker_test_5  swarm   IOC that implements a ramper for test...  normal   exported  Running 10 seconds ago  consistent             consistent
+    ```
+
+4. 验证 IOC 的联通性. 至此已完成整个集群搭建. 访问各个服务地址以获取集群指标监控, 日志分析的全部运维管理功能.
+    ```shell
+       IocManager client caget ramper:worker_test_1
+       IocManager client caget ramper:worker_test_1
+       executing "docker exec 80ba9296482b ./caget ramper:worker_test_1".
+       ramper:worker_test_1           6
+    ```
+
+#### 4.2 部署生产环境 IOC 项目
+
+见后文 [IOC 项目的开发与部署](#a).
+
+## 管理 IOC 项目与容器服务
+
+## IOC 项目的开发与部署<a id="a"></a>
 
 ## old
 
