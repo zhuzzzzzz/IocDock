@@ -1,6 +1,13 @@
 import os.path
 from imutils.IMError import IMInitError
 
+try:
+    import imutils.IMConfigCustom as CustomConfig
+except ModuleNotFoundError:
+    import_flag = False
+else:
+    import_flag = True
+
 
 def get_manager_path() -> str:
     manager_path = os.environ.get("MANAGER_PATH", default='')
@@ -144,3 +151,13 @@ ALERT_MANAGER_SMTP_SMART_HOST = "smtp.qiye.aliyun.com:465"
 ALERT_MANAGER_SMTP_AUTH_USERNAME = "zhujunhua@mail.iasf.ac.cn"
 ALERT_MANAGER_SMTP_AUTH_PASSWORD = None
 ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS = "zhujunhua@mail.iasf.ac.cn"
+
+#######################################################################################################################
+#######################################################################################################################
+## override from custom definition
+if import_flag:
+    for item in dir(CustomConfig):
+        if not item.startswith('__'):
+            if item in globals().keys():
+                globals()[item] = getattr(CustomConfig, item)
+                # print(f'set {item} {getattr(CustomConfig, item)}')

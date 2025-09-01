@@ -36,7 +36,10 @@ $ IocManager list
 
 #### 2.1 使用 ansible role 自动化搭建 swarm 集群
 
-1. 修改配置文件 `imutils/IMConfig.py`, 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称, ip, 预期的工作用户
+1. 修改配置文件 `imutils/IMConfig.py` . 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称, ip, 预期的工作用户.
+   设置 `## Global Deploy Settings ##` 中定义的集群栈名称前缀.
+
+   **或创建配置文件 `imutils/IMConfigCustom.py`, 将需要配置的变量在其中列出. 这样做有助于更好地应对未来的版本更新.**
 
 
 2. 为上步的配置生成清单文件
@@ -876,6 +879,7 @@ IocDock
 v0.9.0
 
 ======= 2025/08/28 =======
+
 1. 正式版, 即将进行部署测试
 
 
