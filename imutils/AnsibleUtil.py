@@ -72,5 +72,6 @@ def docker_registry_login():
 if __name__ == '__main__':
     pass
     # gen_inventory_files(verbose=True)
-    ping()
-    docker_registry_login()
+    # ping()
+    # docker_registry_login()
+    ansible_create_file("~/.NodeInfo", "a=b", "manager")

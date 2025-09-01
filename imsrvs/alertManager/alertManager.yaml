@@ -38,7 +38,7 @@ services:
       target: /scripts
       type: bind
       read_only: true
-    - source: /tmp/NodeInfo
+    - source: ~/.NodeInfo
       target: /tmp/NodeInfo
       type: bind
       read_only: true

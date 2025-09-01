@@ -105,7 +105,7 @@ FOR_USER = "zhu"
 
 SOCKET_PATH = "/tmp/IocDock.sock"
 
-NODE_IP_FILE = "/tmp/NodeInfo"  # file to store node ip in cluster for services init
+NODE_IP_FILE = "~/.NodeInfo"  # file to store node ip in cluster for services init
 
 ############################
 ## Global Deploy settings ##
