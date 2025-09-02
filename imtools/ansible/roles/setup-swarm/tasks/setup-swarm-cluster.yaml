@@ -16,7 +16,7 @@
 
 - name: init "Swarm Mode" on the first manager
   ansible.builtin.shell: |
-    docker swarm init --data-path-port=7789\
+    docker swarm init --data-path-port=7789 \
     --advertise-addr {{ docker_swarm_addr }}
   when: "docker_info.stdout.find('Swarm: active') == -1
     and inventory_hostname == groups['manager'][0]"

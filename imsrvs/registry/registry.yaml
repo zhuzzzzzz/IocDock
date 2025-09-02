@@ -17,7 +17,6 @@ services:
     ports:
     - target: 5000
       published: 443 # use routing mesh
-      mode: host
     - target: 5001
       published: 5001
       mode: host # bypass the routing mesh
