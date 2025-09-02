@@ -152,12 +152,27 @@ ALERT_MANAGER_SMTP_AUTH_USERNAME = "zhujunhua@mail.iasf.ac.cn"
 ALERT_MANAGER_SMTP_AUTH_PASSWORD = None
 ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS = "zhujunhua@mail.iasf.ac.cn"
 
+####################
+## do not modify. ##
 #######################################################################################################################
 #######################################################################################################################
-## override from custom definition
+##
+ALLOWED_VARS = [
+    'DEFAULT_MODULES',
+    'CLUSTER_MANAGER_NODES', 'CLUSTER_WORKER_NODES', 'DEFAULT_NODES', 'FOR_USER',
+    'PREFIX_STACK_NAME',
+    'REGISTRY_PORT',
+    'ALERT_MANAGER_MASTER_IP', 'ALERT_MANAGER_SMTP_SMART_HOST', 'ALERT_MANAGER_SMTP_AUTH_USERNAME',
+    'ALERT_MANAGER_SMTP_AUTH_PASSWORD', 'ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS'
+]
+## override from custom definition.
 if import_flag:
     for item in dir(CustomConfig):
         if not item.startswith('__'):
-            if item in globals().keys():
+            if item in globals().keys() and item in ALLOWED_VARS:
                 globals()[item] = getattr(CustomConfig, item)
                 # print(f'set {item} {getattr(CustomConfig, item)}')
+
+    #
+    REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'
+    REGISTRY_CERT_DOCKER_DIR = REGISTRY_COMMON_NAME if REGISTRY_PORT == 443 else f'{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}'

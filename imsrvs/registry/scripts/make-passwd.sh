@@ -2,7 +2,7 @@
 
 docker run \
   --entrypoint htpasswd \
-  httpd:2 \
+  m.daocloud.io/docker.io/httpd:2 \
   -Bbn admin admin > ../auth/htpasswd
 
 if [ $? -eq 0 ]; then

@@ -39,13 +39,18 @@ $ IocManager list
 1. 修改配置文件 `imutils/IMConfig.py` . 设置 `## Node Managing Settings ##` 中定义的集群节点主机名称, ip, 预期的工作用户.
    设置 `## Global Deploy Settings ##` 中定义的集群栈名称前缀.
 
-   **或创建配置文件 `imutils/IMConfigCustom.py`, 将需要配置的变量在其中列出. 这样做有助于更好地应对未来的版本更新.**
+   **或创建配置文件 `imutils/IMConfigCustom.py`, 将需要覆盖配置的变量在其中列出. 这样做有助于更好地应对未来的版本更新.**
 
 
 2. 为上步的配置生成清单文件
 
    ```shell
     $ IocManager cluster --gen-inventory-files
+   
+    # 生成的清单文件可作为执行ansible操作的主机清单文件
+    $ ansible all -m ping -i inventory/ 
+    # 或执行需要root权限的操作
+    $ ansible all -m ping -i inventory/ -bK
    ```
 
 
@@ -65,6 +70,7 @@ $ IocManager list
      # docker_swarm_init_new_cluster: true  # 创建 swarm 集群时, 是否强制重新初始化swarm集群
      $ cd imtools/ansible
      $ ansible-playbook setup-cluster -i inventory/ -kK
+     $ reboot
     ```
 
 4. 验证创建的集群环境
@@ -114,7 +120,7 @@ $ IocManager list
 
 #### 3.1 部署 registry
 
-1. `IMConfig.py` 中修改仓库域名
+1. `IMConfig.py` 或 `IMConfigCustom.py` 中修改仓库域名
 
     ```python
    REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'  # common name for registry https server
@@ -128,8 +134,8 @@ $ IocManager list
     $ ./make-passwd.sh
    ```
 
-3. 为需要运行 registry 的节点打上标签, 随后更新目录设置. registry 采用 NFS 共享后端, 因此需将所有 registry-data 目录挂载
-   NFS
+3. 为需要运行 registry 的节点打上标签, 随后更新目录设置. registry 采用 NFS 共享后端, 因此需将所有运行 registry 服务主机的
+   registry-data 目录挂载至 NFS
 
     ```shell
      # 管理节点初始需要运行一个 registry 实例以共享镜像仓库文件
@@ -138,7 +144,7 @@ $ IocManager list
      $ mount -t nfs nfs_ip:/home/nfs_user/NFS/registry-data /home/for_user/docker/registry-data
     ```
 
-4. 将服务部署文件导出至共享目录, 并在每个节点运行证书设置脚本
+4. 将服务部署文件导出至共享目录, 并在集群中的每个节点运行证书配置脚本
 
     ```shell
      $ IocManager swarm --gen-builtin-services 
@@ -146,12 +152,12 @@ $ IocManager list
      $ ./setup-certs.sh os-level
     ```
 
-5. 启动服务, 编辑集群中的 /etc/hosts 以添加仓库域名的 dns 解析条目
+5. 启动服务, 编辑集群中每个节点的 /etc/hosts 以添加仓库域名的 dns 解析条目
 
     ```shell
      $ ./prepare-images.sh
      $ IocManager service registry --deploy
-     $ sudo vi /etc/hosts
+     $ sudo vi /etc/hosts # 设置初始运行registry服务节点的dns解析条目
      # 192.168.1.50 registry.iasf
     ```
 
@@ -280,6 +286,8 @@ $ IocManager Service ioc_name --deploy
 # 停止IOC的swarm容器服务
 $ IocManager Service ioc_name --remove
 ```
+
+## 工具更新
 
 ## 管理 IOC 项目与容器服务
 
