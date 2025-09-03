@@ -152,7 +152,7 @@ $ IocManager list
      $ ./setup-certs.sh os-level
     ```
 
-5. 启动服务, 编辑集群中每个节点的 /etc/hosts 以添加仓库域名的 dns 解析条目
+5. 准备镜像, 启动服务, 编辑集群中每个节点的 /etc/hosts 以添加仓库域名的 dns 解析条目
 
     ```shell
      $ ./prepare-images.sh

@@ -151,6 +151,7 @@ ALERT_MANAGER_SMTP_SMART_HOST = "smtp.qiye.aliyun.com:465"
 ALERT_MANAGER_SMTP_AUTH_USERNAME = "zhujunhua@mail.iasf.ac.cn"
 ALERT_MANAGER_SMTP_AUTH_PASSWORD = None
 ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS = "zhujunhua@mail.iasf.ac.cn"
+ALERT_MANAGER_RECEIVE_EMAIL_LIST = []
 
 ####################
 ## do not modify. ##
@@ -163,15 +164,28 @@ ALLOWED_VARS = [
     'PREFIX_STACK_NAME',
     'REGISTRY_PORT',
     'ALERT_MANAGER_MASTER_IP', 'ALERT_MANAGER_SMTP_SMART_HOST', 'ALERT_MANAGER_SMTP_AUTH_USERNAME',
-    'ALERT_MANAGER_SMTP_AUTH_PASSWORD', 'ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS'
+    'ALERT_MANAGER_SMTP_AUTH_PASSWORD', 'ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS', 'ALERT_MANAGER_RECEIVE_EMAIL_LIST'
 ]
 ## override from custom definition.
 if import_flag:
+    not_allowed_vars = []
+    unrecognized_variable = []
     for item in dir(CustomConfig):
         if not item.startswith('__'):
-            if item in globals().keys() and item in ALLOWED_VARS:
-                globals()[item] = getattr(CustomConfig, item)
-                # print(f'set {item} {getattr(CustomConfig, item)}')
+            if item in globals().keys():
+                if item in ALLOWED_VARS:
+                    globals()[item] = getattr(CustomConfig, item)
+                    # print(f'set {item} {getattr(CustomConfig, item)}')
+                else:
+                    not_allowed_vars.append(item)
+            else:
+                unrecognized_variable.append(item)
+    else:
+        if not_allowed_vars:
+            print(f'IocManager: Definition not allowed in IMConfigCustom.py: {", ".join(not_allowed_vars).strip()}.')
+        if unrecognized_variable:
+            print(f'IocManager: Definition unrecognized in IMConfigCustom.py: '
+                  f'{", ".join(unrecognized_variable).strip()}.')
 
     #
     REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'

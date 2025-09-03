@@ -1,5 +1,6 @@
 import datetime
 import os
+from ruamel.yaml import YAML
 import subprocess
 import docker
 from tabulate import tabulate
@@ -301,6 +302,31 @@ class SwarmManager:
             os.system(f'sed -i -r "s/smtp_smarthost: .*/smtp_smarthost: {ALERT_MANAGER_SMTP_SMART_HOST}/" {file_path}')
             os.system(f'sed -i -r '
                       f'"s/smtp_auth_username: .*/smtp_auth_username: {ALERT_MANAGER_SMTP_AUTH_USERNAME}/" {file_path}')
+            yaml = YAML()
+            yaml.preserve_quotes = True
+            if ALERT_MANAGER_RECEIVE_EMAIL_LIST:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    config_data = yaml.load(f)
+                receiver_list = [
+                    {
+                        'name': 'default-mail',
+                        'email_configs': [{'to': ALERT_MANAGER_RECEIVE_EMAIL_LIST[0]}, ],
+                    },
+                    {
+                        'name': 'test-mail',
+                        'email_configs': [{'to': email_item} for email_item in ALERT_MANAGER_RECEIVE_EMAIL_LIST],
+                    },
+                    {
+                        'name': 'test-mail-send-resolve',
+                        'email_configs': [
+                            {'to': email_item,
+                             'send_resolved': True} for email_item in ALERT_MANAGER_RECEIVE_EMAIL_LIST
+                        ],
+                    },
+                ]
+                config_data['receivers'] = receiver_list
+                with open(file_path, "w", encoding="utf-8") as f:
+                    yaml.dump(config_data, f)
             file_path = os.path.join(SERVICES_PATH, 'alertManager', 'config', 'smtp_password')
             if not os.path.isfile(file_path):
                 if ALERT_MANAGER_SMTP_AUTH_PASSWORD:
