@@ -329,6 +329,7 @@ def execute_ioc(args):
 
 def execute_swarm(args):
     if args.gen_built_in_services:
+        SwarmManager.gen_template_services(verbose=args.verbose)
         SwarmManager.gen_global_services(verbose=args.verbose)
         SwarmManager.gen_local_services(verbose=args.verbose)
     elif args.deploy_global_services:

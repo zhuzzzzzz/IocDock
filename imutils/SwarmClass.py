@@ -190,6 +190,15 @@ class SwarmManager:
             return
 
     @staticmethod
+    def gen_template_services(verbose):
+        print(f'SwarmManager: Create deployment file for template services.')
+        # hello
+        template_path = os.path.join(COMPOSE_TEMPLATE_PATH, 'hello.yaml')
+        os.system(f'sed -i -r '
+                  f'"s/image: .*/image: registry.{PREFIX_STACK_NAME}\\/busybox:1.37.0/" '
+                  f'{template_path}')
+
+    @staticmethod
     def gen_global_services(verbose):
         #
         top_path = os.path.join(MOUNT_PATH, 'swarm')
