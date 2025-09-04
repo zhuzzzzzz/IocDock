@@ -427,7 +427,7 @@ class IOC:
                                  f'asynSetOption("L0", -1, "stop", "1")\n'
                                  f'asynSetOption("L0", -1, "clocal", "Y")\n'
                                  f'asynSetOption("L0", -1, "crtscts", "Y")\n')
-            cmd_at_dbload = f'dbLoadRecords("db/asynRecord.db","P=xxx,R=:asyn,PORT=xxx,ADDR=xxx,IMAX=xxx,OMAX=xxx")\n'
+            cmd_at_dbload = f''
             copy_str = f'src/protocol_file.proto:startup/protocol_file.proto:r'
             self.set_config('cmd_before_dbload', cmd_before_dbload, section='RAW')
             self.set_config('cmd_at_dbload', cmd_at_dbload, section='RAW')
@@ -795,9 +795,9 @@ class IOC:
                     dest = fs[1]
                     mode = fs[2]
                 if src.startswith('src/'):
-                    src = os.path.join(self.src_path, src)
+                    src = os.path.join(self.src_path, src.removeprefix('src/'))
                 else:  # src.startswith('templates/') guaranteed by generate_check()
-                    src = os.path.join(TEMPLATE_PATH, src)
+                    src = os.path.join(TEMPLATE_PATH, src.removeprefix('templates/'))
                 dest = os.path.join(self.project_path, dest)
                 file_copy(src, dest, mode, self.verbose)
 

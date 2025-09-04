@@ -844,8 +844,8 @@ cmd_before_dbload:
         asynSetOption("L0", -1, "stop", "1")
         asynSetOption("L0", -1, "clocal", "Y")
         asynSetOption("L0", -1, "crtscts", "Y")
-cmd_at_dbload: dbLoadRecords("db/asynRecord.db", "P=xxx, R=:asyn, PORT=xxx, ADDR=xxx, IMAX=xxx, OMAX=xxx")
-cmd_after_iocinit:
+cmd_at_dbload: 
+cmd_after_iocinit: 
 file_copy: src/protocol_file.proto:startup/protocol_file.proto:r
 </pre>
 
