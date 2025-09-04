@@ -12,6 +12,9 @@ scrape_configs:
       - source_labels: [__meta_dockerswarm_node_address]
         target_label: __address__
         replacement: $1:9100
+      - source_labels: [__meta_dockerswarm_node_availability]
+        regex: drain
+        action: drop
       - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
         regex: node_exporter
         action: keep

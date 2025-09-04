@@ -12,6 +12,9 @@ scrape_configs:
       - source_labels: [__meta_dockerswarm_node_hostname]
         target_label: instance
         replacement: $1
+      - source_labels: [__meta_dockerswarm_node_availability]
+        regex: drain
+        action: drop
       - target_label: job
         replacement: docker-daemon
 
