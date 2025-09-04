@@ -45,10 +45,19 @@ class IocStateManager:
 
     def read_config(self, create):
         if os.path.exists(self.info_file_path):
-            if self.verbose:
-                print(f'IocStateManager.read_config: Read state info file "{self.info_file_path}".')
-            with open(self.info_file_path, "rb") as f:
-                self.info_dict = pickle.load(f)
+            try:
+                with open(self.info_file_path, "rb") as f:
+                    self.info_dict = pickle.load(f)
+            except Exception as e:
+                if self.verbose:
+                    print(f'IocStateManager.read_config: Failed to read state info file "{self.info_file_path}", {e}.')
+                self.create_error()
+                state_info = f'state info file lost.'
+                prompt = f'state info file "{self.info_file_path}" lost.'
+                self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
+            else:
+                if self.verbose:
+                    print(f'IocStateManager.read_config: Read state info file "{self.info_file_path}".')
         else:
             if create:
                 self.create_new()
