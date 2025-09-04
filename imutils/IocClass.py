@@ -475,6 +475,7 @@ class IOC:
             file_list = list(filter(None, db_list.split(','))) + list(filter(None, proto_list.split(','))) + list(
                 filter(None, others_list.split(',')))
             for item in file_list:
+                item = item.strip()
                 if item not in os.listdir(self.src_path):
                     state_info = 'source file lost.'
                     prompt = f'source file "{item}" lost.'
