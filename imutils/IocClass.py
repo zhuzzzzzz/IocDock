@@ -1,5 +1,6 @@
 import os
 import yaml
+import pickle
 import tarfile
 import datetime
 import configparser
@@ -28,50 +29,26 @@ class IocStateManager:
 
         self.dir_path = dir_path
         self.verbose = verbose
+        self.prompt_str = ' >>>'
         self.info_file_path = os.path.join(self.dir_path, IOC_STATE_INFO_FILE)
-
-        self.conf = None
-        self.state = ''
-        self.state_info = ''
+        self.info_dict = {}
         self.read_config(create=kwargs.get('create', False))
         self.state = self.get_config('state')
-        self.state_info += self.get_config('state_info')
 
     def create_new(self):
-        self.conf = configparser.ConfigParser()
-        self.set_config('state', STATE_NORMAL)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
-        self.set_config('state_info', '')
-        self.set_config('status', 'created')
-        self.set_config('snapshot', 'untracked')  # untracked, tracked
-        self.set_config('is_exported', 'false')
+        self.info_dict = {'state': STATE_NORMAL, 'status': 'created', 'snapshot': 'untracked', 'is_exported': 'false'}
         self.write_config()
 
     def create_error(self):
-        self.conf = configparser.ConfigParser()
-        self.set_config('state', STATE_ERROR)  # STATE_NORMAL, STATE_WARNING, STATE_ERROR
-        self.set_config('state_info', 'unknown')
-        self.set_config('status', 'unknown')
-        self.set_config('snapshot', 'unknown')
-        self.set_config('is_exported', 'unknown')
+        self.info_dict = {'state': STATE_ERROR, 'status': 'unknown', 'snapshot': 'unknown', 'is_exported': 'unknown'}
         self.write_config()
 
     def read_config(self, create):
         if os.path.exists(self.info_file_path):
-            conf = configparser.ConfigParser()
-            if conf.read(self.info_file_path):
-                self.conf = conf
-                if self.verbose:
-                    print(f'IocStateManager.read_config: Read state info file "{self.info_file_path}".')
-            else:
-                if create:
-                    self.create_new()
-                    if self.verbose:
-                        print(f'IocStateManager.read_config: Create state info file "{self.info_file_path}".')
-                else:
-                    self.create_error()
-                    state_info = f'unrecognized state info file.'
-                    prompt = f'unrecognized state info "{self.info_file_path}".'
-                    self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
+            if self.verbose:
+                print(f'IocStateManager.read_config: Read state info file "{self.info_file_path}".')
+            with open(self.info_file_path, "rb") as f:
+                self.info_dict = pickle.load(f)
         else:
             if create:
                 self.create_new()
@@ -84,85 +61,65 @@ class IocStateManager:
                 self.set_state_info(state=STATE_ERROR, state_info=state_info, prompt=prompt)
 
     def write_config(self):
-        self.normalize_config()
-        with open(self.info_file_path, 'w') as f:
-            self.conf.write(f)
+        with open(self.info_file_path, 'wb') as f:
+            pickle.dump(self.info_dict, f)
 
-    def set_config(self, option, value, section='STATE'):
-        section = section.upper()  # sections should only be uppercase.
-        if self.conf:
-            if section not in self.conf:
-                self.conf.add_section(section)
-        else:
-            self.conf = configparser.ConfigParser()
-            self.conf.add_section(section)
-        self.conf.set(section, option, value)
+    def set_config(self, option, value):
+        self.info_dict[option] = value
 
-    def get_config(self, option, section="STATE"):
-        value = ''  # undefined option will return ''.
-        if self.conf.has_option(section, option):
-            value = self.conf.get(section, option)
-        return value
+    def get_config(self, option):
+        return self.info_dict.get(option, '')
 
-    def check_config(self, option, value, section='STATE'):
-        if self.conf:
-            if section in self.conf.sections():
-                # common check logic
-                for key, val in self.conf.items(section):
-                    if key == option and val == value:
-                        return True
-        return False
+    def check_config(self, option, value):
+        return value == self.get_config(option)
 
     def show_config(self):
-        if self.conf:
-            for section in self.conf.sections():
-                print(f'[{section}]')
-                for key, value in self.conf.items(section):
-                    if len(multi_line_parse(value)) > 1:
-                        temp_value = f'\n{value.strip()}'
-                    else:
-                        temp_value = value.strip()
-                    temp_value = temp_value.replace('\n', '\n\t')
-                    print(f'{key}: {temp_value}')
-                else:
-                    print('')
-
-    def normalize_config(self):
-        temp_conf = configparser.ConfigParser()
-        for section in self.conf.sections():
-            if not temp_conf.has_section(section):
-                temp_conf.add_section(section.upper())
-            for option in self.conf.options(section):
-                temp = self.conf.get(section, option)
-                temp_conf.set(section.upper(), option, format_normalize(temp))
-        else:
-            self.conf = temp_conf
+        if self.info_dict:
+            print(f'[STATE]')
+            print(f'state: {self.get_config("state")}')
+            print(f'state_info: ')
+            if STATE_WARNING in self.info_dict.keys():
+                for reason, item in self.info_dict[STATE_WARNING].items():
+                    print(f'\t[{STATE_WARNING}] {reason}')
+                    for key, val in item.items():
+                        print(f'\t{self.prompt_str} [{val}] {key}')
+            if STATE_ERROR in self.info_dict.keys():
+                for reason, item in self.info_dict[STATE_ERROR].items():
+                    print(f'\t[{STATE_ERROR}] {reason}')
+                    for key, val in item.items():
+                        print(f'\t{self.prompt_str} [{val}] {key}')
+            print(f'status: {self.get_config("status")}')
+            print(f'snapshot: {self.get_config("snapshot")}')
+            print(f'is_exported: {self.get_config("is_exported")}')
+            print()
 
     def remove(self):
         file_remove(self.info_file_path, verbose=False)
 
     def set_state_info(self, state, state_info, prompt=''):
-        if self.state_info:
-            prefix_newline = '\n'
-        else:
-            prefix_newline = ''
-        state_info = f'{prefix_newline}[{state}] [{datetime.datetime.now().strftime("%Y/%m/%d-%H:%M:%S")}] {state_info}'
-        if prompt:
-            state_info = state_info + '\n' + '>>> prompt | ' + prompt + '\n'
         if state == STATE_ERROR:
             self.state = state
-            self.state_info += state_info
         elif state == STATE_WARNING:
             if not self.state == STATE_ERROR:
                 self.state = state
             else:
                 self.state = STATE_ERROR
-            self.state_info += state_info
         else:
             return
         self.set_config('state', self.state)
-        self.set_config('state_info', self.state_info)
+
+        if state not in self.info_dict:
+            self.info_dict[state] = {}
+        if state_info not in self.info_dict[state]:
+            self.info_dict[state][state_info] = {}
+        self.info_dict[state][state_info][prompt] = f'{datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")}'
+
         self.write_config()
+
+    def clear_error(self):
+        self.set_config('state', STATE_NORMAL)
+        self.info_dict[STATE_ERROR] = {}
+        self.info_dict[STATE_WARNING] = {}
 
 
 class IOC:
@@ -274,7 +231,7 @@ class IOC:
 
     def set_default_settings(self):
         self.set_config('name', os.path.basename(self.dir_path))
-        self.set_config('host', '')
+        self.set_config('host', 'swarm')
         self.set_config('image', '')
         self.set_config('bin', DEFAULT_IOC)
         self.set_config('module', DEFAULT_MODULES)
@@ -785,7 +742,7 @@ class IOC:
             # lines_at_dbload
             lines_at_dbload.append(f'{self.get_config("cmd_at_dbload", sc)}\n')
             # lines after iocinit
-            lines_after_iocinit.append(f'{self.get_config("cmd_after_iocinit", sc)}\n')
+            lines_after_iocinit.append(f'{self.get_config("cmd_after_iocinit", sc)}\n\n')
             # file copy
             for item in multi_line_parse(self.get_config('file_copy', sc)):
                 fs = item.split(sep=':')
@@ -854,9 +811,8 @@ class IOC:
             print(f'IOC("{self.name}").generate_startup_files: Create "st.cmd".')
 
         #
+        self.state_manager.clear_error()
         self.state_manager.set_config('status', 'generated')
-        self.state_manager.set_config('state', 'normal')
-        self.state_manager.set_config('state_info', '')
         self.state_manager.write_config()
         print(f'IOC("{self.name}").generate_startup_files": Success.')
 

@@ -378,6 +378,26 @@ $ IocManager list --section setting report_info=false
 $ IocManager list --section setting report_info=true
 worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
 
+# 通过项目管理状态筛选IOC
+# IOC状态
+$ IocManager list state=normal
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+$ IocManager list state=error
+# IOC生命周期状态
+$ IocManager list status=generated
+worker_test_5
+$ IocManager list status=exported
+worker_test_1 worker_test_2 worker_test_3 worker_test_4
+# IOC快照状态
+$ IocManager list snapshot=tracked
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+$ IocManager list snapshot=unknown
+# IOC导出标志
+$ IocManager list is_exported=true
+worker_test_1 worker_test_2 worker_test_3 worker_test_4 worker_test_5
+$ IocManager list is_exported=false
+$ IocManager list is_exported=unknown
+
 # IOC的嵌套筛选
 $ IocManager list module=autosave | xargs IocManager list name=1 -l
 worker_test_1
