@@ -750,7 +750,8 @@ class IOC:
             # caPutLog .acf file
             file_path = os.path.join(self.startup_path, f'{self.name}.acf')
             template_file_path = os.path.join(TEMPLATE_PATH, 'caputlog.acf')
-            file_copy(template_file_path, file_path, 'r', self.verbose)
+            if not file_copy(template_file_path, file_path, 'r', self.verbose):
+                return
 
         # status-ioc configurations.
         if self.check_config('module', 'status-ioc'):
@@ -760,7 +761,8 @@ class IOC:
             # devIocStats .db
             file_path = os.path.join(self.db_path, 'status_ioc.db')
             template_file_path = os.path.join(DB_TEMPLATE_PATH, 'status_ioc.db')
-            file_copy(template_file_path, file_path, 'r', self.verbose)
+            if not file_copy(template_file_path, file_path, 'r', self.verbose):
+                return
 
         # status-os configurations.
         if self.check_config('module', 'status-os'):
@@ -770,7 +772,8 @@ class IOC:
             # devIocStats .db
             file_path = os.path.join(self.db_path, 'status_OS.db')
             template_file_path = os.path.join(DB_TEMPLATE_PATH, 'status_OS.db')
-            file_copy(template_file_path, file_path, 'r', self.verbose)
+            if not file_copy(template_file_path, file_path, 'r', self.verbose):
+                return
 
         # raw commands configurations.
         if self.conf.has_section('RAW'):
@@ -799,7 +802,8 @@ class IOC:
                 else:  # src.startswith('templates/') guaranteed by generate_check()
                     src = os.path.join(TEMPLATE_PATH, src.removeprefix('templates/'))
                 dest = os.path.join(self.project_path, dest)
-                file_copy(src, dest, mode, self.verbose)
+                if not file_copy(src, dest, mode, self.verbose):
+                    return
 
         # write report code at the end of st.cmd file if defined "report_info: true".
         if self.check_config('report_info', 'true', 'SETTING'):
