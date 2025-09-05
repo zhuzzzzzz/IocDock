@@ -20,7 +20,12 @@ groups:
       
   - record: WarningCountForIOC
     expr: |
-      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)warn|warning" [1d]))
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)warn|warning" 
+        != "STREAM_PROTOCOL_PATH not set" != "Configured TCP port was unavailable"
+        != "Using dynamically assigned TCP port" != "but now two or more servers share the same UDP port"
+        != "Depending on your IP kernel this server may not be" 
+        != "reachable with UDP unicast"
+      [1d]))
       
   - record: ErrorCountForIOC
     expr: |
@@ -71,7 +76,13 @@ groups:
             "IOC {{ $labels.service }} running on {{ $labels.instance }} has encountered Connection issues."
             
   - alert: WarningDetectedForIOC
-    expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)warn|warning" [5m])) > 0
+    expr: | 
+      sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)warn|warning" 
+        != "STREAM_PROTOCOL_PATH not set" != "Configured TCP port was unavailable"
+        != "Using dynamically assigned TCP port" != "but now two or more servers share the same UDP port"
+        != "Depending on your IP kernel this server may not be" 
+        != "reachable with UDP unicast"
+      [5m])) > 0
     keep_firing_for: 5m
     labels:
       severity: warning
