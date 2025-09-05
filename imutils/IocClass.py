@@ -438,10 +438,10 @@ class IOC:
             db_list = self.get_config('db_file', 'SRC')
             proto_list = self.get_config('proto_file', 'SRC')
             others_list = self.get_config('others_file', 'SRC')
-            file_list = list(filter(None, db_list.split(','))) + list(filter(None, proto_list.split(','))) + list(
-                filter(None, others_list.split(',')))
+            file_list = ([item.strip() for item in filter(None, db_list.split(','))] +
+                         [item.strip() for item in filter(None, proto_list.split(','))] +
+                         [item.strip() for item in filter(None, others_list.split(','))])
             for item in file_list:
-                item = item.strip()
                 if item not in os.listdir(self.src_path):
                     state_info = 'source file lost.'
                     prompt = f'source file "{item}" lost.'
@@ -471,11 +471,15 @@ class IOC:
                 elif item.endswith(OTHER_SUFFIX):
                     others_list += f'{item}, '
 
+        file_list = ([item.strip() for item in filter(None, db_list.split(','))] +
+                     [item.strip() for item in filter(None, proto_list.split(','))] +
+                     [item.strip() for item in filter(None, others_list.split(','))])
+
         file_flag = False
         # Copy files from given path and set db file option, duplicate files will result in a warning message.
         for item in os.listdir(src_p):
             if item.endswith(DB_SUFFIX):
-                if item not in db_list:
+                if item not in file_list:
                     db_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
@@ -489,7 +493,7 @@ class IOC:
                     if self.verbose or print_info:
                         print(f'overwrite "{item}".')
             elif item.endswith(PROTO_SUFFIX):
-                if item not in proto_list:
+                if item not in file_list:
                     proto_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
@@ -503,7 +507,7 @@ class IOC:
                     if self.verbose or print_info:
                         print(f'overwrite "{item}".')
             elif item.endswith(OTHER_SUFFIX):
-                if item not in others_list:
+                if item not in file_list:
                     others_list += f'{item}, '
                     if src_p != self.src_path:
                         file_copy(os.path.join(src_p, item), os.path.join(self.src_path, item), 'rw', self.verbose)
