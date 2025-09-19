@@ -6,7 +6,11 @@ groups:
       - record: container_cpu_core_usage_percent:name_service_instance
         expr: |2
           (sum by (name, service, service_type, instance)
-          (rate(container_cpu_usage_seconds_total{stack=~'iasf|test'}[2m]))) * 100
+          (rate(container_cpu_usage_seconds_total{stack=~'iasf|test'}[2m])) /
+          sum by (name, service, service_type, instance)
+          ((container_spec_cpu_quota{stack=~'iasf|test'} / container_spec_cpu_period{stack=~'iasf|test'}) or 
+          (container_spec_cpu_period{stack=~'iasf|test'} / container_spec_cpu_period{stack=~'iasf|test'}))
+          ) * 100
           
       - alert: HighContainerCpuCoreUsagePercent
         expr: container_cpu_core_usage_percent:name_service_instance > 50
