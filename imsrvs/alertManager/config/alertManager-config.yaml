@@ -9,8 +9,8 @@ route:
   group_by: ['...']
   receiver: default-mail
   group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 30m
+  group_interval: 1m
+  repeat_interval: 1h
   routes:
   # for log line detection.
   - matchers:
@@ -26,14 +26,9 @@ route:
     # for severity!=info
     - matchers:
       - severity="warning"
-      group_wait: 30s
-      group_interval: 1m
-      repeat_interval: 30m
     - matchers:
       - severity="critical"
-      group_wait: 30s
-      group_interval: 1m
-      repeat_interval: 10m
+      repeat_interval: 30m
   # for container offline or service offline.
   - matchers:
     - alertname=~"ContainerOffline|ServiceOffline|InstanceServiceOffline"
@@ -49,14 +44,9 @@ route:
     # for severity!=info
     - matchers:
       - severity="warning"
-      group_wait: 30s
-      group_interval: 1m
-      repeat_interval: 30m
     - matchers:
       - severity="critical"
-      group_wait: 30s
-      group_interval: 1m
-      repeat_interval: 10m
+      repeat_interval: 30m
   # for scrape job lost.
   - matchers:
     - component="rule"
@@ -72,16 +62,11 @@ route:
     - matchers:
       - severity="warning"
       receiver: test-mail
-      group_wait: 30s
-      group_interval: 1m
-      repeat_interval: 30m
     # for severity=critical
     - matchers:
       - severity="critical"
       receiver: test-mail-send-resolve
-      group_wait: 30s
-      group_interval: 1m
-      repeat_interval: 10m
+      repeat_interval: 30m
   # add other routes here.
   #
   # for other performance metrics and severity=info.
@@ -94,17 +79,12 @@ route:
     - severity="warning"
     group_by: [component, severity, service, service_type]
     receiver: test-mail-send-resolve
-    group_wait: 30s
-    group_interval: 1m
-    repeat_interval: 30m
   # for other performance metrics and severity=critical.
   - matchers:
     - severity="critical"
     group_by: [component, service, service_type, severity]
     receiver: test-mail-send-resolve
-    group_wait: 30s
-    group_interval: 1m
-    repeat_interval: 10m
+    repeat_interval: 30m
 
 receivers:
 # default receiver of unrecognized alerts

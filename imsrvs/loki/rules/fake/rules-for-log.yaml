@@ -35,7 +35,7 @@ groups:
     expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not match|mismatch" [5m])) > 0
     keep_firing_for: 5m
     labels:
-      severity: warning
+      severity: info
       component: ioc
     annotations:
       summary: Mismatch Detected in logs from IOC shell
@@ -46,7 +46,7 @@ groups:
     expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not connect|disconnect|can't connect" [5m])) > 0
     keep_firing_for: 5m
     labels:
-      severity: warning
+      severity: info
       component: ioc
     annotations:
       summary: Disconnect Detected in logs from IOC shell
@@ -57,7 +57,7 @@ groups:
     expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)timeout|time out|timed out" != "save_restoreSet_CallbackTimeout" [5m])) > 0
     keep_firing_for: 5m
     labels:
-      severity: warning
+      severity: info
       component: ioc
     annotations:
       summary: Timeout Detected in logs from IOC shell
@@ -68,7 +68,7 @@ groups:
     expr: sum by (service, instance) (count_over_time({service_type="ioc"} |~ "(?i)not reply|no reply" [5m])) > 0
     keep_firing_for: 5m
     labels:
-      severity: warning
+      severity: info
       component: ioc
     annotations:
       summary: No Reply Detected in logs from IOC shell
