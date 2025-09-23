@@ -18,12 +18,10 @@ route:
     group_by: [component, service, severity]
     receiver: test-mail
     routes:
-    # for severity=info
     - matchers:
       - severity="info"
       mute_time_intervals:
       - all-time
-    # for severity!=info
     - matchers:
       - severity="warning"
     - matchers:
@@ -36,12 +34,10 @@ route:
     group_by: [alertname, service_type]
     receiver: test-mail
     routes:
-    # for severity=info
     - matchers:
       - severity="info"
       mute_time_intervals:
       - all-time
-    # for severity!=info
     - matchers:
       - severity="warning"
     - matchers:
@@ -53,16 +49,13 @@ route:
     group_by: [alertname]
     receiver: test-mail
     routes:
-    # for severity=info
     - matchers:
       - severity="info"
       mute_time_intervals:
       - all-time
-    # for severity=warning
     - matchers:
       - severity="warning"
       receiver: test-mail
-    # for severity=critical
     - matchers:
       - severity="critical"
       receiver: test-mail-send-resolve
@@ -87,6 +80,8 @@ route:
     repeat_interval: 30m
 
 receivers:
+# default receiver of webhook
+- name: default-webhook
 # default receiver of unrecognized alerts
 - name: default-mail
   email_configs:

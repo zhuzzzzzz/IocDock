@@ -1,0 +1,29 @@
+{
+  "date": "2025-09-22",
+  "total_alerts": 3,
+  "categories": [
+    {
+      "labels": {
+        "alertname": "HighCPU",
+        "instance": "server01",
+        "severity": "warning"
+      },
+      "count": 2,
+      "timestamps": [
+        "2025-09-22T10:23:52.527134",
+        "2025-09-22T10:23:52.527166"
+      ]
+    },
+    {
+      "labels": {
+        "alertname": "DiskFull",
+        "instance": "server02",
+        "severity": "critical"
+      },
+      "count": 1,
+      "timestamps": [
+        "2025-09-22T10:23:52.527161"
+      ]
+    }
+  ]
+}
