@@ -1,0 +1,30 @@
+services:
+  srv-alertAnalytics:
+    image: registry.iasf/alert-analytics:0.1.0
+    labels:
+      service-type: local
+    ports:
+    - target: 8000
+      published: 8000 # use routing mesh
+    environment:
+      - DEBUG_LEVEL=3
+      - REPORTING_INTERVAL_DAYS=1
+      - SMTP_SERVER=smtp.qiye.aliyun.com
+      - SMTP_PORT=465
+      - SENDER_EMAIL=zhujunhua@mail.iasf.ac.cn
+      - RECIPIENT_EMAIL=1728831951@qq.com
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - EMAIL_KEY_FILE=/app/config/smtp_password
+    volumes:
+      - ./config:/app/config
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      placement:
+        constraints:
+        - node.platform.os==linux
+        - node.role==manager

@@ -21,6 +21,7 @@ LocalServicesList = [
     ("alertManager", "alertmanager:v0.28.1"),
     ("loki", "loki:3.5.2"),
     ("grafana", "grafana:12.0.2-ubuntu"),
+    ("alertAnalytics", "alert-analytics:0.1.0"),
     # ("portainerServer",)
     # ("portainerAgent",)
 ]

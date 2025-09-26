@@ -20,8 +20,9 @@ route:
     routes:
     - matchers:
       - severity="info"
-      mute_time_intervals:
-      - all-time
+      receiver: info-receiver
+      # mute_time_intervals:
+      # - all-time
     - matchers:
       - severity="warning"
     - matchers:
@@ -80,8 +81,12 @@ route:
     repeat_interval: 30m
 
 receivers:
-# default receiver of webhook
-- name: default-webhook
+# default receiver for alerts with label severity=info
+- name: info-receiver
+  email_configs:
+  - to: 1728831951@qq.com
+  webhook_configs:
+  - url: http://192.168.1.51:8000/alerts
 # default receiver of unrecognized alerts
 - name: default-mail
   email_configs:
