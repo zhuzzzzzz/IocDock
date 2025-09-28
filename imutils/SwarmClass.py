@@ -302,31 +302,47 @@ class SwarmManager:
             os.system(f'sed -i -r "s/smtp_smarthost: .*/smtp_smarthost: {ALERT_MANAGER_SMTP_SMART_HOST}/" {file_path}')
             os.system(f'sed -i -r '
                       f'"s/smtp_auth_username: .*/smtp_auth_username: {ALERT_MANAGER_SMTP_AUTH_USERNAME}/" {file_path}')
+            # set receivers
             yaml = YAML()
             yaml.preserve_quotes = True
-            if ALERT_MANAGER_RECEIVE_EMAIL_LIST:
+            if any([ALERT_MANAGER_RECEIVE_EMAIL_LIST,ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER,ALERT_MANAGER_INFO_WEBHOOK_RECEIVER]):
                 with open(file_path, "r", encoding="utf-8") as f:
                     config_data = yaml.load(f)
                 receiver_list = [
                     {
                         'name': 'default-mail',
                         'email_configs': [{'to': ALERT_MANAGER_RECEIVE_EMAIL_LIST[0]}, ],
-                    },
+                    } if ALERT_MANAGER_RECEIVE_EMAIL_LIST else None,
                     {
                         'name': 'test-mail',
                         'email_configs': [{'to': email_item} for email_item in ALERT_MANAGER_RECEIVE_EMAIL_LIST],
-                    },
+                    } if ALERT_MANAGER_RECEIVE_EMAIL_LIST else None,
                     {
                         'name': 'test-mail-send-resolve',
                         'email_configs': [
                             {'to': email_item,
                              'send_resolved': True} for email_item in ALERT_MANAGER_RECEIVE_EMAIL_LIST
                         ],
-                    },
+                    } if ALERT_MANAGER_RECEIVE_EMAIL_LIST else None,
+                    {
+                        'name': 'default-webhook',
+                        'webhook_configs': [
+                            {'url': ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER, 
+                             'send_resolved': False}
+                        ],
+                    } if ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER else None,
+                    {
+                        'name': 'info-webhook',
+                        'webhook_configs': [
+                            {'url': ALERT_MANAGER_INFO_WEBHOOK_RECEIVER,
+                             'send_resolved': False}
+                        ],
+                    } if ALERT_MANAGER_INFO_WEBHOOK_RECEIVER else None,
                 ]
-                config_data['receivers'] = receiver_list
+                config_data['receivers'] = list(filter(None, receiver_list))
                 with open(file_path, "w", encoding="utf-8") as f:
                     yaml.dump(config_data, f)
+            # set password
             file_path = os.path.join(SERVICES_PATH, 'alertManager', 'config', 'smtp_password')
             if not os.path.isfile(file_path):
                 if ALERT_MANAGER_SMTP_AUTH_PASSWORD:

@@ -25,7 +25,7 @@ route:
     routes:
     - matchers:
       - severity="info"
-      receiver: info-receiver
+      receiver: info-webhook
       # mute_time_intervals:
       # - all-time
     - matchers:
@@ -85,14 +85,14 @@ route:
     receiver: test-mail-send-resolve
     repeat_interval: 30m
 
+time_intervals:
+- name: all-time
+  time_intervals:
+  - times:
+    - start_time: 00:00
+      end_time: 24:00
+
 receivers:
-# default receiver for alerts with label severity=info
-- name: info-receiver
-  email_configs:
-  - to: 1728831951@qq.com
-  webhook_configs:
-  - url: http://192.168.1.51:8000/alerts
-# default receiver of unrecognized alerts
 - name: default-mail
   email_configs:
   - to: 1728831951@qq.com
@@ -103,14 +103,11 @@ receivers:
   email_configs:
   - to: 1728831951@qq.com
     send_resolved: true
-# default webhook receiver
 - name: default-webhook
   webhook_configs:
   - url: http://192.168.20.170:8081/webhook/prometheus
-
-time_intervals:
-- name: all-time
-  time_intervals:
-  - times:
-    - start_time: 00:00
-      end_time: 24:00
+    send_resolved: false
+- name: info-webhook
+  webhook_configs:
+  - url: http://192.168.1.51:8000/alerts
+    send_resolved: false
