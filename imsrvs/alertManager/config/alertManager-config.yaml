@@ -17,6 +17,8 @@ route:
     - alertname=~".*"
     receiver: default-webhook
     continue: true
+    mute_time_intervals:
+    - all-time
   # for log line detection.
   - matchers:
     - component=~"ioc"
@@ -84,6 +86,18 @@ route:
     group_by: [component, service, service_type, severity]
     receiver: test-mail-send-resolve
     repeat_interval: 30m
+
+inhibit_rules:
+- source_matchers:
+  - alertname="ServiceOffline"
+  target_matchers:
+  - alertname="InstanceServiceOffline"
+  equal: [service, component, deployment]
+- source_matchers:
+  - severity="critical"
+  target_matchers:
+  - severity="warning"
+  equal: [name, alertname, service, instance, component, deployment]
 
 time_intervals:
 - name: all-time

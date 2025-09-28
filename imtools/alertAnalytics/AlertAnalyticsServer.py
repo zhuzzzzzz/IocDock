@@ -23,7 +23,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.qiye.aliyun.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "zhujunhua@mail.iasf.ac.cn")
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL", "1728831951@qq.com")
-EMAIL_KEY_FILE = os.getenv("SENDER_PASSWORD_FILE")
+SENDER_PASSWORD_FILE = os.getenv("SENDER_PASSWORD_FILE")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 
 # SSL configuration
@@ -517,7 +517,7 @@ async def send_report_email(report_content: str):
     smtp_port = SMTP_PORT
     sender_email = SENDER_EMAIL
     recipient_email = RECIPIENT_EMAIL
-    key_file = EMAIL_KEY_FILE
+    key_file = SENDER_PASSWORD_FILE
 
     # If no key file specified, try to get password directly
     if key_file and os.path.exists(key_file):

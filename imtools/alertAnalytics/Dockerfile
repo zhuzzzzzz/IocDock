@@ -16,7 +16,7 @@ COPY AlertAnalyticsServer.py .
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=1h --timeout=10s --start-period=10s --retries=3 \
   CMD curl -f https://localhost:8000/alerts -k || curl -f http://localhost:8000/alerts || exit 1
 
 # Run the application

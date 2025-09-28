@@ -15,7 +15,7 @@ services:
       - RECIPIENT_EMAIL=1728831951@qq.com
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
-      - EMAIL_KEY_FILE=/app/config/smtp_password
+      - SENDER_PASSWORD_FILE=/app/config/smtp_password
     volumes:
       - ./config:/app/config
     deploy:
