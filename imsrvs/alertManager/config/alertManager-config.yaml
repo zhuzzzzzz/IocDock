@@ -12,6 +12,11 @@ route:
   group_interval: 1m
   repeat_interval: 1h
   routes:
+  # for webhook receiver.
+  - matchers:
+    - alertname=~".*"
+    receiver: default-webhook
+    continue: true
   # for log line detection.
   - matchers:
     - component=~"ioc"
@@ -98,6 +103,11 @@ receivers:
   email_configs:
   - to: 1728831951@qq.com
     send_resolved: true
+# default webhook receiver
+- name: default-webhook
+  webhook_configs:
+  - url: http://192.168.20.170:8081/webhook/prometheus
+
 time_intervals:
 - name: all-time
   time_intervals:
