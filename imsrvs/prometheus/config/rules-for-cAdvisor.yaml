@@ -169,7 +169,7 @@ groups:
             "Container {{ $labels.name }} running on {{ $labels.instance }} 
             experienced a File System WRITE rate of {{ $value }} MB/s on {{ $labels.device }} in past 5 minutes(threshold: 10 MB/s)."
          
-      # container offline | threshold: 60s lost of heartbeat
+      # container offline | threshold: 30s lost of heartbeat
       - record: container_last_beat_seconds:name_service_instance
         expr: |2
           sum by (name, service, service_type, instance)
@@ -186,9 +186,9 @@ groups:
           summary: "ContainerOffline for container {{ $labels.name }}"
           description: 
             "Container {{ $labels.name }} running on {{ $labels.instance }} 
-            lost for {{ $value }} s (threshold: 60 s)."
+            lost for {{ $value }} s (threshold: 30 s)."
       
-      # service offline | threshold: 60s lost of heartbeat
+      # service offline | threshold: 30s lost of heartbeat
       - record: service_last_beat_seconds:service
         expr: |2
           time() - (max(container_last_seen{stack=~'iasf|test'}) by (service, service_type))
@@ -203,9 +203,9 @@ groups:
         annotations:
           summary: "ServiceOffline for {{ $labels.service }}"
           description: 
-            "Service {{ $labels.service }} lost for {{ $value }} s (threshold: 60 s)."
+            "Service {{ $labels.service }} lost for {{ $value }} s (threshold: 30 s)."
             
-      # instance service offline | threshold: 60s lost of heartbeat
+      # instance service offline | threshold: 30s lost of heartbeat
       - record: service_last_beat_seconds:instance_service
         expr: |2
           time() - (max(container_last_seen{stack=~'iasf|test'}) by (service, service_type, instance))
@@ -220,7 +220,7 @@ groups:
         annotations:
           summary: "InstanceServiceOffline for {{ $labels.service }}"
           description: 
-            "Service {{ $labels.service }} lost on {{ $labels.instance }} for {{ $value }} s (threshold: 60 s)."
+            "Service {{ $labels.service }} lost on {{ $labels.instance }} for {{ $value }} s (threshold: 30 s)."
       
       # container network receive rate
       - record: container_network_kilobytes_rate_receive:name_service_instance
