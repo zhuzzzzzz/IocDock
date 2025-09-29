@@ -15,14 +15,17 @@ from email.utils import make_msgid
 
 # Configuration parameters
 DEBUG_LEVEL = int(os.getenv("DEBUG_LEVEL", 0))
-DEBUG_LEVEL = 3
 REPORTING_INTERVAL_DAYS = int(os.getenv("REPORTING_INTERVAL_DAYS", 1))
+REPORT_EXPIRY_DAYS = int(os.getenv("REPORT_EXPIRY_DAYS", 30))  # Reports expire after 30 days
+ALERTS_EXPIRY_DAYS = int(os.getenv("ALERTS_EXPIRY_DAYS", 30))  # Alerts expire after 30 days
 
 # Email configuration
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.qiye.aliyun.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", "zhujunhua@mail.iasf.ac.cn")
-RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL", "1728831951@qq.com")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT"))
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
+# Split recipient emails by comma, remove whitespace, and filter out empty strings
+RECIPIENT_EMAILS = [email.strip() for email in RECIPIENT_EMAIL.split(",") if email.strip()] if RECIPIENT_EMAIL else []
 SENDER_PASSWORD_FILE = os.getenv("SENDER_PASSWORD_FILE")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 
@@ -34,8 +37,14 @@ SSL_CERTFILE = os.getenv("SSL_CERTFILE")
 SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.getenv("SERVER_PORT", 8000))
 
-# In-memory storage for alerts, categorized by date and alert name
-alerts_storage: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+# Reports directory configuration
+REPORTS_DIR = "reports"
+
+# Create reports directory if it doesn't exist
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
+# In-memory storage for alerts, categorized by date, alert name, and service or instance
+alerts_storage: Dict[str, Dict[str, Dict[str, List[Dict[str, Any]]]]] = {}
 
 app = FastAPI()
 
@@ -63,18 +72,30 @@ class WebhookPayload(BaseModel):
     alerts: List[Alert]
 
 
-def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
+def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, Dict[str, List[Dict[str, Any]]]]]:
     """
-    Categorize alerts by day and alert name
+    Categorize alerts by day, alert name, and either service or instance
 
     Returns:
-        Dict format: {date: {alert_name: [alerts]}}
+        Dict format: {date: {alert_name: {service_or_instance: [alerts]}}}
     """
     categorized = {}
 
     for alert in alerts:
         # Extract alert name from labels
         alert_name = alert.labels.get('alertname', 'unknown')
+        
+        # Determine service_or_instance key based on available labels
+        service = alert.labels.get('service')
+        instance = alert.labels.get('instance')
+        
+        # Use service if available, otherwise instance, otherwise 'unknown'
+        if service:
+            service_or_instance = service
+        elif instance:
+            service_or_instance = instance
+        else:
+            service_or_instance = 'unknown'
 
         # Parse the start time to get the date
         try:
@@ -91,10 +112,13 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, List[Di
             categorized[date_key] = {}
 
         if alert_name not in categorized[date_key]:
-            categorized[date_key][alert_name] = []
+            categorized[date_key][alert_name] = {}
+
+        if service_or_instance not in categorized[date_key][alert_name]:
+            categorized[date_key][alert_name][service_or_instance] = []
 
         # Add alert to the appropriate category
-        categorized[date_key][alert_name].append(alert.model_dump())
+        categorized[date_key][alert_name][service_or_instance].append(alert.model_dump())
 
     return categorized
 
@@ -102,7 +126,7 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, List[Di
 @app.post("/alerts")
 async def receive_alerts(payload: WebhookPayload):
     """
-    Receive alerts from AlertManager and categorize them by day and alert name
+    Receive alerts from AlertManager and categorize them by day, alert name, and service or instance
 
     This endpoint accepts POST requests from AlertManager webhook configuration.
     AlertManager sends alerts in JSON format to this endpoint.
@@ -121,7 +145,7 @@ async def receive_alerts(payload: WebhookPayload):
       "alerts": [
         {
           "status": "firing|resolved",
-          "labels": {"alertname": "...", "key": "value"},
+          "labels": {"alertname": "...", "service": "...", "instance": "...", "key": "value"},
           "annotations": {"key": "value"},
           "startsAt": "YYYY-MM-DDTHH:MM:SSZ",
           "endsAt": "YYYY-MM-DDTHH:MM:SSZ",
@@ -160,32 +184,23 @@ async def receive_alerts(payload: WebhookPayload):
 
     categorized_alerts = categorize_alerts_by_day(payload.alerts)
 
-    # Merge with existing storage
+    # Merge with existing storage - simply append all alerts, no deduplication
     for date, alert_names in categorized_alerts.items():
         if date not in alerts_storage:
             alerts_storage[date] = {}
 
-        for alert_name, alerts in alert_names.items():
+        for alert_name, service_or_instances in alert_names.items():
             if alert_name not in alerts_storage[date]:
-                alerts_storage[date][alert_name] = []
+                alerts_storage[date][alert_name] = {}
 
-            # Process each alert to handle duplicates
-            for new_alert in alerts:
-                # Check if alert with same fingerprint already exists
-                existing_alert_index = None
-                for i, existing_alert in enumerate(alerts_storage[date][alert_name]):
-                    # If fingerprint matches, it's the same alert
-                    if existing_alert['fingerprint'] == new_alert['fingerprint']:
-                        existing_alert_index = i
-                        break
+            for service_or_instance, alerts in service_or_instances.items():
+                if service_or_instance not in alerts_storage[date][alert_name]:
+                    alerts_storage[date][alert_name][service_or_instance] = []
 
-                # If duplicate found, update it; otherwise, add as new
-                if existing_alert_index is not None:
-                    # Update existing alert (might have new timestamps)
-                    alerts_storage[date][alert_name][existing_alert_index] = new_alert
-                else:
-                    # Add new alert
-                    alerts_storage[date][alert_name].append(new_alert)
+                # Add all alerts without checking for duplicates
+                # This allows us to count occurrences of the same alert
+                for new_alert in alerts:
+                    alerts_storage[date][alert_name][service_or_instance].append(new_alert)
 
     if DEBUG_LEVEL >= 1:
         print(f"Successfully processed {len(payload.alerts)} alerts")
@@ -196,29 +211,33 @@ async def receive_alerts(payload: WebhookPayload):
 @app.get("/alerts")
 async def get_all_alerts():
     """
-    Return all received alerts categorized by date and alert name
+    Return all received alerts categorized by date, alert name, and service or instance
 
     Returns alerts in the following structure:
     {
       "date": {
-        "alert_name": [alert_objects]
+        "alert_name": {
+          "service_or_instance": [alert_objects]
+        }
       }
     }
 
     Example response:
     {
       "2023-05-15": {
-        "HighCPULoad": [
-          {
-            "status": "firing",
-            "labels": {"alertname": "HighCPULoad", "severity": "warning"},
-            "annotations": {"description": "CPU load is high"},
-            "startsAt": "2023-05-15T10:00:00Z",
-            "endsAt": "0001-01-01T00:00:00Z",
-            "generatorURL": "http://prometheus/graph...",
-            "fingerprint": "abc123..."
-          }
-        ]
+        "HighCPULoad": {
+          "service1": [
+            {
+              "status": "firing",
+              "labels": {"alertname": "HighCPULoad", "service": "service1", "severity": "warning"},
+              "annotations": {"description": "CPU load is high"},
+              "startsAt": "2023-05-15T10:00:00Z",
+              "endsAt": "0001-01-01T00:00:00Z",
+              "generatorURL": "http://prometheus/graph...",
+              "fingerprint": "abc123..."
+            }
+          ]
+        }
       }
     }
     """
@@ -252,13 +271,13 @@ async def generate_test_data(days: int = 7):
     global alerts_storage
 
     # Define possible values for random combinations
-    alert_names = ["TestAlertOne", "TestAlertTwo", "TestAlertThree"]
+    alert_names = ["AlertOne", "AlertTwo", "AlertThree"]
     components = ["ioc", "container", "node"]
     severities = ["info", "warning", "critical"]
 
     # Define instances and services separately
-    instances = ["test-node0", "test-node1", "test-node2"]
-    services = ["test_service_1", "test_service_2", "test_service_3"]
+    instances = ["node0", "node1", "node2"]
+    services = ["service1", "service2", "service3"]
 
     for i in range(days):
         date = (datetime.now() - timedelta(days=i)).date().isoformat()
@@ -266,7 +285,7 @@ async def generate_test_data(days: int = 7):
 
         # Generate different number of alerts for each day (0, 1, or 10)
         # Randomly select from 0, 1, 10 alerts per day
-        alert_count = random.choice([0, 1, 10])
+        alert_count = random.choice([10])
 
         # Generate random alerts for this date
         for j in range(alert_count):
@@ -275,24 +294,46 @@ async def generate_test_data(days: int = 7):
             component = random.choice(components)
             severity = random.choice(severities)
 
-            # Initialize alert name group if not exists
-            if alert_name not in alerts_storage[date]:
-                alerts_storage[date][alert_name] = []
-
             # Select instance and service independently
             instance = random.choice(instances)
             service = random.choice(services)
+            
+            # Randomly decide whether to use service, instance, or both
+            use_service = random.choice([True, False])
+            use_instance = random.choice([True, False])
+
+            # Initialize alert name group if not exists
+            if alert_name not in alerts_storage[date]:
+                alerts_storage[date][alert_name] = {}
+
+            # Determine the service_or_instance key
+            if use_service:
+                service_or_instance = service
+            elif use_instance:
+                service_or_instance = instance
+            else:
+                service_or_instance = 'unknown'
+                
+            # Initialize service_or_instance group if not exists
+            if service_or_instance not in alerts_storage[date][alert_name]:
+                alerts_storage[date][alert_name][service_or_instance] = []
 
             # Create alert with the specified format
+            labels = {
+                "alertname": alert_name,
+                "component": component,
+                "severity": severity
+            }
+            
+            # Add service and/or instance labels based on what we're using
+            if use_service:
+                labels["service"] = service
+            if use_instance:
+                labels["instance"] = instance
+
             alert = {
                 "status": "firing",
-                "labels": {
-                    "alertname": alert_name,
-                    "component": component,
-                    "instance": instance,
-                    "service": service,
-                    "severity": severity
-                },
+                "labels": labels,
                 "annotations": {
                     "description": f"{component.upper()} {service} running on {instance} has encountered issues.",
                     "summary": f"Issues detected in {component} logs"
@@ -302,45 +343,43 @@ async def generate_test_data(days: int = 7):
                 "generatorURL": "example.com",
                 "fingerprint": f"{random.randint(0, 0xffffffff):016x}"
             }
-            alerts_storage[date][alert_name].append(alert)
+            alerts_storage[date][alert_name][service_or_instance].append(alert)
 
     return {"status": "success", "message": f"Generated test data for {days} days"}
 
 
 @app.get("/generate-report")
-async def manual_generate_report(period_days: int = None, clear_data: bool = False):
+async def manual_generate_report(period_days: int = None):
     """
-    Manually trigger report generation with configurable period and data clearing option.
+    Manually trigger report generation with configurable period.
 
     Args:
         period_days (int): Number of days to include in report (default: uses REPORTING_INTERVAL_DAYS)
-        clear_data (bool): Whether to clear data after generating report (default: False)
 
     Returns:
-        Dict with status and filename of generated report
+        Dict with status and filepath of generated report
 
     Example:
-        GET /generate-report?period_days=7&clear_data=true
+        GET /generate-report?period_days=7
 
         Response:
         {
             "status": "success", 
-            "report_file": "alert_report_2023-05-01_to_2023-05-07.txt"
+            "report_file": "/path/to/alert_report_2023-05-01_to_2023-05-07.txt"
         }
 
     This endpoint generates a statistical report for the specified period (or default period if not specified).
-    If clear_data is set to true, it will remove the data used in the report from storage after generating 
-    the report. The report file is saved in the current directory with a name indicating the period covered.
+    The report file is saved in the reports directory with a name indicating the period covered.
     """
     # Use provided period or default to configured interval
     days_to_report = period_days if period_days is not None else REPORTING_INTERVAL_DAYS
     # Generate report with specified parameters
-    filename, content = await generate_report_with_period(days_to_report, clear_data=clear_data)
+    filepath, content = await generate_report_with_period(days_to_report)
 
     # Send email with the generated report
     await send_report_email(content)
 
-    return {"status": "success", "report_file": filename}
+    return {"status": "success", "report_file": filepath}
 
 
 @app.get("/generate-today-report")
@@ -349,18 +388,18 @@ async def manual_generate_today_report():
     Manually trigger today's alert statistics report generation.
 
     Returns:
-        Dict with status and content of today's report
+        Dict with status and filepath of today's report
 
     This endpoint generates a statistical report for today's alerts only.
     It is separate from the historical reporting functionality.
     """
     # Generate today's report
-    filename, content = await generate_today_report()
+    filepath, content = await generate_today_report()
 
     # Send email with today's report
     await send_report_email(content)
 
-    return {"status": "success", "report_file": filename}
+    return {"status": "success", "report_file": filepath}
 
 
 async def generate_today_report():
@@ -372,6 +411,9 @@ async def generate_today_report():
 
     # Get today's alerts if they exist
     today_alerts = alerts_storage.get(today_date, {})
+    
+    # Data structure for service/instance statistics
+    service_instance_stats = defaultdict(int)
 
     # Generate report content for today
     report_content = f"Today's Alert Analytics Report ({today_date})\n"
@@ -381,46 +423,47 @@ async def generate_today_report():
 
     if today_alerts:
         report_content += f"\nDate: {today_date}\n"
-
-        # Group by service first
-        service_data = defaultdict(lambda: defaultdict(int))
-        for alert_name, alerts in today_alerts.items():
-            for alert in alerts:
-                # Get service from labels, default to 'unknown' if not present
-                service = alert.get('labels', {}).get('service', 'unknown')
-                service_data[service][alert_name] += 1
-
-        # Then by alert name
-        for service in sorted(service_data.keys()):
-            report_content += f"  Service: {service}\n"
-            service_total = 0
-
-            for alert_name, count in service_data[service].items():
-                report_content += f"    {alert_name}: {count}\n"
-                service_total += count
+        # Process alerts organized by alert name and service_or_instance
+        for alert_name, service_or_instances in today_alerts.items():
+            report_content += f"    Alert: {alert_name}\n"
+            alert_total = 0            
+            for service_or_instance, alerts in service_or_instances.items():
+                count = len(alerts)
+                report_content += f"        {service_or_instance}: {count}\n"
+                alert_total += count
                 total_alerts += count
-
-            report_content += f"    Service Total: {service_total}\n"
-
-        report_content += f"  Daily Total: {total_alerts} alerts\n"
+                # Track service/instance totals
+                service_instance_stats[service_or_instance] += count                
+            report_content += f"        Alert Total: {alert_total}\n"
+        report_content += f"    Daily Total: {total_alerts} alerts\n"
     else:
         report_content += f"\nDate: {today_date}\n"
-        report_content += f"  Daily Total: 0 alerts\n"
+        report_content += f"    Daily Total: 0 alerts\n"
+
+    # Add service/instance statistics
+    if service_instance_stats:
+        report_content += f"\nService/Instance Statistics:\n"
+        # Sort by count (descending)
+        sorted_stats = sorted(service_instance_stats.items(), key=lambda x: x[1], reverse=True)
+        for service_or_instance, count in sorted_stats:
+            percentage = (count / total_alerts * 100) if total_alerts > 0 else 0
+            report_content += f"    {service_or_instance}: {count} ({percentage:.1f}%)\n"
 
     report_content += f"\nOverall Total: {total_alerts} alerts\n"
 
-    # Write report to file
+    # Write report to file in reports directory
     report_filename = f"alert_report_{today_date}.txt"
-    with open(report_filename, "w") as f:
+    report_filepath = os.path.join(REPORTS_DIR, report_filename)
+    with open(report_filepath, "w") as f:
         f.write(report_content)
 
-    print(f"Today's report generated: {report_filename}")
+    print(f"Today's report generated: {report_filepath}")
 
-    return report_filename, report_content
+    return report_filepath, report_content
 
 
-async def generate_report_with_period(period_days, clear_data=False):
-    """Generate statistical report for specified period and optionally clear data"""
+async def generate_report_with_period(period_days):
+    """Generate statistical report for specified period"""
     global alerts_storage
 
     # Calculate the date range for the report (excluding today)
@@ -429,85 +472,79 @@ async def generate_report_with_period(period_days, clear_data=False):
     start_date = end_date - timedelta(days=period_days)
 
     # Filter alerts within the reporting period (excluding today)
-    # Change report_data structure to be organized by service first
+    # Organize report data by date, alert name, and service or instance
     report_data = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
-    dates_to_remove = []
+    # Additional data structure for service/instance statistics
+    service_instance_stats = defaultdict(int)
 
     for date_str, alerts_by_name in alerts_storage.items():
         date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
         # Include data from start_date up to but not including end_date (today)
         if start_date <= date_obj < end_date:
-            # Count alerts by service and name for this date
-            for alert_name, alerts in alerts_by_name.items():
-                for alert in alerts:
-                    # Get service from labels, default to 'unknown' if not present
-                    service = alert.get('labels', {}).get('service', 'unknown')
-                    report_data[date_str][service][alert_name] += 1
-            if clear_data:  # Only mark for removal if clear_data is True
-                dates_to_remove.append(date_str)
+            # Count alerts by alert name and service_or_instance for this date
+            for alert_name, service_or_instances in alerts_by_name.items():
+                for service_or_instance, alerts in service_or_instances.items():
+                    count = len(alerts)
+                    report_data[date_str][alert_name][service_or_instance] = count
+                    # Also track service/instance totals
+                    service_instance_stats[service_or_instance] += count
 
     # Generate report content
     if period_days == 1:
         # For single day reports, show just that date
         report_date = (end_date - timedelta(days=1)).isoformat()
         report_content = f"Alert Analytics Report ({report_date})\n"
+        report_filename = f"alert_report_{report_date}.txt"
     else:
         # For multi-day reports, show the range
         report_content = f"Alert Analytics Report ({start_date} to {end_date - timedelta(days=1)})\n"
+        report_filename = f"alert_report_from_{start_date}_to_{end_date - timedelta(days=1)}.txt"
     report_content += "=" * 50 + "\n"
 
     total_alerts = 0
-    # Fix: Iterate through all dates in the range, not just dates with data
+
     for single_date in (start_date + timedelta(n) for n in range(period_days)):
         date_str = single_date.isoformat()
         if date_str in report_data:
             # Date has data
             report_content += f"\nDate: {date_str}\n"
             daily_total = 0
-
-            # Group by service first
-            for service in sorted(report_data[date_str].keys()):
-                report_content += f"  Service: {service}\n"
-                service_total = 0
-
-                # Then by alert name
-                for alert_name, count in report_data[date_str][service].items():
-                    report_content += f"    {alert_name}: {count}\n"
-                    service_total += count
-                    daily_total += count
-
-                report_content += f"    Service Total: {service_total}\n"
-
-            report_content += f"  Daily Total: {daily_total}\n"
+            # Group by alert name first
+            for alert_name in sorted(report_data[date_str].keys()):
+                report_content += f"    Alert: {alert_name}\n"
+                alert_total = 0                
+                # Then by service_or_instance
+                for service_or_instance, count in report_data[date_str][alert_name].items():
+                    report_content += f"        {service_or_instance}: {count}\n"
+                    alert_total += count
+                    daily_total += count                    
+                report_content += f"        Alert Total: {alert_total}\n"
+            report_content += f"    Daily Total: {daily_total}\n"
             total_alerts += daily_total
         else:
             # Date has no data
             report_content += f"\nDate: {date_str}\n"
-            report_content += f"  Daily Total: 0\n"
+            report_content += f"    Daily Total: 0\n"
+
+    # Add service/instance statistics
+    if service_instance_stats:
+        report_content += f"\nService/Instance Statistics:\n"
+        # Sort by count (descending)
+        sorted_stats = sorted(service_instance_stats.items(), key=lambda x: x[1], reverse=True)
+        for service_or_instance, count in sorted_stats:
+            percentage = (count / total_alerts * 100) if total_alerts > 0 else 0
+            report_content += f"    {service_or_instance}: {count} ({percentage:.1f}%)\n"
 
     report_content += f"\nOverall Total: {total_alerts} alerts\n"
 
-    # Generate filename based on period
-    if period_days == 1:
-        # For single day reports, use just that date
-        report_date = (end_date - timedelta(days=1)).isoformat()
-        report_filename = f"alert_report_{report_date}.txt"
-    else:
-        # For multi-day reports, use from/to format
-        report_filename = f"alert_report_from_{start_date}_to_{end_date - timedelta(days=1)}.txt"
-
-    with open(report_filename, "w") as f:
+    # Write report to file in reports directory
+    report_filepath = os.path.join(REPORTS_DIR, report_filename)
+    with open(report_filepath, "w") as f:
         f.write(report_content)
 
-    print(f"Report generated: {report_filename}")
+    print(f"Report generated: {report_filepath}")
 
-    # Clear the data for the reported period only if requested
-    if clear_data:
-        for date_str in dates_to_remove:
-            del alerts_storage[date_str]
-        print(f"Cleared data for {len(dates_to_remove)} days")
-
-    return report_filename, report_content
+    return report_filepath, report_content
 
 
 async def send_report_email(report_content: str):
@@ -516,7 +553,7 @@ async def send_report_email(report_content: str):
     smtp_server = SMTP_SERVER
     smtp_port = SMTP_PORT
     sender_email = SENDER_EMAIL
-    recipient_email = RECIPIENT_EMAIL
+    recipient_emails = RECIPIENT_EMAILS
     key_file = SENDER_PASSWORD_FILE
 
     # If no key file specified, try to get password directly
@@ -532,7 +569,7 @@ async def send_report_email(report_content: str):
         missing_configs.append("SMTP_SERVER")
     if not sender_email:
         missing_configs.append("SENDER_EMAIL")
-    if not recipient_email:
+    if not recipient_emails:
         missing_configs.append("RECIPIENT_EMAIL")
     if not password:
         missing_configs.append(
@@ -546,7 +583,7 @@ async def send_report_email(report_content: str):
         # Create message
         message = MIMEMultipart('alternative')
         message["From"] = sender_email
-        message["To"] = recipient_email
+        message["To"] = ", ".join(recipient_emails)
         message["Subject"] = Header("Alert Analytics Report")
         message["Return-Path"] = sender_email
         message['Message-id'] = make_msgid()
@@ -559,15 +596,78 @@ async def send_report_email(report_content: str):
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         # server.starttls()  # Enable security
         server.login(sender_email, password)
-        server.sendmail(sender_email, recipient_email, message.as_string())
+        
+        # Send email to all recipients
+        for recipient_email in recipient_emails:
+            server.sendmail(sender_email, recipient_email, message.as_string())
+            print(f"Report email sent successfully to {recipient_email}")
 
         server.quit()
 
-        print(f"Report email sent successfully to {recipient_email}")
     except Exception as e:
         print(f"Failed to send email: {str(e)}")
 
-# Add new functionality for scheduled reporting
+
+async def cleanup_expired_reports():
+    """Clean up expired report files"""
+    if not os.path.exists(REPORTS_DIR):
+        print(f"Reports directory {REPORTS_DIR} does not exist")
+        return
+
+    # Calculate the cutoff date for expiration
+    cutoff_date = datetime.now() - timedelta(days=REPORT_EXPIRY_DAYS)
+    
+    deleted_files = []
+    for filename in os.listdir(REPORTS_DIR):
+        if filename.endswith('.txt') and filename.startswith('alert_report'):
+            file_path = os.path.join(REPORTS_DIR, filename)
+            
+            # Get file modification time
+            mod_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+            
+            # If file is older than cutoff date, delete it
+            if mod_time < cutoff_date:
+                try:
+                    os.remove(file_path)
+                    deleted_files.append(filename)
+                except Exception as e:
+                    print(f"Failed to delete report {file_path}: {str(e)}")
+    
+    if deleted_files:
+        print(f"Cleaned up {len(deleted_files)} expired reports:")
+        for filename in deleted_files:
+            print(f"  - {filename}")
+
+
+async def cleanup_expired_alerts():
+    """Clean up expired alert data from memory storage"""
+    global alerts_storage
+    
+    # Calculate the cutoff date for expiration using ALERTS_EXPIRY_DAYS
+    cutoff_date = datetime.now().date() - timedelta(days=ALERTS_EXPIRY_DAYS)
+    
+    dates_to_remove = []
+    
+    # Find expired dates
+    for date_str in alerts_storage.keys():
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # If alert date is older than cutoff date, mark for deletion
+            if date_obj < cutoff_date:
+                dates_to_remove.append(date_str)
+        except ValueError:
+            # If date parsing fails, skip this entry
+            print(f"Skipping invalid date format: {date_str}")
+            continue
+    
+    # Remove expired data
+    for date_str in dates_to_remove:
+        del alerts_storage[date_str]
+    
+    if dates_to_remove:
+        print(f"Cleaned up {len(dates_to_remove)} days of expired alert data from memory:")
+        for date_str in sorted(dates_to_remove):
+            print(f"  - {date_str}")
 
 
 async def scheduled_report_task():
@@ -589,17 +689,44 @@ async def scheduled_report_task():
 
         try:
             # Generate report
-            _, content = await generate_report_with_period(REPORTING_INTERVAL_DAYS, clear_data=True)
+            _, content = await generate_report_with_period(REPORTING_INTERVAL_DAYS)
             # Send email with report
             await send_report_email(content)
         except Exception as e:
             print(f"Failed to generate or send report: {str(e)}")
 
 
-def start_scheduled_task():
-    """Start the scheduled reporting task"""
+async def scheduled_cleanup_task():
+    """Run the cleanup task daily at 10 AM"""
+    while True:
+        # Calculate seconds until next 10 AM
+        now = datetime.now()
+        next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
+
+        # If it's already past 10 AM today, schedule for tomorrow
+        if now > next_run:
+            next_run += timedelta(days=1)
+
+        # Calculate delay until next run
+        delay = (next_run - now).total_seconds()
+
+        print(f"Next cleanup scheduled in {delay} seconds (at {next_run})")
+        await asyncio.sleep(delay)
+
+        try:
+            # Clean up expired reports
+            await cleanup_expired_reports()
+            # Clean up expired alert data from memory
+            await cleanup_expired_alerts()
+        except Exception as e:
+            print(f"Failed to clean up expired reports: {str(e)}")
+
+
+def start_scheduled_tasks():
+    """Start the scheduled reporting and cleanup tasks"""
     loop = asyncio.get_event_loop()
     loop.create_task(scheduled_report_task())
+    loop.create_task(scheduled_cleanup_task())
 
 
 if __name__ == "__main__":
@@ -613,8 +740,8 @@ if __name__ == "__main__":
     else:
         log_level = "info"
 
-    # Start the scheduled reporting task
-    start_scheduled_task()
+    # Start the scheduled reporting and cleanup tasks
+    start_scheduled_tasks()
 
     # Check if HTTPS is enabled via environment variables
     ssl_keyfile = SSL_KEYFILE

@@ -9,6 +9,8 @@ services:
     environment:
       - DEBUG_LEVEL=3
       - REPORTING_INTERVAL_DAYS=1
+      - REPORT_EXPIRY_DAYS=30
+      - ALERTS_EXPIRY_DAYS=30
       - SMTP_SERVER=smtp.qiye.aliyun.com
       - SMTP_PORT=465
       - SENDER_EMAIL=zhujunhua@mail.iasf.ac.cn
@@ -17,7 +19,8 @@ services:
       - SERVER_PORT=8000
       - SENDER_PASSWORD_FILE=/app/config/smtp_password
     volumes:
-      - ./config:/app/config
+      - ./config:/app/config:ro
+      - /etc/localtime:/etc/localtime:ro
     deploy:
       replicas: 1
       resources:

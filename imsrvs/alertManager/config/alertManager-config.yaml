@@ -15,10 +15,19 @@ route:
   # for webhook receiver.
   - matchers:
     - alertname=~".*"
+    group_by: [severity]
     receiver: default-webhook
     continue: true
-    mute_time_intervals:
-    - all-time
+    # mute_time_intervals:
+    # - all-time
+  # for webhook of severity=info 
+  - matchers:
+    - severity="info"
+    group_by: [severity]
+    receiver: info-webhook
+    continue: true
+    # mute_time_intervals:
+    # - all-time
   # for log line detection.
   - matchers:
     - component=~"ioc"
@@ -27,9 +36,8 @@ route:
     routes:
     - matchers:
       - severity="info"
-      receiver: info-webhook
-      # mute_time_intervals:
-      # - all-time
+      mute_time_intervals:
+      - all-time
     - matchers:
       - severity="warning"
     - matchers:
