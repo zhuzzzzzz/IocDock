@@ -15,7 +15,7 @@ route:
   # for webhook receiver.
   - matchers:
     - alertname=~".*"
-    group_by: [severity]
+    group_by: ['...']
     receiver: default-webhook
     continue: true
     # mute_time_intervals:
@@ -23,7 +23,7 @@ route:
   # for webhook of severity=info 
   - matchers:
     - severity="info"
-    group_by: [severity]
+    group_by: ['...']
     receiver: info-webhook
     continue: true
     # mute_time_intervals:
