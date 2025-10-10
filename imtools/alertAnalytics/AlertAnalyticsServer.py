@@ -97,15 +97,7 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, Dict[st
         else:
             service_or_instance = 'unknown'
 
-        # Parse the start time to get the date
-        try:
-            start_time = datetime.fromisoformat(
-                alert.startsAt.replace('Z', '+00:00'))
-        except ValueError:
-            # If parsing fails, use current time
-            start_time = datetime.now()
-
-        date_key = start_time.date().isoformat()
+        date_key = datetime.now().date().isoformat()
 
         # Initialize the structure if needed
         if date_key not in categorized:
@@ -117,8 +109,10 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, Dict[st
         if service_or_instance not in categorized[date_key][alert_name]:
             categorized[date_key][alert_name][service_or_instance] = []
 
-        # Add alert to the appropriate category
-        categorized[date_key][alert_name][service_or_instance].append(alert.model_dump())
+        # Add alert to the appropriate category with received time
+        alert_dict = alert.model_dump()
+        alert_dict['receivedAt'] = datetime.now().isoformat() + "Z"
+        categorized[date_key][alert_name][service_or_instance].append(alert_dict)
 
     return categorized
 
@@ -341,7 +335,8 @@ async def generate_test_data(days: int = 7):
                 "startsAt": (datetime.now() - timedelta(days=i, hours=random.randint(0, 23))).isoformat() + "Z",
                 "endsAt": "0001-01-01T00:00:00Z",
                 "generatorURL": "example.com",
-                "fingerprint": f"{random.randint(0, 0xffffffff):016x}"
+                "fingerprint": f"{random.randint(0, 0xffffffff):016x}",
+                "receivedAt": datetime.now().isoformat() + "Z"
             }
             alerts_storage[date][alert_name][service_or_instance].append(alert)
 
