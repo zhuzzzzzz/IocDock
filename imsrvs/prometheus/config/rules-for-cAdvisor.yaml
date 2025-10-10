@@ -14,7 +14,7 @@ groups:
           
       - alert: HighContainerCpuCoreUsagePercent
         expr: container_cpu_core_usage_percent:name_service_instance > 50
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -26,7 +26,7 @@ groups:
             has used {{ $value }}% of one single cpu core(threshold: 50%)."
       - alert: HighContainerCpuCoreUsagePercent
         expr: container_cpu_core_usage_percent:name_service_instance > 80
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: critical
@@ -46,7 +46,7 @@ groups:
             
       - alert: HighContainerMemoryUsagePercent
         expr: container_memory_usage_percent:name_service_instance > 50
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -58,7 +58,7 @@ groups:
             has used {{ $value }}% of its memory limit(threshold: 50%)."
       - alert: HighContainerMemoryUsagePercent
         expr: container_memory_usage_percent:name_service_instance > 80
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: critical
@@ -118,7 +118,7 @@ groups:
 
       - alert: HighContainerFileSystemUsagePercent
         expr: container_fs_usage_percent:name_service_instance_device > 70
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning

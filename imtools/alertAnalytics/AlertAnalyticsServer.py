@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import asyncio
@@ -97,7 +97,8 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, Dict[st
         else:
             service_or_instance = 'unknown'
 
-        date_key = datetime.now().date().isoformat()
+        current_time = datetime.now(timezone.utc)
+        date_key = current_time.date().isoformat()
 
         # Initialize the structure if needed
         if date_key not in categorized:
@@ -111,7 +112,7 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, Dict[st
 
         # Add alert to the appropriate category with received time
         alert_dict = alert.model_dump()
-        alert_dict['receivedAt'] = datetime.now().isoformat() + "Z"
+        alert_dict['receivedAt'] = current_time.isoformat().replace('+00:00', 'Z')
         categorized[date_key][alert_name][service_or_instance].append(alert_dict)
 
     return categorized
@@ -274,7 +275,7 @@ async def generate_test_data(days: int = 7):
     services = ["service1", "service2", "service3"]
 
     for i in range(days):
-        date = (datetime.now() - timedelta(days=i)).date().isoformat()
+        date = (datetime.now(timezone.utc) - timedelta(days=i)).date().isoformat()
         alerts_storage[date] = {}
 
         # Generate different number of alerts for each day (0, 1, or 10)
@@ -325,6 +326,7 @@ async def generate_test_data(days: int = 7):
             if use_instance:
                 labels["instance"] = instance
 
+            current_time = datetime.now(timezone.utc) - timedelta(days=i, hours=random.randint(0, 23))
             alert = {
                 "status": "firing",
                 "labels": labels,
@@ -332,11 +334,11 @@ async def generate_test_data(days: int = 7):
                     "description": f"{component.upper()} {service} running on {instance} has encountered issues.",
                     "summary": f"Issues detected in {component} logs"
                 },
-                "startsAt": (datetime.now() - timedelta(days=i, hours=random.randint(0, 23))).isoformat() + "Z",
+                "startsAt": current_time.isoformat().replace('+00:00', 'Z'),
                 "endsAt": "0001-01-01T00:00:00Z",
                 "generatorURL": "example.com",
                 "fingerprint": f"{random.randint(0, 0xffffffff):016x}",
-                "receivedAt": datetime.now().isoformat() + "Z"
+                "receivedAt": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             }
             alerts_storage[date][alert_name][service_or_instance].append(alert)
 
@@ -401,8 +403,7 @@ async def generate_today_report():
     """Generate statistical report for today's alerts only"""
     global alerts_storage
 
-    # Get today's date
-    today_date = datetime.now().date().isoformat()
+    today_date = datetime.now(timezone.utc).date().isoformat()
 
     # Get today's alerts if they exist
     today_alerts = alerts_storage.get(today_date, {})
@@ -461,8 +462,7 @@ async def generate_report_with_period(period_days):
     """Generate statistical report for specified period"""
     global alerts_storage
 
-    # Calculate the date range for the report (excluding today)
-    end_date = datetime.now().date()  # Today (excluded)
+    end_date = datetime.now(timezone.utc).date()  # Today (excluded)
     # Start of reporting period
     start_date = end_date - timedelta(days=period_days)
 
@@ -638,8 +638,7 @@ async def cleanup_expired_alerts():
     """Clean up expired alert data from memory storage"""
     global alerts_storage
     
-    # Calculate the cutoff date for expiration using ALERTS_EXPIRY_DAYS
-    cutoff_date = datetime.now().date() - timedelta(days=ALERTS_EXPIRY_DAYS)
+    cutoff_date = datetime.now(timezone.utc).date() - timedelta(days=ALERTS_EXPIRY_DAYS)
     
     dates_to_remove = []
     
@@ -668,8 +667,7 @@ async def cleanup_expired_alerts():
 async def scheduled_report_task():
     """Run the reporting task daily at 9 AM"""
     while True:
-        # Calculate seconds until next 9 AM
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         next_run = now.replace(hour=9, minute=0, second=0, microsecond=0)
 
         # If it's already past 9 AM today, schedule for tomorrow
@@ -694,8 +692,7 @@ async def scheduled_report_task():
 async def scheduled_cleanup_task():
     """Run the cleanup task daily at 10 AM"""
     while True:
-        # Calculate seconds until next 10 AM
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
 
         # If it's already past 10 AM today, schedule for tomorrow

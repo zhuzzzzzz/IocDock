@@ -8,7 +8,7 @@ groups:
         
       - alert: HighNodeCpuAverageUsagePercent
         expr: node_cpu_average_usage_percent:instance > 50
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -19,7 +19,7 @@ groups:
             "Node {{ $labels.instance }} has used {{ $value }}% over all of its cpu cores(threshold: 50%)."
       - alert: HighNodeCpuAverageUsagePercent
         expr: node_cpu_average_usage_percent:instance > 80
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: critical
@@ -38,7 +38,7 @@ groups:
         
       - alert: HighNodeMemoryUasgePercent
         expr: node_memory_usage_percent:instance > 50
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -49,7 +49,7 @@ groups:
             "Node {{ $labels.instance }} has used {{ $value }}% of its max memory(threshold: 50%)."
       - alert: HighNodeMemoryUasgePercent
         expr: node_memory_usage_percent:instance > 80
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: critical
@@ -66,7 +66,7 @@ groups:
           
       - alert: HighNodeFileSystemUasgePercent
         expr: node_file_system_usage_percent:instance_device > 70
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -83,7 +83,7 @@ groups:
           
       - alert: HighNodeDiskReadKilobytesRate
         expr: node_disk_read_kilobytes_rate:instance_device > 100_000
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -101,7 +101,7 @@ groups:
       
       - alert: HighNodeDiskWriteKilobytesRate
         expr: node_disk_write_kilobytes_rate:instance_device > 100_000
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -119,7 +119,7 @@ groups:
           
       - alert: HighNodeNetworkReceiveKilobytesRate
         expr: node_network_receive_kilobytes_rate:instance_device > 500_000
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
@@ -137,7 +137,7 @@ groups:
           
       - alert: HighNodeNetworkTransmitKilobytesRate
         expr: node_network_transmit_kilobytes_rate:instance_device > 500_000
-        for: 2m
+        for: 3m
         keep_firing_for: 5m
         labels:
           severity: warning
