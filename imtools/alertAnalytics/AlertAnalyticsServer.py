@@ -97,15 +97,7 @@ def categorize_alerts_by_day(alerts: List[Alert]) -> Dict[str, Dict[str, Dict[st
         else:
             service_or_instance = 'unknown'
 
-        # Parse the start time to get the date
-        try:
-            start_time = datetime.fromisoformat(
-                alert.startsAt.replace('Z', '+00:00'))
-        except ValueError:
-            # If parsing fails, use current time
-            start_time = datetime.now()
-
-        date_key = start_time.date().isoformat()
+        date_key = datetime.now().date().isoformat()
 
         # Initialize the structure if needed
         if date_key not in categorized:
