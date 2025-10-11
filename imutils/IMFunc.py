@@ -249,11 +249,11 @@ def operation_log():
         # 设置循环日志处理器
         handler = RotatingFileHandler(
             filename=file_path,
-            maxBytes=10 * 1024 * 1024,  # 10MB滚动
+            maxBytes=1e6,
+            backupCount=3,
             encoding='utf-8'
         )
-        # 保持原始日志格式（仅记录纯消息）
-        handler.setFormatter(logging.Formatter('%(message)s'))
+        # handler.setFormatter(logging.Formatter('%(message)s'))
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
 

@@ -3,4 +3,4 @@
 command-completion/IocManagerCompletion
 
 # operation log file.
-OperationLog
+OperationLog*

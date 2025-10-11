@@ -12,7 +12,7 @@ from datetime import datetime
 from imutils.IMConfig import SOCKET_PATH
 from imutils.IMUtil import get_all_ioc
 from imutils.SwarmClass import SwarmManager
-from imutils.AnsibleClient import send_message, receive_message
+from imutils.SocketClient import send_message, receive_message
 
 
 def display_message(msg='', with_prompt=False):

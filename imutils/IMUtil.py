@@ -7,8 +7,8 @@ from imutils.IMError import IMValueError
 from imutils.IocClass import IOC, gen_swarm_files, get_all_ioc, repository_backup, restore_backup
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import try_makedirs, condition_parse
-from imutils.AnsibleClient import ansible_socket_client, set_up_file_and_dir_for_every_host, \
-    set_up_dir_according_to_labels, client_check_connection
+from imutils.SocketClient import socket_client, client_check_connection
+from imutils.AnsibleClient import set_up_file_and_dir_for_every_host, set_up_dir_according_to_labels
 from imutils.AnsibleUtil import gen_inventory_files, ping, docker_registry_login
 
 
@@ -230,8 +230,8 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
     if show_panel:
         if not client_check_connection(verbose=verbose):
             print(f'Failed to connect to IocDockServer.')
-        socket_result_ioc = ansible_socket_client("ioc info", verbose=verbose)
-        socket_result_service = ansible_socket_client("service info", verbose=verbose)
+        socket_result_ioc = socket_client("ioc info", verbose=verbose)
+        socket_result_service = socket_client("service info", verbose=verbose)
 
     # print results.
     ioc_print = []
