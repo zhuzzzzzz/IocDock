@@ -172,19 +172,17 @@ async def receive_alerts(payload: WebhookPayload):
       receiver: 'alert-analytics'
     """
     # Multi-level debug logging
-    if DEBUG_LEVEL >= 3:
+    if DEBUG_LEVEL >= 1:
         print(f"Received POST request to /alerts")
-        print(f"Full payload: {payload.model_dump_json(indent=2)}")
-    elif DEBUG_LEVEL >= 2:
-        print(f"Received {len(payload.alerts)} alerts:")
-        for i, alert in enumerate(payload.alerts):
-            print(
-                f"  Alert {i+1}: {alert.labels.get('alertname', 'unknown')} - {alert.status}")
-
     if DEBUG_LEVEL >= 3:
+        print(f"Full payload: {payload.model_dump_json(indent=2)}")
         print(f"Alert details:")
         for i, alert in enumerate(payload.alerts):
             print(f"  Alert {i+1}: {json.dumps(alert.model_dump(), indent=2)}")
+    elif DEBUG_LEVEL >= 2:
+        print(f"Received {len(payload.alerts)} alerts:")
+        for i, alert in enumerate(payload.alerts):
+            print(f"  Alert {i+1}: {alert.labels.get('alertname', 'unknown')} - {alert.status}")
 
     categorized_alerts = categorize_alerts_by_day(payload.alerts)
 
@@ -383,7 +381,7 @@ async def manual_generate_report(period_days: int = None):
     filepath, content = await generate_report_with_period(days_to_report)
 
     # Send email with the generated report
-    await send_report_email(content)
+    asyncio.create_task(send_report_email(content))
 
     return {"status": "success", "report_file": filepath}
 
@@ -403,7 +401,7 @@ async def manual_generate_today_report():
     filepath, content = await generate_today_report()
 
     # Send email with today's report
-    await send_report_email(content)
+    asyncio.create_task(send_report_email(content))
 
     return {"status": "success", "report_file": filepath}
 
