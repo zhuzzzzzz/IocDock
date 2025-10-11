@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
@@ -46,8 +47,16 @@ os.makedirs(REPORTS_DIR, exist_ok=True)
 # In-memory storage for alerts, categorized by date, alert name, and service or instance
 alerts_storage: Dict[str, Dict[str, Dict[str, List[Dict[str, Any]]]]] = {}
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    report_task = asyncio.create_task(scheduled_report_task())
+    cleanup_task = asyncio.create_task(scheduled_cleanup_task())
+    yield
+    report_task.cancel()
+    cleanup_task.cancel()
 
+
+app = FastAPI(lifespan=lifespan)
 
 class Alert(BaseModel):
     status: str
@@ -714,13 +723,6 @@ async def scheduled_cleanup_task():
             print(f"Failed to clean up expired reports: {str(e)}")
 
 
-def start_scheduled_tasks():
-    """Start the scheduled reporting and cleanup tasks"""
-    loop = asyncio.get_event_loop()
-    loop.create_task(scheduled_report_task())
-    loop.create_task(scheduled_cleanup_task())
-
-
 if __name__ == "__main__":
     # Run the server
     import uvicorn
@@ -731,9 +733,6 @@ if __name__ == "__main__":
         log_level = "info"
     else:
         log_level = "info"
-
-    # Start the scheduled reporting and cleanup tasks
-    start_scheduled_tasks()
 
     # Check if HTTPS is enabled via environment variables
     ssl_keyfile = SSL_KEYFILE
