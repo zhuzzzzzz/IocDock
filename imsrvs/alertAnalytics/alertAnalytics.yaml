@@ -7,7 +7,7 @@ services:
     - target: 8000
       published: 8000 # use routing mesh
     environment:
-      - DEBUG_LEVEL=1
+      - DEBUG_LEVEL=2
       - REPORTING_INTERVAL_DAYS=1
       - REPORT_EXPIRY_DAYS=30
       - ALERTS_EXPIRY_DAYS=30
