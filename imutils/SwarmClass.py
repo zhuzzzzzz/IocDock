@@ -305,7 +305,8 @@ class SwarmManager:
             # set receivers
             yaml = YAML()
             yaml.preserve_quotes = True
-            if any([ALERT_MANAGER_RECEIVE_EMAIL_LIST,ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER,ALERT_MANAGER_INFO_WEBHOOK_RECEIVER]):
+            if any([ALERT_MANAGER_RECEIVE_EMAIL_LIST, ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER,
+                    ALERT_MANAGER_INFO_WEBHOOK_RECEIVER]):
                 with open(file_path, "r", encoding="utf-8") as f:
                     config_data = yaml.load(f)
                 receiver_list = [
@@ -327,7 +328,7 @@ class SwarmManager:
                     {
                         'name': 'default-webhook',
                         'webhook_configs': [
-                            {'url': ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER, 
+                            {'url': ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER,
                              'send_resolved': False}
                         ],
                     } if ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER else None,

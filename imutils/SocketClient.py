@@ -3,6 +3,7 @@ import struct
 import json
 from imutils.IMConfig import SOCKET_PATH
 
+
 def send_message(sock, message):
     if isinstance(message, str):
         message = message.encode("utf-8")
