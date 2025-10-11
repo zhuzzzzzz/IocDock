@@ -674,7 +674,7 @@ async def cleanup_expired_alerts():
 async def scheduled_report_task():
     """Run the reporting task daily at 9 AM"""
     while True:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()  # Changed from datetime.now(timezone.utc) to use local time
         next_run = now.replace(hour=9, minute=0, second=0, microsecond=0)
 
         # If it's already past 9 AM today, schedule for tomorrow
@@ -699,7 +699,7 @@ async def scheduled_report_task():
 async def scheduled_cleanup_task():
     """Run the cleanup task daily at 10 AM"""
     while True:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()  # Changed from datetime.now(timezone.utc) to use local time
         next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
 
         # If it's already past 10 AM today, schedule for tomorrow
