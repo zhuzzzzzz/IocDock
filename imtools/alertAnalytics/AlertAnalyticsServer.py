@@ -182,7 +182,11 @@ async def receive_alerts(payload: WebhookPayload):
     elif DEBUG_LEVEL >= 2:
         print(f"Received {len(payload.alerts)} alerts:")
         for i, alert in enumerate(payload.alerts):
-            print(f"  Alert {i+1}: {alert.labels.get('alertname', 'unknown')} - {alert.status}")
+            alert_name = alert.labels.get('alertname', 'unknown')
+            service = alert.labels.get('service', 'unknown')
+            instance = alert.labels.get('instance', 'unknown')
+            service_or_instance = service if service != 'unknown' else instance
+            print(f"  Alert {i+1}: {alert_name} ({service_or_instance}) - {alert.status}")
 
     categorized_alerts = categorize_alerts_by_day(payload.alerts)
 

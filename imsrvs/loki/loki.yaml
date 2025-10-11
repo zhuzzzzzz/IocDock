@@ -16,7 +16,7 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 2G
+          memory: 3G
       placement:
         constraints:
         - node.platform.os==linux
