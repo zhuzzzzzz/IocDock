@@ -27,3 +27,16 @@ IocDock
 │   └── image-factory/  ------------- 镜像工厂, 实现集群镜像的自动化构建
 └── IocManager.py  ---------------------------------------------------- 系统对外的命令行接口
 </pre>
+
+<pre>
+ioc-repository/example_ioc/
+├── .info.ini              # 项目状态信息文件
+├── ioc.ini                # 项目配置文件
+├── src/                   # 源文件目录, 存放数据库文件(.db)、协议文件等源文件
+└── project/               # 项目运行文件目录
+    ├── settings/          # 配置文件目录
+    ├── logs/              # 日志文件目录
+    └── startup/           # 启动文件目录
+        ├── db/            # 数据库文件目录
+        └── iocBoot/       # IOC启动脚本目录
+</pre>
