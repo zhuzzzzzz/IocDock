@@ -25,7 +25,8 @@ IocDock
 │   ├── certs  ------------------------------------- 集群证书管理工具
 │   ├── command-completion/  --------------- 系统提供的CLI命令补全工具
 │   └── image-factory/  ------------- 镜像工厂, 实现集群镜像的自动化构建
-└── IocManager.py  ---------------------------------------------------- 系统对外的命令行接口
+├── IocManager.py  ---------------------------------------------------- 系统对外的命令行接口
+└── ......
 </pre>
 
 <pre>
@@ -39,4 +40,17 @@ ioc-repository/example_ioc/
     └── startup/           # 启动文件目录
         ├── db/            # 数据库文件目录
         └── iocBoot/       # IOC启动脚本目录
+</pre>
+
+<pre>
+imsrvs/prometheus/                  # 服务根目录，名称与服务名一致
+├── prometheus.yaml                 # 服务定义文件
+├── config/                         # 配置文件目录
+│   ├── prometheus-config.yaml      # 主配置文件
+│   ├── scrape-configs.yaml         # 抓取配置文件
+│   └── rules.yaml                  # 报警规则文件
+├── scripts/                        # 脚本目录
+│   ├── run-prometheus.sh           # 启动脚本
+│   └── reload-configuration.sh     # 配置重载脚本
+└── README.md                       # 服务说明文档
 </pre>
