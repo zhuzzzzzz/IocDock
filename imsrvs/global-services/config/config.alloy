@@ -66,12 +66,20 @@ loki.relabel "default" {
 
 // process the log entry contents
 loki.process "default" {
-  forward_to = [loki.write.local.receiver]
-
+  forward_to = [
+    loki.write.local.receiver,
+    loki.write.remote.receiver,
+  ]
 }
 
 loki.write "local" {
   endpoint {
     url = "http://iasf_srv-loki:3100/loki/api/v1/push"
+  }
+}
+
+loki.write "remote" {
+  endpoint {
+    url = "http://192.168.20.250:3100/loki/api/v1/push"
   }
 }

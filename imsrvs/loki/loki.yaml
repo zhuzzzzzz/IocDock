@@ -15,8 +15,8 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: "2"
-          memory: 3G
+          cpus: "10"
+          memory: 16G
       placement:
         constraints:
         - node.platform.os==linux
