@@ -222,7 +222,7 @@ class SwarmManager:
                 template_path = os.path.join(GLOBAL_SERVICES_CONFIG_FILE_PATH, 'config.alloy')
                 #
                 os.system(f'sed -i -r '
-                          f'"s/url = .*/url = \\"http:\\/\\/{PREFIX_STACK_NAME}_srv-loki:3100\\/loki\\/api\\/v1\\/push\\"/" '
+                          f'"s/url = .*_srv-loki:3100".*/url = \\"http:\\/\\/{PREFIX_STACK_NAME}_srv-loki:3100\\/loki\\/api\\/v1\\/push\\"/" '
                           f'{template_path}')
                 #
                 cmd = (f'sed -i -r '
