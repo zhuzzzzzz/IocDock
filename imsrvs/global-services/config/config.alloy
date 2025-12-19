@@ -38,7 +38,7 @@ discovery.relabel "default" {
 loki.source.docker "default" {
   host = "unix:///var/run/docker.sock"
   targets = discovery.docker.default.targets
-  labels = {"component" = "container", "instance" = sys.env("HOSTNAME")}
+  labels = {"component" = "container", "instance" = sys.env("HOSTNAME"), "hostname" = sys.env("HOSTNAME")}
   relabel_rules = discovery.relabel.default.rules
   forward_to = [loki.relabel.default.receiver]
   refresh_interval = "10s"
@@ -70,6 +70,15 @@ loki.process "default" {
     loki.write.local.receiver,
     loki.write.remote.receiver,
   ]
+
+  stage.match {
+    selector = "{service_type=\"ioc\"}"
+    stage.regex {
+      expression = "^.+_srv-(?P<ioc_name>.*)$"
+      source = "service"
+      labels_from_groups = true
+    }
+  }
 }
 
 loki.write "local" {
