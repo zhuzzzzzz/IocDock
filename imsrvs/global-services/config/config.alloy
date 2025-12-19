@@ -71,6 +71,11 @@ loki.process "default" {
     loki.write.remote.receiver,
   ]
 
+  stage.drop {
+    older_than = "720h"
+    drop_counter_reason = "too old"
+  }
+
   stage.match {
     selector = "{service_type=\"ioc\"}"
     stage.regex {
