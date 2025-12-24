@@ -1,0 +1,30 @@
+name: Gitea Actions Demo
+run-name: ${{ gitea.actor }} is testing out Gitea Actions 🚀
+on: [push]
+
+jobs:
+  Explore-Gitea-Actions:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ gitea.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by Gitea!"
+      - run: echo "🔎 The name of your branch is ${{ gitea.ref }} and your repository is ${{ gitea.repository }}."
+      - name: Add SSH host key
+        run: |
+          whoami
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ACTIONS_PRIVATE }}" > /root/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p 222 -t ed25519 47.115.33.186 >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts     
+          ls -a ~/.ssh
+          cat ~/.ssh/id_ed25519
+          cat ~/.ssh/known_hosts
+      - name: Test SSH
+        run: ssh -p 222 git@47.115.33.186 -T
+      - run: echo "💡 The ${{ gitea.repository }} repository has been cloned to the runner."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: List files in the repository
+        run: |
+          ls ${{ gitea.workspace }}
+      - run: echo "🍏 This job's status is ${{ job.status }}."

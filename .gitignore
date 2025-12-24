@@ -1,8 +1,8 @@
 
-# pycharm files
+# python files
 __pycache__/
 .idea/
 
-# 
+# local files
 ioc-repository/
 ioc-snapshot/
