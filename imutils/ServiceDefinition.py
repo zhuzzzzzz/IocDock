@@ -29,5 +29,5 @@ LocalServicesList = [
 #
 CustomServicesList = [
     # ("name", "/path/to/compose/file"),
-    ('hello', os.path.join(COMPOSE_TEMPLATE_PATH, 'hello.yaml')),
+    ("hello", os.path.join(COMPOSE_TEMPLATE_PATH, "hello.yaml")),
 ]

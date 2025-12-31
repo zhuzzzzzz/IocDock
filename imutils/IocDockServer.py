@@ -15,14 +15,16 @@ from imutils.SwarmClass import SwarmManager
 from imutils.SocketClient import send_message, receive_message
 
 
-def display_message(msg='', with_prompt=False):
+def display_message(msg="", with_prompt=False):
     if with_prompt:
         prompt = "command"
         prompt = "\033[33m\033[1m" + f"{prompt}> " + "\033[0m"
         if msg:
-            sys.stdout.write('\033[2K')  # 清除整行
-            sys.stdout.write('\r')  # 光标回到行首
-            sys.stdout.write(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ' + msg + '\n')
+            sys.stdout.write("\033[2K")  # 清除整行
+            sys.stdout.write("\r")  # 光标回到行首
+            sys.stdout.write(
+                f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ' + msg + "\n"
+            )
         sys.stdout.write(prompt)
         sys.stdout.flush()
     else:
@@ -91,44 +93,46 @@ class IocDockServer:
         self.node_info = {}
 
         self.timer_tasks = {
-            'get_ioc_info': RepeatingTimer(self.pull_interval, self.get_ioc_info),
-            'get_service_info': RepeatingTimer(self.pull_interval, self.get_service_info),
-            'get_node_info': RepeatingTimer(self.pull_interval, self.get_node_info),
+            "get_ioc_info": RepeatingTimer(self.pull_interval, self.get_ioc_info),
+            "get_service_info": RepeatingTimer(
+                self.pull_interval, self.get_service_info
+            ),
+            "get_node_info": RepeatingTimer(self.pull_interval, self.get_node_info),
         }
 
     def get_ioc_info(self):
         self.ioc_list = get_all_ioc()
         for item in self.ioc_list:
             self.ioc_info[item.name] = {
-                'name': item.name,
-                'host': item.get_config("host"),
-                'state': item.state_manager.get_config("state"),
-                'status': item.state_manager.get_config("status"),
-                'snapshot_consistency': item.check_snapshot_consistency()[1],
-                'running_consistency': item.check_running_consistency()[1],
-                'update_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "name": item.name,
+                "host": item.get_config("host"),
+                "state": item.state_manager.get_config("state"),
+                "status": item.state_manager.get_config("status"),
+                "snapshot_consistency": item.check_snapshot_consistency()[1],
+                "running_consistency": item.check_running_consistency()[1],
+                "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     def get_service_info(self):
         self.service_list = SwarmManager().services
         for item in self.service_list.values():
             self.service_info[item.name] = {
-                'status': item.current_state,
-                'replicas': item.replicas,
-                'update_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "status": item.current_state,
+                "replicas": item.replicas,
+                "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     def get_node_info(self):
         docker_client = docker.from_env()
         nodes = docker_client.nodes.list()
         for node in nodes:
-            self.node_info[node.attrs['Description']['Hostname']] = {
-                'ip': node.attrs['Status']['Addr'],
-                'state': node.attrs['Status']['State'],
-                'role': node.attrs['Spec']['Role'],
-                'availability': node.attrs['Spec']['Availability'],
-                'labels': node.attrs['Spec']['Labels'],
-                'update_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            self.node_info[node.attrs["Description"]["Hostname"]] = {
+                "ip": node.attrs["Status"]["Addr"],
+                "state": node.attrs["Status"]["State"],
+                "role": node.attrs["Spec"]["Role"],
+                "availability": node.attrs["Spec"]["Availability"],
+                "labels": node.attrs["Spec"]["Labels"],
+                "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     def start_task(self, name):
@@ -151,11 +155,11 @@ class IocDockServer:
         status_info = {}
         for name, task in self.timer_tasks.items():
             status_info[name] = {
-                'status': 'running' if task.is_running else 'stopped',
-                'interval': task.interval,
-                'function': task.function.__name__,
-                'args': task.args,
-                'kwargs': task.kwargs
+                "status": "running" if task.is_running else "stopped",
+                "interval": task.interval,
+                "function": task.function.__name__,
+                "args": task.args,
+                "kwargs": task.kwargs,
             }
         return status_info
 
@@ -175,7 +179,7 @@ class SocketServer:
         self.dock_server = IocDockServer()
 
     def cleanup_socket(self):
-        display_message('Cleaning up sockets and connections...')
+        display_message("Cleaning up sockets and connections...")
         for sock in self.listen_sockets:
             sock.close()
         self.server_socket = None
@@ -184,7 +188,7 @@ class SocketServer:
             os.unlink(self.socket_path)
 
     def run(self):
-        display_message('Starting all timer tasks...')
+        display_message("Starting all timer tasks...")
         self.dock_server.start_all_tasks()
         self.start_listen()
         if self.with_cli:
@@ -199,7 +203,7 @@ class SocketServer:
     def start_listen(self):
         if self.serving:
             return
-        display_message('Starting socket server...')
+        display_message("Starting socket server...")
         try:
             self.cleanup_socket()
             self.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -208,39 +212,46 @@ class SocketServer:
             self.server_socket.listen(5)
             self.listen_sockets.append(self.server_socket)
             self.serving = True
-            self.server_thread = threading.Thread(target=self.process_loop, daemon=False)
+            self.server_thread = threading.Thread(
+                target=self.process_loop, daemon=False
+            )
             self.server_thread.start()
         except Exception as e:
             self.serving = False
-            display_message(f'Failed to start socket server: {e}')
+            display_message(f"Failed to start socket server: {e}")
             self.cleanup_socket()
         else:
-            display_message('Socket server started.')
+            display_message("Socket server started.")
 
     def stop_listen(self):
         if self.serving:
-            display_message('Stoping socket server...')
+            display_message("Stoping socket server...")
             self.serving = False
             self.server_thread.join()
             self.cleanup_socket()
-            display_message('Socket server stopped.')
+            display_message("Socket server stopped.")
 
     def exit(self):
-        display_message('Stoping all timer tasks...')
+        display_message("Stoping all timer tasks...")
         self.dock_server.stop_all_tasks()
         self.stop_listen()
 
     def console_interface(self):
-        help_str = ("Available Commands: status | start [listen|server] | stop [listen|server] | sockets "
-                    "| debug [on|off] | exit | server [subcommands] ")
+        help_str = (
+            "Available Commands: status | start [listen|server] | stop [listen|server] | sockets "
+            "| debug [on|off] | exit | server [subcommands] "
+        )
         print(help_str)
         while True:
             try:
                 display_message(with_prompt=True)
                 command = input().strip().lower()
                 if command == "status":
-                    print("\033[32mSocket Server Running\033[0m"
-                          if self.serving else "\033[31mSocket Server Stopped\033[0m")
+                    print(
+                        "\033[32mSocket Server Running\033[0m"
+                        if self.serving
+                        else "\033[31mSocket Server Stopped\033[0m"
+                    )
                     print("\033[32mIocDock Server Tasks:\033[0m")
                     print(json.dumps(self.dock_server.get_tasks_status(), indent=2))
                 elif command == "start listen":
@@ -261,9 +272,11 @@ class SocketServer:
                 elif command == "":
                     pass
                 elif command == "server":
-                    print('Please add subcommand to use command server: server [subcommands]')
-                elif command.startswith('server '):
-                    cmd = command.removeprefix('server ').strip()
+                    print(
+                        "Please add subcommand to use command server: server [subcommands]"
+                    )
+                elif command.startswith("server "):
+                    cmd = command.removeprefix("server ").strip()
                     self.handle_server_cmd(cmd)
                 else:
                     print(f"{command}: command not found")
@@ -291,49 +304,72 @@ class SocketServer:
             print(f'Try stoping timer task "{cmd.removeprefix("stop ")}"...')
             self.dock_server.stop_task(cmd.removeprefix("stop "))
         else:
-            print(f'{cmd}: subcommand not found')
+            print(f"{cmd}: subcommand not found")
 
     def handle_client_request(self, sock):
         try:
             cmd = receive_message(sock)
             if cmd:
                 if self.connection_debug:
-                    display_message(f'Receive request "{cmd}" from {sock}', with_prompt=self.with_cli)
+                    display_message(
+                        f'Receive request "{cmd}" from {sock}',
+                        with_prompt=self.with_cli,
+                    )
                 cmd = cmd.strip()
                 if cmd == "ioc info":
                     if self.connection_debug:
-                        display_message(f'send response for "{cmd}"', with_prompt=self.with_cli)
-                    json_string = json.dumps(self.dock_server.ioc_info, ensure_ascii=False)
+                        display_message(
+                            f'send response for "{cmd}"', with_prompt=self.with_cli
+                        )
+                    json_string = json.dumps(
+                        self.dock_server.ioc_info, ensure_ascii=False
+                    )
                     send_message(sock, json_string)
                 elif cmd == "service info":
                     if self.connection_debug:
-                        display_message(f'send response for "{cmd}"', with_prompt=self.with_cli)
-                    json_string = json.dumps(self.dock_server.service_info, ensure_ascii=False)
+                        display_message(
+                            f'send response for "{cmd}"', with_prompt=self.with_cli
+                        )
+                    json_string = json.dumps(
+                        self.dock_server.service_info, ensure_ascii=False
+                    )
                     send_message(sock, json_string)
                 elif cmd == "node info":
                     if self.connection_debug:
-                        display_message(f'send response for "{cmd}"', with_prompt=self.with_cli)
-                    json_string = json.dumps(self.dock_server.node_info, ensure_ascii=False)
+                        display_message(
+                            f'send response for "{cmd}"', with_prompt=self.with_cli
+                        )
+                    json_string = json.dumps(
+                        self.dock_server.node_info, ensure_ascii=False
+                    )
                     send_message(sock, json_string)
                 else:
                     if self.connection_debug:
-                        display_message(f'invalid request "{cmd}"', with_prompt=self.with_cli)
+                        display_message(
+                            f'invalid request "{cmd}"', with_prompt=self.with_cli
+                        )
                     send_message(sock, "invalid request")
             else:
                 if self.connection_debug:
-                    display_message(f'Close connection {sock}', with_prompt=self.with_cli)
+                    display_message(
+                        f"Close connection {sock}", with_prompt=self.with_cli
+                    )
                 sock.close()
                 self.listen_sockets.remove(sock)
         except Exception as e:
-            display_message(f'Exception occurred when communicating with {sock}: {e}',
-                            with_prompt=self.with_cli)
+            display_message(
+                f"Exception occurred when communicating with {sock}: {e}",
+                with_prompt=self.with_cli,
+            )
             self.listen_sockets.remove(sock)
             sock.close()
 
     def handle_client_connection(self, sock):
         newsock, newaddr = self.server_socket.accept()
         if self.connection_debug:
-            display_message(f'Connection from {newsock} {newaddr}', with_prompt=self.with_cli)
+            display_message(
+                f"Connection from {newsock} {newaddr}", with_prompt=self.with_cli
+            )
         self.listen_sockets.append(newsock)
 
     def process_loop(self):
@@ -346,8 +382,10 @@ class SocketServer:
                     else:
                         self.handle_client_request(sock)
         except Exception as e:
-            display_message(f'An error was encountered while running the process loop: {e}',
-                            with_prompt=self.with_cli)
+            display_message(
+                f"An error was encountered while running the process loop: {e}",
+                with_prompt=self.with_cli,
+            )
             self.stop_listen()
             display_message(with_prompt=self.with_cli)
 

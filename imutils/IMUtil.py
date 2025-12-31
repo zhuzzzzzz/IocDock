@@ -4,11 +4,20 @@ from collections.abc import Iterable
 
 import imutils.IMConfig as IMConfig
 from imutils.IMError import IMValueError
-from imutils.IocClass import IOC, gen_swarm_files, get_all_ioc, repository_backup, restore_backup
+from imutils.IocClass import (
+    IOC,
+    gen_swarm_files,
+    get_all_ioc,
+    repository_backup,
+    restore_backup,
+)
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import try_makedirs, condition_parse
 from imutils.SocketClient import socket_client, client_check_connection
-from imutils.AnsibleClient import set_up_file_and_dir_for_every_host, set_up_dir_according_to_labels
+from imutils.AnsibleClient import (
+    set_up_file_and_dir_for_every_host,
+    set_up_dir_according_to_labels,
+)
 from imutils.AnsibleUtil import gen_inventory_files, ping, docker_registry_login
 
 
@@ -16,10 +25,12 @@ from imutils.AnsibleUtil import gen_inventory_files, ping, docker_registry_login
 def create_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
         #
-        invalid_characters = (' ', ',', ';', '|', '\\', '~', '`')
+        invalid_characters = (" ", ",", ";", "|", "\\", "~", "`")
         for cha in invalid_characters:
             if cha in name:
-                print(f'create_ioc: Failed. IOC name "{name}" has invalid character "{cha}".')
+                print(
+                    f'create_ioc: Failed. IOC name "{name}" has invalid character "{cha}".'
+                )
                 return
         #
         dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
@@ -29,28 +40,34 @@ def create_ioc(name, args, config=None, verbose=False):
             # Create an IOC and do initialization by given configparser.ConfigParser() object.
             try_makedirs(dir_path, verbose)
             ioc_temp = IOC(dir_path=dir_path, verbose=verbose, create=True)
-            if hasattr(args, 'add_asyn') and args.add_asyn:
-                ioc_temp.add_module_template('asyn')
+            if hasattr(args, "add_asyn") and args.add_asyn:
+                ioc_temp.add_module_template("asyn")
                 if verbose:
                     print(f'create_ioc: add asyn template to IOC "{name}".')
-            if hasattr(args, 'add_stream') and args.add_stream:
-                ioc_temp.add_module_template('stream')
+            if hasattr(args, "add_stream") and args.add_stream:
+                ioc_temp.add_module_template("stream")
                 if verbose:
                     print(f'create_ioc: add stream template to IOC "{name}".')
-            if hasattr(args, 'add_raw') and args.add_raw:
+            if hasattr(args, "add_raw") and args.add_raw:
                 ioc_temp.add_raw_cmd_template()
                 if verbose:
                     print(f'create_ioc: add raw command template to IOC "{name}".')
             if config:
                 for section in config.sections():
-                    if section == 'SRC':  # src files are automatically detected.
+                    if section == "SRC":  # src files are automatically detected.
                         continue
                     for option in config.options(section):
-                        if section == 'IOC' and option == 'name':  # Name should not be directly copied.
+                        if (
+                            section == "IOC" and option == "name"
+                        ):  # Name should not be directly copied.
                             continue
-                        if section == 'IOC' and option == 'status':  # status should not be directly copied.
+                        if (
+                            section == "IOC" and option == "status"
+                        ):  # status should not be directly copied.
                             continue
-                        if section == 'IOC' and option == 'snapshot':  # snapshot should not be directly copied.
+                        if (
+                            section == "IOC" and option == "snapshot"
+                        ):  # snapshot should not be directly copied.
                             continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
@@ -75,12 +92,12 @@ def set_ioc(name, args, config=None, verbose=False):
             ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
             modify_flag = False
             if args.add_asyn:
-                if ioc_temp.add_module_template('asyn'):
+                if ioc_temp.add_module_template("asyn"):
                     modify_flag = True
                     if verbose:
                         print(f'set_ioc: add asyn template to IOC "{name}".')
             if args.add_stream:
-                if ioc_temp.add_module_template('stream'):
+                if ioc_temp.add_module_template("stream"):
                     modify_flag = True
                     if verbose:
                         print(f'set_ioc: add stream template to IOC "{name}".')
@@ -91,14 +108,14 @@ def set_ioc(name, args, config=None, verbose=False):
                         print(f'set_ioc: add raw command template to IOC "{name}".')
             if any(config.options(section) for section in config.sections()):
                 for section in config.sections():
-                    if section == 'SRC':  # src files are automatically detected.
+                    if section == "SRC":  # src files are automatically detected.
                         continue
                     for option in config.options(section):
-                        if section == 'IOC' and option == 'name':
+                        if section == "IOC" and option == "name":
                             continue
-                        if section == 'IOC' and option == 'status':
+                        if section == "IOC" and option == "status":
                             continue
-                        if section == 'IOC' and option == 'snapshot':
+                        if section == "IOC" and option == "snapshot":
                             continue
                         value = config.get(section, option)
                         ioc_temp.set_config(option, value, section)
@@ -123,18 +140,23 @@ def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
     if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
         if not force_removal:
             if remove_all:
-                print(f'remove_ioc: IOC "{name}" will be removed completely, '
-                      f'project files in running dir(if exist) will also be removed. Be careful!', end='')
+                print(
+                    f'remove_ioc: IOC "{name}" will be removed completely, '
+                    f"project files in running dir(if exist) will also be removed. Be careful!",
+                    end="",
+                )
             else:
-                print(f'remove_ioc: IOC "{name}" will be removed, the files in repository will be removed.',
-                      end='')
-            ans = input(f'Continue?[y|n]:')
-            if ans.lower() == 'y' or ans.lower() == 'yes':
+                print(
+                    f'remove_ioc: IOC "{name}" will be removed, the files in repository will be removed.',
+                    end="",
+                )
+            ans = input(f"Continue?[y|n]:")
+            if ans.lower() == "y" or ans.lower() == "yes":
                 force_removal = True
-            elif ans.lower() == 'n' or ans.lower() == 'no':
-                print(f'remove_ioc: Remove canceled.')
+            elif ans.lower() == "n" or ans.lower() == "no":
+                print(f"remove_ioc: Remove canceled.")
             else:
-                print(f'remove_ioc: Failed. Invalid input, remove canceled.')
+                print(f"remove_ioc: Failed. Invalid input, remove canceled.")
         if force_removal:
             ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
             ioc_temp.remove(all_remove=remove_all)
@@ -147,20 +169,29 @@ def rename_ioc(old_name, new_name, verbose):
     dir_path = os.path.join(IMConfig.REPOSITORY_PATH, old_name)
     if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
         ioc_temp = IOC(dir_path=dir_path, verbose=verbose)
-        ioc_temp.set_config('name', new_name)
+        ioc_temp.set_config("name", new_name)
         ioc_temp.write_config()
         try:
             os.rename(dir_path, os.path.join(IMConfig.REPOSITORY_PATH, new_name))
         except Exception as e:
             print(f'rename_ioc: Failed. Changing directory name failed, "{e}".')
         else:
-            print(f'rename_ioc: Success. IOC name changed from "{old_name}" to "{new_name}".')
+            print(
+                f'rename_ioc: Success. IOC name changed from "{old_name}" to "{new_name}".'
+            )
     else:
         print(f'rename_ioc: Failed. IOC "{old_name}" not found.')
 
 
-def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=False, show_description=False,
-                     show_panel=False, verbose=False):
+def get_filtered_ioc(
+    condition: list,
+    section="IOC",
+    from_list=None,
+    show_info=False,
+    show_description=False,
+    show_panel=False,
+    verbose=False,
+):
     """
     Filter and List IOC projects by specified conditions and section. Logic "AND" is used between each condition.
 
@@ -183,7 +214,7 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
     if not condition:
         # Return all IOC projects when no condition specified.
         if verbose:
-            print(f'No condition specified, list all IOC projects.')
+            print(f"No condition specified, list all IOC projects.")
     elif isinstance(condition, list):
         valid_flag = False  # flag to check whether any valid condition has been given.
         valid_condition = []
@@ -193,11 +224,11 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             if key:
                 valid_flag = True
                 valid_condition.append(c)
-                if key.lower() == 'name':
+                if key.lower() == "name":
                     for i in range(0, len(ioc_list)):
                         if value not in ioc_list[i].name:
                             index_to_remove.append(i)
-                elif key.lower() in ('state', 'status', 'snapshot', 'is_exported'):
+                elif key.lower() in ("state", "status", "snapshot", "is_exported"):
                     for i in range(0, len(ioc_list)):
                         if not ioc_list[i].state_manager.check_config(key, value):
                             index_to_remove.append(i)
@@ -210,12 +241,14 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
                     print(f'Skip invalid condition "{c}".')
         if valid_flag:
             if verbose:
-                print(f'Results for filter with parameter: section="{section}", condition="{valid_condition}".')
+                print(
+                    f'Results for filter with parameter: section="{section}", condition="{valid_condition}".'
+                )
         else:
             # Do not return any result if no valid condition given.
             index_to_remove = [i for i in range(0, len(ioc_list))]
             if verbose:
-                print(f'No result. No valid condition given.')
+                print(f"No result. No valid condition given.")
     else:
         raise IMValueError(f'Invalid filter parameter: condition="{condition}".')
 
@@ -229,15 +262,27 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
 
     if show_panel:
         if not client_check_connection(verbose=verbose):
-            print(f'Failed to connect to IocDockServer.')
+            print(f"Failed to connect to IocDockServer.")
         socket_result_ioc = socket_client("ioc info", verbose=verbose)
         socket_result_service = socket_client("service info", verbose=verbose)
 
     # print results.
     ioc_print = []
-    description_print = [["IOC", "Description"], ]
-    panel_print = [["IOC", "Host", "Description", "State", "Status",
-                    "DeployStatus", "SnapshotConsistency", "RunningConsistency"], ]
+    description_print = [
+        ["IOC", "Description"],
+    ]
+    panel_print = [
+        [
+            "IOC",
+            "Host",
+            "Description",
+            "State",
+            "Status",
+            "DeployStatus",
+            "SnapshotConsistency",
+            "RunningConsistency",
+        ],
+    ]
     for i in index_reserved:
         if show_info:
             ioc_list[i].show_config()
@@ -248,24 +293,35 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
             #
             desc = ioc_list[i].get_config("description")
             if len(desc) > 37:
-                desc = desc[:37] + '...'
-            temp_service = SwarmService(name=ioc_list[i].name, service_type='ioc')
-            t_l = [ioc_list[i].name,
-                   ioc_list[i].get_config("host"),
-                   desc,
-                   ioc_list[i].state_manager.get_config("state"),
-                   ioc_list[i].state_manager.get_config("status"),
-                   socket_info_service.get('status') if socket_info_service else temp_service.current_state,
-                   socket_info_ioc.get('snapshot_consistency') if socket_info_ioc else
-                   ioc_list[i].check_snapshot_consistency(print_info=False)[1],
-                   socket_info_ioc.get('running_consistency') if socket_info_ioc else
-                   ioc_list[i].check_running_consistency(print_info=False)[1],
-                   ]
+                desc = desc[:37] + "..."
+            temp_service = SwarmService(name=ioc_list[i].name, service_type="ioc")
+            t_l = [
+                ioc_list[i].name,
+                ioc_list[i].get_config("host"),
+                desc,
+                ioc_list[i].state_manager.get_config("state"),
+                ioc_list[i].state_manager.get_config("status"),
+                (
+                    socket_info_service.get("status")
+                    if socket_info_service
+                    else temp_service.current_state
+                ),
+                (
+                    socket_info_ioc.get("snapshot_consistency")
+                    if socket_info_ioc
+                    else ioc_list[i].check_snapshot_consistency(print_info=False)[1]
+                ),
+                (
+                    socket_info_ioc.get("running_consistency")
+                    if socket_info_ioc
+                    else ioc_list[i].check_running_consistency(print_info=False)[1]
+                ),
+            ]
             panel_print.append(t_l)
         elif show_description:
             desc = ioc_list[i].get_config("description")
             if len(desc) > 100:
-                desc = desc[:80] + '...'
+                desc = desc[:80] + "..."
             description_print.append([ioc_list[i].name, desc])
         else:
             ioc_print.append(ioc_list[i].name)
@@ -273,11 +329,11 @@ def get_filtered_ioc(condition: list, section='IOC', from_list=None, show_info=F
         if show_info:
             pass
         elif show_description:
-            print(tabulate(description_print, headers="firstrow", tablefmt='plain'))
+            print(tabulate(description_print, headers="firstrow", tablefmt="plain"))
         elif show_panel:
-            print(tabulate(panel_print, headers="firstrow", tablefmt='plain'))
+            print(tabulate(panel_print, headers="firstrow", tablefmt="plain"))
         else:
-            print(' '.join(ioc_print))
+            print(" ".join(ioc_print))
 
 
 def execute_ioc(args):
@@ -285,21 +341,30 @@ def execute_ioc(args):
     if args.gen_swarm_file:
         gen_swarm_files(iocs=args.name, verbose=args.verbose)
     elif args.gen_backup_file:
-        repository_backup(backup_mode=args.backup_mode, backup_dir=args.backup_path, verbose=args.verbose)
+        repository_backup(
+            backup_mode=args.backup_mode,
+            backup_dir=args.backup_path,
+            verbose=args.verbose,
+        )
     elif args.restore_backup_file:
-        restore_backup(backup_path=args.restore_backup_file, force_overwrite=args.force_overwrite,
-                       verbose=args.verbose)
+        restore_backup(
+            backup_path=args.restore_backup_file,
+            force_overwrite=args.force_overwrite,
+            verbose=args.verbose,
+        )
     else:
         # operation inside IOC projects.
         if not args.name:
-            print(f'execute_ioc: No IOC project specified.')
+            print(f"execute_ioc: No IOC project specified.")
         else:
             for name in args.name:
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.isdir(dir_path):
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
                     if isinstance(args.add_src_file, str):
-                        ioc_temp.get_src_file(src_dir=args.add_src_file, print_info=True)
+                        ioc_temp.get_src_file(
+                            src_dir=args.add_src_file, print_info=True
+                        )
                     elif args.generate_and_export:
                         ioc_temp.generate_startup_files()
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
@@ -312,16 +377,25 @@ def execute_ioc(args):
                     elif args.check_snapshot:
                         ioc_temp.check_snapshot_consistency(print_info=True)
                     elif args.restore_snapshot_file:
-                        ioc_temp.restore_from_snapshot_files(restore_files=args.restore_snapshot_file,
-                                                             force_restore=args.force_overwrite)
+                        ioc_temp.restore_from_snapshot_files(
+                            restore_files=args.restore_snapshot_file,
+                            force_restore=args.force_overwrite,
+                        )
                     elif args.deploy:
                         ioc_temp.generate_startup_files()
                         ioc_temp.export_for_mount(force_overwrite=args.force_overwrite)
-                        gen_swarm_files(iocs=list([ioc_temp.name, ]), verbose=args.verbose)
+                        gen_swarm_files(
+                            iocs=list(
+                                [
+                                    ioc_temp.name,
+                                ]
+                            ),
+                            verbose=args.verbose,
+                        )
                     elif args.check_running:
                         ioc_temp.check_running_consistency(print_info=True)
                     else:
-                        print(f'execute_ioc: No execution operation specified.')
+                        print(f"execute_ioc: No execution operation specified.")
                         break  # break to avoid repeat print of no exec operation.
                 else:
                     print(f'execute_ioc: Failed. IOC "{name}" not found.')
@@ -366,16 +440,18 @@ def execute_swarm(args):
 def execute_service(args):
     # operation for specified IOC projects.
     if not args.name:
-        print(f'execute_service: No IOC project specified.')
+        print(f"execute_service: No IOC project specified.")
     else:
         services_dict = SwarmManager().services
         for name in args.name:
             # set service_type automatically
             if not args.type:
                 if name in services_dict.keys():
-                    temp_service = SwarmService(name, service_type=services_dict[name].service_type)
+                    temp_service = SwarmService(
+                        name, service_type=services_dict[name].service_type
+                    )
                 else:
-                    temp_service = SwarmService(name, service_type='custom')
+                    temp_service = SwarmService(name, service_type="custom")
             else:
                 temp_service = SwarmService(name, service_type=args.type)
             #
@@ -395,25 +471,27 @@ def execute_service(args):
 
 # Update IOC project to the form of newer version.
 def update_ioc(args):
-    print(f'Starting to update IOC projects.')
+    print(f"Starting to update IOC projects.")
     ioc_list = get_all_ioc()
     for ioc_item in ioc_list:
-        create_ioc(f'{ioc_item.name}_temp', args, ioc_item.conf, args.verbose)
+        create_ioc(f"{ioc_item.name}_temp", args, ioc_item.conf, args.verbose)
     for ioc_item in ioc_list:
         name = ioc_item.name
         ioc_item.remove(all_remove=True)
-        rename_ioc(f'{name}_temp', name, verbose=args.verbose)
-    print(f'Finished updating IOC projects.')
+        rename_ioc(f"{name}_temp", name, verbose=args.verbose)
+    print(f"Finished updating IOC projects.")
 
 
 # Edit configuration file of an IOC project using vi.
 def edit_ioc(args):
-    file_path = os.path.join(IMConfig.REPOSITORY_PATH, args.name, IMConfig.IOC_CONFIG_FILE)
+    file_path = os.path.join(
+        IMConfig.REPOSITORY_PATH, args.name, IMConfig.IOC_CONFIG_FILE
+    )
     if args.verbose:
         print(f'edit_ioc: Edit file "{file_path}".')
     if os.path.exists(file_path):
         try:
-            os.system(f'vi {file_path}')
+            os.system(f"vi {file_path}")
         except Exception as e:
             print(f'edit_ioc: Failed, "{e}".')
     else:
@@ -422,7 +500,7 @@ def edit_ioc(args):
 
 def execute_config(args):
     if args.set_value:
-        print(f'execute_config: Failed, not implemented yet.')
+        print(f"execute_config: Failed, not implemented yet.")
     else:
         if hasattr(IMConfig, args.name):
             print(getattr(IMConfig, args.name))
@@ -442,13 +520,14 @@ def execute_cluster(args):
         set_up_dir_according_to_labels()
 
 
-if __name__ == '__main__':
-    class TESTV: pass
+if __name__ == "__main__":
 
+    class TESTV:
+        pass
 
     argtest = TESTV()
     argtest.set_value = None
-    argtest.name = 'REPOSITORY_PATH'
+    argtest.name = "REPOSITORY_PATH"
     execute_config(argtest)
-    argtest.name = 'REPOSITORY_PATH1'
+    argtest.name = "REPOSITORY_PATH1"
     execute_config(argtest)

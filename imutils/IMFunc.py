@@ -51,7 +51,7 @@ def dir_remove(dir_path, verbose=False):
             print(f'dir_remove("{dir_path}"): Success.')
 
 
-def file_copy(src, dest, mode='r', verbose=False):
+def file_copy(src, dest, mode="r", verbose=False):
     """
     copy the file src to the file or directory dst.
     If dst specifies a directory, it must exist, the file will be copied into dst using the base filename from src.
@@ -82,23 +82,25 @@ def file_copy(src, dest, mode='r', verbose=False):
     try:
         res = shutil.copy(src, dest)
     except Exception as e:
-        print(f'file_copy: Failed, {e}.')
+        print(f"file_copy: Failed, {e}.")
         return False
     else:
         mode_number = 0o000
-        if 'r' in mode or 'R' in mode:
+        if "r" in mode or "R" in mode:
             mode_number += 0o444
-        if 'w' in mode or 'W' in mode:
+        if "w" in mode or "W" in mode:
             mode_number += 0o220
-        if 'x' in mode or 'X' in mode:
+        if "x" in mode or "X" in mode:
             mode_number += 0o110
         if mode_number != 0o000:
             os.chmod(res, mode_number)
         else:
             os.chmod(res, 0o664)
         if verbose:
-            print(f'file_copy: Success, {"replace" if replace_flag else "copy"} file '
-                  f'from "{src}" to "{res}" and set mode="{"DEFAULT" if mode_number == 0o000 else mode}".')
+            print(
+                f'file_copy: Success, {"replace" if replace_flag else "copy"} file '
+                f'from "{src}" to "{res}" and set mode="{"DEFAULT" if mode_number == 0o000 else mode}".'
+            )
         return True
 
 
@@ -108,11 +110,13 @@ def dir_copy(source_folder, destination_folder, verbose=False):
     try:
         shutil.copytree(source_folder, destination_folder)
     except Exception as e:
-        print(f'dir_copy: Failed, {e}')
+        print(f"dir_copy: Failed, {e}")
         return False
     else:
         if verbose:
-            print(f'dir_copy: Success, copy dir from "{source_folder}" to "{destination_folder}".')
+            print(
+                f'dir_copy: Success, copy dir from "{source_folder}" to "{destination_folder}".'
+            )
         return True
 
 
@@ -140,10 +144,10 @@ def condition_parse(condition: str, split_once: bool = False):
     # set max_split to control how many parts to split the condition.
     if split_once:
         # if set, split once at most.
-        c_s = condition.strip().split(sep='=', maxsplit=1)
+        c_s = condition.strip().split(sep="=", maxsplit=1)
     else:
         # if not set, split as many times as the number of '='.
-        c_s = condition.strip().split(sep='=')
+        c_s = condition.strip().split(sep="=")
     # print(c_s)
     # condition should only be split one time
     if len(c_s) == 2 and len(c_s[0]) > 0:
@@ -156,58 +160,62 @@ def condition_parse(condition: str, split_once: bool = False):
 
 
 def multi_line_parse(input_str: str):
-    lines = input_str.strip().split(sep='\n')
+    lines = input_str.strip().split(sep="\n")
     res = []
     for item in lines:
-        if item != '':
+        if item != "":
             res.append(item)
     return res
 
 
 def format_normalize(raw_str: str):
     # return a standard format of value, for example "ramper.db,name = xxx1" will get "ramper.db, name=xxx1" as return.
-    raw_str = raw_str.replace(';', '\n')
-    raw_str = '\n'.join(filter(None, raw_str.split('\n')))  # number of return char will be reduced to 1.
-    if raw_str.count('\n') >= 1:
-        raw_str = '\n' + raw_str
-    raw_str = ' '.join(filter(None, raw_str.split(' ')))  # number of space char will be reduced to 1.
-    raw_str = raw_str.replace(', ', ',')
-    raw_str = raw_str.replace(' ,', ',')
-    raw_str = raw_str.replace(' =', '=')
-    raw_str = raw_str.replace('= ', '=')
-    raw_str = raw_str.replace(' :', ':')
-    raw_str = raw_str.replace(': ', ':')
-    raw_str = raw_str.replace(',', ', ')
+    raw_str = raw_str.replace(";", "\n")
+    raw_str = "\n".join(
+        filter(None, raw_str.split("\n"))
+    )  # number of return char will be reduced to 1.
+    if raw_str.count("\n") >= 1:
+        raw_str = "\n" + raw_str
+    raw_str = " ".join(
+        filter(None, raw_str.split(" "))
+    )  # number of space char will be reduced to 1.
+    raw_str = raw_str.replace(", ", ",")
+    raw_str = raw_str.replace(" ,", ",")
+    raw_str = raw_str.replace(" =", "=")
+    raw_str = raw_str.replace("= ", "=")
+    raw_str = raw_str.replace(" :", ":")
+    raw_str = raw_str.replace(": ", ":")
+    raw_str = raw_str.replace(",", ", ")
     return raw_str
 
 
 def dircmp_compare(dcmp, print_info=False):
     diff_flag = False
-    res_str = f'diff {dcmp.left} {dcmp.right}\n'
+    res_str = f"diff {dcmp.left} {dcmp.right}\n"
     if dcmp.diff_files:
         diff_flag = True
-        res_str += 'changed files: '
+        res_str += "changed files: "
         for item in dcmp.diff_files:
             res_str += f'"{item}", '
         else:
-            res_str = res_str.rstrip(', ')
-            res_str += '.\n'
+            res_str = res_str.rstrip(", ")
+            res_str += ".\n"
     if dcmp.left_only:
         diff_flag = True
-        res_str += 'missing files and directories: '
+        res_str += "missing files and directories: "
         for item in dcmp.left_only:
             res_str += f'"{item}", '
         else:
-            res_str = res_str.rstrip(', ')
-            res_str += '.\n'
+            res_str = res_str.rstrip(", ")
+            res_str += ".\n"
     if dcmp.right_only:
         diff_flag = True
-        res_str += 'untracked files and directories: '
+        res_str += "untracked files and directories: "
         for item in dcmp.right_only:
             res_str += f'"{item}", '
         else:
-            res_str = res_str.rstrip(', ')
-            res_str += '.\n'
+            res_str = res_str.rstrip(", ")
+            res_str += ".\n"
     if print_info:
         print(res_str)
     for sub_dcmp in dcmp.subdirs.values():
@@ -228,30 +236,32 @@ def dir_compare(snapshot_dir, source_dir, print_info=False):
 def operation_log():
     # 生成日志内容
     log_time = datetime.datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
-    log_command = ' '.join(sys.argv)
+    log_command = " ".join(sys.argv)
     log_user = os.getenv("USER")
     log_host = socket.gethostname()
     log_ssh = os.getenv("SSH_CLIENT")
     log_id = f"{log_user}@{log_host}"
-    log_str = '\t'.join([log_time, f'ssh="{log_ssh}"', f'id="{log_id}"', f'cmd="{log_command}"']) + '\n'
+    log_str = (
+        "\t".join(
+            [log_time, f'ssh="{log_ssh}"', f'id="{log_id}"', f'cmd="{log_command}"']
+        )
+        + "\n"
+    )
 
     # 获取日志文件路径
     file_path = OPERATION_LOG_FILE_PATH
     if not os.path.isfile(file_path):
-        with open(file_path, 'w'):
+        with open(file_path, "w"):
             pass
 
     # 配置日志记录器
-    logger = logging.getLogger('operation_logger')
+    logger = logging.getLogger("operation_logger")
 
     # 防止重复添加handler
     if not logger.handlers:
         # 设置循环日志处理器
         handler = RotatingFileHandler(
-            filename=file_path,
-            maxBytes=1e6,
-            backupCount=3,
-            encoding='utf-8'
+            filename=file_path, maxBytes=1e6, backupCount=3, encoding="utf-8"
         )
         # handler.setFormatter(logging.Formatter('%(message)s'))
         logger.addHandler(handler)
@@ -261,5 +271,7 @@ def operation_log():
     logger.info(log_str)
 
 
-if __name__ == '__main__':
-    file_copy('/home/zhu/docker/IocDock/README.md', '/home/zhu/abc', mode='r', verbose=True)
+if __name__ == "__main__":
+    file_copy(
+        "/home/zhu/docker/IocDock/README.md", "/home/zhu/abc", mode="r", verbose=True
+    )

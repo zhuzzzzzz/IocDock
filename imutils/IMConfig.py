@@ -10,14 +10,18 @@ else:
 
 
 def get_manager_path() -> str:
-    manager_path = os.environ.get("MANAGER_PATH", default='')
+    manager_path = os.environ.get("MANAGER_PATH", default="")
     if manager_path:
         if os.path.isdir(manager_path):
             return manager_path
         else:
-            raise IMInitError(f'Invalid system environment variable "$MANAGER_PATH": {manager_path}.')
+            raise IMInitError(
+                f'Invalid system environment variable "$MANAGER_PATH": {manager_path}.'
+            )
     else:
-        raise IMInitError(f'System environment variable "$MANAGER_PATH" is not defined.')
+        raise IMInitError(
+            f'System environment variable "$MANAGER_PATH" is not defined.'
+        )
 
 
 ########################
@@ -26,44 +30,46 @@ def get_manager_path() -> str:
 
 ## directories ##
 
-REPOSITORY_DIR = 'ioc-repository'
+REPOSITORY_DIR = "ioc-repository"
 
-TOOLS_DIR = 'imtools'
+TOOLS_DIR = "imtools"
 
-SERVICES_DIR = 'imsrvs'
-GLOBAL_SERVICE_FILE_DIR = 'global-services'
+SERVICES_DIR = "imsrvs"
+GLOBAL_SERVICE_FILE_DIR = "global-services"
 
 # MOUNT_DIR = 'ioc-for-docker'
-MOUNT_DIR = 'IocDock-data'  # top directory for nfs mounting
-SWARM_DIR = 'swarm'  # top directory for swarm deploying
-LOG_FILE_DIR = 'iocLog'  # directory for running iocLogServer in docker
+MOUNT_DIR = "IocDock-data"  # top directory for nfs mounting
+SWARM_DIR = "swarm"  # top directory for swarm deploying
+LOG_FILE_DIR = "iocLog"  # directory for running iocLogServer in docker
 
-IOC_BACKUP_DIR = 'ioc-backup'  # backup directory for IOC project files
+IOC_BACKUP_DIR = "ioc-backup"  # backup directory for IOC project files
 
-SWARM_BACKUP_DIR = 'swarm-backup'  # backup directory for swarm
+SWARM_BACKUP_DIR = "swarm-backup"  # backup directory for swarm
 
 ## files ##
-IOC_CONFIG_FILE = 'ioc.ini'
-IOC_STATE_INFO_FILE = '.info.ini'
-IOC_SERVICE_FILE = 'compose-swarm.yaml'
+IOC_CONFIG_FILE = "ioc.ini"
+IOC_STATE_INFO_FILE = ".info.ini"
+IOC_SERVICE_FILE = "compose-swarm.yaml"
 
 ## path ##
 MANAGER_PATH = os.path.normpath(get_manager_path())
 REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
 TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
-ANSIBLE_PATH = os.path.join(TOOLS_PATH, 'ansible')
-ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, 'inventory')
-CLUSTER_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, 'cluster')
-DEFAULT_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, 'default')
+ANSIBLE_PATH = os.path.join(TOOLS_PATH, "ansible")
+ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, "inventory")
+CLUSTER_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "cluster")
+DEFAULT_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "default")
 SERVICES_PATH = os.path.join(MANAGER_PATH, SERVICES_DIR)
 GLOBAL_SERVICES_PATH = os.path.join(SERVICES_PATH, GLOBAL_SERVICE_FILE_DIR)
-GLOBAL_SERVICES_CONFIG_FILE_PATH = os.path.join(GLOBAL_SERVICES_PATH, 'config')
-SNAPSHOT_PATH = os.path.join(MANAGER_PATH, 'ioc-snapshot')
-TEMPLATE_PATH = os.path.join(MANAGER_PATH, 'templates')
-COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'compose')
-DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, 'db')
-OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, 'OperationLog')
-MOUNT_PATH = os.getenv('MOUNT_PATH', os.path.normpath(os.path.join(MANAGER_PATH, '..', MOUNT_DIR)))
+GLOBAL_SERVICES_CONFIG_FILE_PATH = os.path.join(GLOBAL_SERVICES_PATH, "config")
+SNAPSHOT_PATH = os.path.join(MANAGER_PATH, "ioc-snapshot")
+TEMPLATE_PATH = os.path.join(MANAGER_PATH, "templates")
+COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "compose")
+DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "db")
+OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "OperationLog")
+MOUNT_PATH = os.getenv(
+    "MOUNT_PATH", os.path.normpath(os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
+)
 
 ## others ##
 OPERATION_LOG_NUM = 1000  # entry numbers of OperationLog
@@ -72,16 +78,18 @@ OPERATION_LOG_NUM = 1000  # entry numbers of OperationLog
 ## IOC Managing Settings ##
 #######################################################################################################################
 
-STATE_NORMAL = 'normal'  # IOC state string
-STATE_WARNING = 'warning'
-STATE_ERROR = 'error'
+STATE_NORMAL = "normal"  # IOC state string
+STATE_WARNING = "warning"
+STATE_ERROR = "error"
 
-DB_SUFFIX = ('.db',)  # file name suffix recognized by get_src_file()
-PROTO_SUFFIX = ('.proto',)
-OTHER_SUFFIX = ('.im',)
+DB_SUFFIX = (".db",)  # file name suffix recognized by get_src_file()
+PROTO_SUFFIX = (".proto",)
+OTHER_SUFFIX = (".im",)
 
-MODULES_PROVIDED = ['autosave', 'caputlog', 'status-ioc', 'status-os']
-DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly created IOC projects
+MODULES_PROVIDED = ["autosave", "caputlog", "status-ioc", "status-os"]
+DEFAULT_MODULES = (
+    "autosave, caputlog"  # default modules installed for newly created IOC projects
+)
 
 ############################
 ## Node Managing Settings ##
@@ -89,19 +97,19 @@ DEFAULT_MODULES = 'autosave, caputlog'  # default modules installed for newly cr
 
 CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
-    'ubuntu-server': '192.168.1.50',
-    'ubuntu-new': '192.168.1.51',
-    'swarm-manager': '192.168.1.52',
-    'swarm-manager1': '192.168.1.55',
+    "ubuntu-server": "192.168.1.50",
+    "ubuntu-new": "192.168.1.51",
+    "swarm-manager": "192.168.1.52",
+    "swarm-manager1": "192.168.1.55",
 }
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",
-    'swarm-node0': '192.168.1.53',
-    'swarm-node1': '192.168.1.54',
+    "swarm-node0": "192.168.1.53",
+    "swarm-node1": "192.168.1.54",
 }
 DEFAULT_NODES = {
     # "hostname": "ip address",
-    'nfs': '192.168.1.50'
+    "nfs": "192.168.1.50"
 }
 
 FOR_USER = "zhu"
@@ -118,42 +126,52 @@ NODE_IP_FILE = "~/.NodeInfo"  # file to store node ip in cluster for services in
 ## Global Deploy settings ##
 #######################################################################################################################
 
-PREFIX_STACK_NAME = 'iasf'  # managed stack name in swarm
+PREFIX_STACK_NAME = "iasf"  # managed stack name in swarm
 
 #########################
 ## IOC Deploy settings ##
 #######################################################################################################################
 
-DEFAULT_IOC = 'ST-IOC'  # default executable IOC in container
+DEFAULT_IOC = "ST-IOC"  # default executable IOC in container
 
-CONTAINER_TOP_PATH = os.path.join('/', 'opt', 'EPICS')  # path definition in running container.
-CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, 'IOC')
-CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, 'RUN')
+CONTAINER_TOP_PATH = os.path.join(
+    "/", "opt", "EPICS"
+)  # path definition in running container.
+CONTAINER_IOC_PATH = os.path.join(CONTAINER_TOP_PATH, "IOC")
+CONTAINER_IOC_RUN_PATH = os.path.join(CONTAINER_TOP_PATH, "RUN")
 
-RESOURCE_IOC_CPU_LIMIT = '1'  # default resources limit
-RESOURCE_IOC_MEMORY_LIMIT = '1G'
+RESOURCE_IOC_CPU_LIMIT = "1"  # default resources limit
+RESOURCE_IOC_MEMORY_LIMIT = "1G"
 
 #############################
 ## Service Deploy settings ##
 #######################################################################################################################
 
 ## registry ##
-REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'  # common name for registry https server
+REGISTRY_COMMON_NAME = (
+    f"registry.{PREFIX_STACK_NAME}"  # common name for registry https server
+)
 REGISTRY_PORT = 443  # port for registry https server
-REGISTRY_CERT_DOCKER_DIR = REGISTRY_COMMON_NAME if REGISTRY_PORT == 443 else f'{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}'
-REGISTRY_SHELL_VAR_FILE = 'RegistryVar'  # temp file for shell variables
+REGISTRY_CERT_DOCKER_DIR = (
+    REGISTRY_COMMON_NAME
+    if REGISTRY_PORT == 443
+    else f"{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}"
+)
+REGISTRY_SHELL_VAR_FILE = "RegistryVar"  # temp file for shell variables
 
 ## alertManager ##
-ALERT_MANAGER_SHELL_VAR_FILE = 'AlertManagerVar'
-ALERT_MANAGER_MASTER_IP = '192.168.1.50'
-ALERT_MANAGER_MASTER_GOSSIP_PORT = '9094'
+ALERT_MANAGER_SHELL_VAR_FILE = "AlertManagerVar"
+ALERT_MANAGER_MASTER_IP = "192.168.1.50"
+ALERT_MANAGER_MASTER_GOSSIP_PORT = "9094"
 ALERT_MANAGER_SMTP_SMART_HOST = "smtp.qiye.aliyun.com:465"
 ALERT_MANAGER_SMTP_AUTH_USERNAME = "zhujunhua@mail.iasf.ac.cn"
 ALERT_MANAGER_SMTP_AUTH_PASSWORD = None
 ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS = "zhujunhua@mail.iasf.ac.cn"
 ALERT_MANAGER_RECEIVE_EMAIL_LIST = []
-ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER:str = "http://192.168.20.170:8081/webhook/prometheus"
-ALERT_MANAGER_INFO_WEBHOOK_RECEIVER:str = "http://192.168.1.51:8000/alerts"
+ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER: str = (
+    "http://192.168.20.170:8081/webhook/prometheus"
+)
+ALERT_MANAGER_INFO_WEBHOOK_RECEIVER: str = "http://192.168.1.51:8000/alerts"
 
 ####################
 ## do not modify. ##
@@ -161,20 +179,28 @@ ALERT_MANAGER_INFO_WEBHOOK_RECEIVER:str = "http://192.168.1.51:8000/alerts"
 #######################################################################################################################
 ##
 ALLOWED_VARS = [
-    'DEFAULT_MODULES',
-    'CLUSTER_MANAGER_NODES', 'CLUSTER_WORKER_NODES', 'DEFAULT_NODES', 'FOR_USER',
-    'PREFIX_STACK_NAME',
-    'REGISTRY_PORT',
-    'ALERT_MANAGER_MASTER_IP', 'ALERT_MANAGER_SMTP_SMART_HOST', 'ALERT_MANAGER_SMTP_AUTH_USERNAME',
-    'ALERT_MANAGER_SMTP_AUTH_PASSWORD', 'ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS',
-    'ALERT_MANAGER_RECEIVE_EMAIL_LIST', 'ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER', 'ALERT_MANAGER_INFO_WEBHOOK_RECEIVER',
+    "DEFAULT_MODULES",
+    "CLUSTER_MANAGER_NODES",
+    "CLUSTER_WORKER_NODES",
+    "DEFAULT_NODES",
+    "FOR_USER",
+    "PREFIX_STACK_NAME",
+    "REGISTRY_PORT",
+    "ALERT_MANAGER_MASTER_IP",
+    "ALERT_MANAGER_SMTP_SMART_HOST",
+    "ALERT_MANAGER_SMTP_AUTH_USERNAME",
+    "ALERT_MANAGER_SMTP_AUTH_PASSWORD",
+    "ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS",
+    "ALERT_MANAGER_RECEIVE_EMAIL_LIST",
+    "ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER",
+    "ALERT_MANAGER_INFO_WEBHOOK_RECEIVER",
 ]
 ## override from custom definition.
 if import_flag:
     not_allowed_vars = []
     unrecognized_variable = []
     for item in dir(CustomConfig):
-        if not item.startswith('__'):
+        if not item.startswith("__"):
             if item in globals().keys():
                 if item in ALLOWED_VARS:
                     globals()[item] = getattr(CustomConfig, item)
@@ -185,11 +211,19 @@ if import_flag:
                 unrecognized_variable.append(item)
     else:
         if not_allowed_vars:
-            print(f'IocManager: Definition not allowed in IMConfigCustom.py: {", ".join(not_allowed_vars).strip()}.')
+            print(
+                f'IocManager: Definition not allowed in IMConfigCustom.py: {", ".join(not_allowed_vars).strip()}.'
+            )
         if unrecognized_variable:
-            print(f'IocManager: Definition unrecognized in IMConfigCustom.py: '
-                  f'{", ".join(unrecognized_variable).strip()}.')
+            print(
+                f"IocManager: Definition unrecognized in IMConfigCustom.py: "
+                f'{", ".join(unrecognized_variable).strip()}.'
+            )
 
     #
-    REGISTRY_COMMON_NAME = f'registry.{PREFIX_STACK_NAME}'
-    REGISTRY_CERT_DOCKER_DIR = REGISTRY_COMMON_NAME if REGISTRY_PORT == 443 else f'{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}'
+    REGISTRY_COMMON_NAME = f"registry.{PREFIX_STACK_NAME}"
+    REGISTRY_CERT_DOCKER_DIR = (
+        REGISTRY_COMMON_NAME
+        if REGISTRY_PORT == 443
+        else f"{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}"
+    )
