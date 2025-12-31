@@ -36,18 +36,18 @@ if __name__ == "__main__":
 
     # argparse
     parser = argparse.ArgumentParser(
-        description="Manager of IOC projects for docker deploying.",
+        description="IOC projects manager for docker deploying.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
     subparsers = parser.add_subparsers(
-        help='For subparser command help, run "IocManager [create|set|exec|list|swarm|service|remove] -h".'
+        help='To get help for individual subcommands, run "IocManager <subcommand> -h"'
     )
 
-    #
+    # subparser for create command
     parser_create = subparsers.add_parser(
         "create",
-        help="Create IOC projects by given settings.",
+        help="Create IOC projects.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_create.add_argument(
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     )
     parser_create.set_defaults(func="parse_create")
 
-    #
+    # subparser for set command
     parser_set = subparsers.add_parser(
         "set",
         help="Set attributes for IOC projects.",
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     )
     parser_set.set_defaults(func="parse_set")
 
-    #
+    # subparser for exec command
     parser_execute = subparsers.add_parser(
         "exec",
         help="Execute functions for IOC projects.",
@@ -301,9 +301,10 @@ if __name__ == "__main__":
     )
     parser_execute.set_defaults(func="parse_execute")
 
-    #
+    # subparser for list command
     parser_list = subparsers.add_parser(
         "list",
+        aliases=["ls"],
         help="List existing IOC projects filtered by given conditions.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -342,7 +343,7 @@ if __name__ == "__main__":
     )
     parser_list.set_defaults(func="parse_list")
 
-    #
+    # subparser for swarm command
     parser_swarm = subparsers.add_parser(
         "swarm",
         help="Functions for managing swarm system.",
@@ -432,7 +433,7 @@ if __name__ == "__main__":
     )
     parser_swarm.set_defaults(func="parse_swarm")
 
-    #
+    # subparser for service command
     parser_service = subparsers.add_parser(
         "service",
         help="Functions for managing IOC service in swarm system.",
@@ -476,9 +477,10 @@ if __name__ == "__main__":
     )
     parser_service.set_defaults(func="parse_service")
 
-    #
+    # subparser for remove command
     parser_remove = subparsers.add_parser(
         "remove",
+        aliases=["rm"],
         help="Remove IOC projects.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -502,7 +504,7 @@ if __name__ == "__main__":
     )
     parser_remove.set_defaults(func="parse_remove")
 
-    #
+    # subparser for rename command
     parser_rename = subparsers.add_parser(
         "rename",
         help="Rename IOC project.",
@@ -519,7 +521,7 @@ if __name__ == "__main__":
     )
     parser_rename.set_defaults(func="parse_rename")
 
-    #
+    # subparser for update command
     parser_update = subparsers.add_parser(
         "update",
         help="Update IOC project to the form of newer version.",
@@ -530,7 +532,7 @@ if __name__ == "__main__":
     )
     parser_update.set_defaults(func="parse_update")
 
-    #
+    # subparser for edit command
     parser_edit = subparsers.add_parser(
         "edit",
         help="Edit configuration file of an IOC project using vi.",
@@ -542,7 +544,7 @@ if __name__ == "__main__":
     )
     parser_edit.set_defaults(func="parse_edit")
 
-    #
+    # subparser for config command
     parser_config = subparsers.add_parser(
         "config",
         help="Functions for managing configurations in swarm system.",
@@ -561,7 +563,7 @@ if __name__ == "__main__":
     )
     parser_config.set_defaults(func="parse_config")
 
-    #
+    # subparser for client command
     parser_config = subparsers.add_parser(
         "client",
         help="Call EPICS client library to connect PV in swarm.",
@@ -571,7 +573,7 @@ if __name__ == "__main__":
     parser_config.add_argument("arguments", type=str, nargs="*", help="arguments.")
     parser_config.set_defaults(func="parse_client")
 
-    #
+    # subparser for cluster command
     parser_cluster = subparsers.add_parser(
         "cluster",
         help="Functions for managing cluster.",
