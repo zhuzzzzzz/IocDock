@@ -44,7 +44,7 @@ if __name__ == "__main__":
         help='To get help for individual subcommands, run "IocManager <subcommand> -h"'
     )
 
-    # subparser for create command
+    # region for subparser command "create"
     parser_create = subparsers.add_parser(
         "create",
         help="Create IOC projects.",
@@ -110,8 +110,9 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_create.set_defaults(func="parse_create")
+    # endregion
 
-    # subparser for set command
+    # region for subparser command "set"
     parser_set = subparsers.add_parser(
         "set",
         help="Set attributes for IOC projects.",
@@ -177,8 +178,22 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_set.set_defaults(func="parse_set")
+    # endregion
 
-    # subparser for exec command
+    # region for subparser command "edit"
+    parser_edit = subparsers.add_parser(
+        "edit",
+        help="Edit configuration file of an IOC project using vi.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_edit.add_argument("name", type=str, help="name of the IOC project.")
+    parser_edit.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_edit.set_defaults(func="parse_edit")
+    # endregion
+
+    # region for subparser command "exec"
     parser_execute = subparsers.add_parser(
         "exec",
         help="Execute functions for IOC projects.",
@@ -300,8 +315,9 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_execute.set_defaults(func="parse_execute")
+    # endregion
 
-    # subparser for list command
+    # region for subparser command "list"
     parser_list = subparsers.add_parser(
         "list",
         aliases=["ls"],
@@ -342,7 +358,119 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_list.set_defaults(func="parse_list")
+    # endregion
 
+    # region for subparser command "rename"
+    parser_rename = subparsers.add_parser(
+        "rename",
+        help="Rename IOC project.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_rename.add_argument(
+        "name",
+        type=str,
+        nargs=2,
+        help="only accept 2 arguments, old name and new name of the IOC project.",
+    )
+    parser_rename.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_rename.set_defaults(func="parse_rename")
+    # endregion
+
+    # region for subparser command "update"
+    parser_update = subparsers.add_parser(
+        "update",
+        help="Update IOC project to the form of newer version.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_update.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_update.set_defaults(func="parse_update")
+    # endregion
+
+    # region for subparser command "remove"
+    parser_remove = subparsers.add_parser(
+        "remove",
+        aliases=["rm"],
+        help="Remove IOC projects.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_remove.add_argument(
+        "name",
+        type=str,
+        nargs="+",
+        help="name for IOC project, name list is supported.",
+    )
+    parser_remove.add_argument(
+        "-r",
+        "--remove-all",
+        action="store_true",
+        help="enable this option will delete the entire IOC project!",
+    )
+    parser_remove.add_argument(
+        "-f", "--force", action="store_true", help="force removal, do not ask."
+    )
+    parser_remove.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_remove.set_defaults(func="parse_remove")
+    # endregion
+
+    # region for subparser command "config"
+    parser_config = subparsers.add_parser(
+        "config",
+        help="Functions for managing configurations in swarm system.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_config.add_argument("name", type=str, help="name of configurations.")
+    parser_config.add_argument(
+        "-s",
+        "--set-value",
+        type=str,
+        help="values to set for given configuration."
+        "\nget operation implied when not specifying this option.",
+    )
+    parser_config.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_config.set_defaults(func="parse_config")
+    # endregion
+
+    # region for subparser command "cluster"
+    parser_cluster = subparsers.add_parser(
+        "cluster",
+        help="Functions for managing cluster.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_cluster.add_argument(
+        "--gen-inventory-files",
+        action="store_true",
+        help="generate inventory files of cluster machines for ansible.",
+    )
+    parser_cluster.add_argument(
+        "--ping",
+        action="store_true",
+        help="ping all machines in inventory files using ansible.",
+    )
+    parser_cluster.add_argument(
+        "--registry-login",
+        action="store_true",
+        help="login into registry for cluster machines.",
+    )
+    parser_cluster.add_argument(
+        "--set-up-file-and-dir",
+        action="store_true",
+        help="set up file and dir resources for service deploying.",
+    )
+    parser_cluster.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_cluster.set_defaults(func="parse_cluster")
+    # endregion
+
+    # region for subparser command "swarm"
     # subparser for swarm command
     parser_swarm = subparsers.add_parser(
         "swarm",
@@ -432,7 +560,9 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_swarm.set_defaults(func="parse_swarm")
+    # endregion
 
+    # region for subparser command "service"
     # subparser for service command
     parser_service = subparsers.add_parser(
         "service",
@@ -464,7 +594,9 @@ if __name__ == "__main__":
         help="show configuration of running service.",
     )
     parser_service.add_argument(
-        "--show-info", action="store_true", help="show information of running service."
+        "--show-info",
+        action="store_true",
+        help="show information of running service.",
     )
     parser_service.add_argument(
         "--show-logs", action="store_true", help="show logs of running service."
@@ -476,93 +608,9 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_service.set_defaults(func="parse_service")
+    # endregion
 
-    # subparser for remove command
-    parser_remove = subparsers.add_parser(
-        "remove",
-        aliases=["rm"],
-        help="Remove IOC projects.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser_remove.add_argument(
-        "name",
-        type=str,
-        nargs="+",
-        help="name for IOC project, name list is supported.",
-    )
-    parser_remove.add_argument(
-        "-r",
-        "--remove-all",
-        action="store_true",
-        help="enable this option will delete the entire IOC project!",
-    )
-    parser_remove.add_argument(
-        "-f", "--force", action="store_true", help="force removal, do not ask."
-    )
-    parser_remove.add_argument(
-        "-v", "--verbose", action="store_true", help="show processing details."
-    )
-    parser_remove.set_defaults(func="parse_remove")
-
-    # subparser for rename command
-    parser_rename = subparsers.add_parser(
-        "rename",
-        help="Rename IOC project.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser_rename.add_argument(
-        "name",
-        type=str,
-        nargs=2,
-        help="only accept 2 arguments, old name and new name of the IOC project.",
-    )
-    parser_rename.add_argument(
-        "-v", "--verbose", action="store_true", help="show processing details."
-    )
-    parser_rename.set_defaults(func="parse_rename")
-
-    # subparser for update command
-    parser_update = subparsers.add_parser(
-        "update",
-        help="Update IOC project to the form of newer version.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser_update.add_argument(
-        "-v", "--verbose", action="store_true", help="show processing details."
-    )
-    parser_update.set_defaults(func="parse_update")
-
-    # subparser for edit command
-    parser_edit = subparsers.add_parser(
-        "edit",
-        help="Edit configuration file of an IOC project using vi.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser_edit.add_argument("name", type=str, help="name of the IOC project.")
-    parser_edit.add_argument(
-        "-v", "--verbose", action="store_true", help="show processing details."
-    )
-    parser_edit.set_defaults(func="parse_edit")
-
-    # subparser for config command
-    parser_config = subparsers.add_parser(
-        "config",
-        help="Functions for managing configurations in swarm system.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser_config.add_argument("name", type=str, help="name of configurations.")
-    parser_config.add_argument(
-        "-s",
-        "--set-value",
-        type=str,
-        help="values to set for given configuration."
-        "\nget operation implied when not specifying this option.",
-    )
-    parser_config.add_argument(
-        "-v", "--verbose", action="store_true", help="show processing details."
-    )
-    parser_config.set_defaults(func="parse_config")
-
+    # region for subparser command "client"
     # subparser for client command
     parser_config = subparsers.add_parser(
         "client",
@@ -572,37 +620,7 @@ if __name__ == "__main__":
     parser_config.add_argument("cmd", type=str, help="command.")
     parser_config.add_argument("arguments", type=str, nargs="*", help="arguments.")
     parser_config.set_defaults(func="parse_client")
-
-    # subparser for cluster command
-    parser_cluster = subparsers.add_parser(
-        "cluster",
-        help="Functions for managing cluster.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser_cluster.add_argument(
-        "--gen-inventory-files",
-        action="store_true",
-        help="generate inventory files of cluster machines for ansible.",
-    )
-    parser_cluster.add_argument(
-        "--ping",
-        action="store_true",
-        help="ping all machines in inventory files using ansible.",
-    )
-    parser_cluster.add_argument(
-        "--registry-login",
-        action="store_true",
-        help="login into registry for cluster machines.",
-    )
-    parser_cluster.add_argument(
-        "--set-up-file-and-dir",
-        action="store_true",
-        help="set up file and dir resources for service deploying.",
-    )
-    parser_cluster.add_argument(
-        "-v", "--verbose", action="store_true", help="show processing details."
-    )
-    parser_cluster.set_defaults(func="parse_cluster")
+    # endregion
 
     args = parser.parse_args()
     if not any(vars(args).values()):
