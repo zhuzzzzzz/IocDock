@@ -97,7 +97,7 @@ class SwarmManager:
         else:
             print()
 
-    def show_digest(self, service_type=['all']):
+    def show_digest(self, service_type=["all"]):
         if not client_check_connection():
             print(f"Failed to connect to IocDockServer.")
             socket_result_service = {}
@@ -148,7 +148,7 @@ class SwarmManager:
         global_print.sort(key=lambda x: x[0])
         local_print.sort(key=lambda x: x[0])
         custom_print.sort(key=lambda x: x[0])
-        if 'all' in service_type:
+        if "all" in service_type:
             raw_print.extend(pinned_print)
             raw_print.extend(local_print)
             raw_print.extend(global_print)
@@ -157,13 +157,13 @@ class SwarmManager:
             print(tabulate(raw_print, headers="firstrow", tablefmt="plain"))
             return
         raw_print.extend(pinned_print)
-        if 'local' in service_type:
+        if "local" in service_type:
             raw_print.extend(local_print)
-        if 'global' in service_type:
+        if "global" in service_type:
             raw_print.extend(global_print)
-        if 'custom' in service_type:
+        if "custom" in service_type:
             raw_print.extend(custom_print)
-        if 'ioc' in service_type:
+        if "ioc" in service_type:
             raw_print.extend(ioc_print)
         print(tabulate(raw_print, headers="firstrow", tablefmt="plain"))
         # print("")
@@ -818,7 +818,7 @@ class SwarmService:
             )
             if not result.stdout.splitlines():
                 return "Unknown"
-            return result.stdout
+            return "\n".join(set(result.stdout.splitlines())).rstrip()
         else:
             if self.is_available:
                 return "Undeployed (Available)"
