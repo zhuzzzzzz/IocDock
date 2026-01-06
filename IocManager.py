@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # region for subparser command "exec"
     parser_execute = subparsers.add_parser(
         "exec",
-        help="Execute functions for IOC projects.",
+        help="Execute built-in functions for IOC projects.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_execute.add_argument(
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     parser_list = subparsers.add_parser(
         "list",
         aliases=["ls"],
-        help="List existing IOC projects filtered by given conditions.",
+        help="List IOC projects using conditional filtering.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_list.add_argument(
@@ -363,7 +363,7 @@ if __name__ == "__main__":
     # region for subparser command "rename"
     parser_rename = subparsers.add_parser(
         "rename",
-        help="Rename IOC project.",
+        help="Rename an IOC project.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_rename.add_argument(
@@ -421,7 +421,7 @@ if __name__ == "__main__":
     # region for subparser command "config"
     parser_config = subparsers.add_parser(
         "config",
-        help="Functions for managing configurations in swarm system.",
+        help="Functions for managing global configurations in system.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_config.add_argument("name", type=str, help="name of configurations.")
@@ -441,7 +441,7 @@ if __name__ == "__main__":
     # region for subparser command "cluster"
     parser_cluster = subparsers.add_parser(
         "cluster",
-        help="Functions for managing cluster.",
+        help="Functions for managing cluster servers in system.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_cluster.add_argument(
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     # subparser for swarm command
     parser_swarm = subparsers.add_parser(
         "swarm",
-        help="Functions for managing swarm system.",
+        help="Functions for managing swarm cluster in system.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_swarm.add_argument(
@@ -511,6 +511,14 @@ if __name__ == "__main__":
         "--show-digest",
         action="store_true",
         help="show digest information of current swarm deploying.",
+    )
+    parser_swarm.add_argument(
+        "--service-type",
+        type=str,
+        nargs="+",
+        default="all",
+        help='service type, a list consisting of "ioc", "global", "local", "custom".'
+        '\ndefault: "all".',
     )
     parser_swarm.add_argument(
         "--show-services",
@@ -566,7 +574,7 @@ if __name__ == "__main__":
     # subparser for service command
     parser_service = subparsers.add_parser(
         "service",
-        help="Functions for managing IOC service in swarm system.",
+        help="Functions for managing services running in swarm cluster.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_service.add_argument(
@@ -614,7 +622,7 @@ if __name__ == "__main__":
     # subparser for client command
     parser_config = subparsers.add_parser(
         "client",
-        help="Call EPICS client library to connect PV in swarm.",
+        help="Call EPICS client libraries to connect PV in swarm cluster.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_config.add_argument("cmd", type=str, help="command.")
@@ -638,6 +646,7 @@ if __name__ == "__main__":
         args.verbose = False
     if args.verbose:
         print(args)
+
     if args.func == "parse_create" or args.func == "parse_set":
         # ./IocManager.py create or ./IocManager.py set
         conf_temp = configparser.ConfigParser()
@@ -757,7 +766,7 @@ if __name__ == "__main__":
         if not result.stdout:
             print(
                 f"Failed. Container that matches "
-                f'label="com.docker.swarm.service.name={PREFIX_STACK_NAME}_srv-client" was not running.'
+                f'label="com.docker.swarm.service.name={PREFIX_STACK_NAME}_srv-client" is not running.'
             )
             exit(1)
         container_list = list(filter(None, result.stdout.split("\n")))

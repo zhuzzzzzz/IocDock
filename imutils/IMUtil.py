@@ -417,7 +417,7 @@ def execute_swarm(args):
     elif args.remove_all_services:
         SwarmManager(verbose=args.verbose).remove_all_services()
     elif args.show_digest:
-        SwarmManager(verbose=args.verbose).show_info()
+        SwarmManager(verbose=args.verbose).show_digest(args.service_type)
     elif args.show_services:
         if args.detail:
             SwarmManager.show_deployed_services_detail()

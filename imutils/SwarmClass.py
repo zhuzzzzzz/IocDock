@@ -97,16 +97,19 @@ class SwarmManager:
         else:
             print()
 
-    def show_info(self):
+    def show_digest(self, service_type=['all']):
         if not client_check_connection():
             print(f"Failed to connect to IocDockServer.")
-        socket_result_service = socket_client("service info", verbose=False)
+            socket_result_service = {}
+        else:
+            socket_result_service = socket_client("service info", verbose=False)
         raw_print = [
             ["Name", "ServiceName", "Type", "Replicas", "Status"],
         ]
-        custom_print = []
+        pinned_print = []
         local_print = []
         global_print = []
+        custom_print = []
         ioc_print = []
         for item in self.services.values():
             socket_info_service = socket_result_service.get(item.name, None)
@@ -125,6 +128,13 @@ class SwarmManager:
                     else item.current_state
                 ),
             ]
+            status_string = t_l[4]
+            if any(
+                "running" not in line.lower() and "undeploy" not in line.lower()
+                for line in status_string.splitlines()
+            ):
+                pinned_print.append(t_l)
+                continue
             if item.service_type == "ioc":
                 ioc_print.append(t_l)
             if item.service_type == "global":
@@ -133,16 +143,30 @@ class SwarmManager:
                 local_print.append(t_l)
             if item.service_type == "custom":
                 custom_print.append(t_l)
+        pinned_print.sort(key=lambda x: x[0])
         ioc_print.sort(key=lambda x: x[0])
         global_print.sort(key=lambda x: x[0])
         local_print.sort(key=lambda x: x[0])
         custom_print.sort(key=lambda x: x[0])
-        raw_print.extend(local_print)
-        raw_print.extend(global_print)
-        raw_print.extend(custom_print)
-        raw_print.extend(ioc_print)
+        if 'all' in service_type:
+            raw_print.extend(pinned_print)
+            raw_print.extend(local_print)
+            raw_print.extend(global_print)
+            raw_print.extend(custom_print)
+            raw_print.extend(ioc_print)
+            print(tabulate(raw_print, headers="firstrow", tablefmt="plain"))
+            return
+        raw_print.extend(pinned_print)
+        if 'local' in service_type:
+            raw_print.extend(local_print)
+        if 'global' in service_type:
+            raw_print.extend(global_print)
+        if 'custom' in service_type:
+            raw_print.extend(custom_print)
+        if 'ioc' in service_type:
+            raw_print.extend(ioc_print)
         print(tabulate(raw_print, headers="firstrow", tablefmt="plain"))
-        print("")
+        # print("")
 
     def deploy_global_services(self):
         for item in self.services.values():
@@ -794,12 +818,12 @@ class SwarmService:
             )
             if not result.stdout.splitlines():
                 return "Unknown"
-            return result.stdout.splitlines()[0]
+            return result.stdout
         else:
             if self.is_available:
-                return "Available. Not deployed"
+                return "Undeployed (Available)"
             else:
-                return "Not Available"
+                return "Undeployed (Unavailable)"
 
     @property
     def replicas(self):
