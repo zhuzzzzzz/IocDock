@@ -1,10 +1,5 @@
-
-
-
-# files to be tracked
+# files should be tracked.
 !Dockerfile
+!build-and-push.sh
 !README
-!setENV.sh
-!.bash_aliases
 !base-7.0.8.1.tar.gz
-
