@@ -59,6 +59,17 @@ busy(R1-7-4)
 	<-	ASYN *(optional for asyn device support)
 	<-	AUTOSAVE (optional for test application only)
 
+		
+s7nodave
+======
+	<-	EPICS_BASE
+	<-	ASYN
+	
+
+BACnet3
+======
+	<-	EPICS_BASE
+	<-	ASYN
 
 
 areaDetector
@@ -71,15 +82,6 @@ areaDetector
 	<-	SSCAN
 	<-	DEVIOCSTATS (optional)
 	<-	ALIVE (optional)
-		
-		
-
-	
-
-
-
-
-
 
 
 

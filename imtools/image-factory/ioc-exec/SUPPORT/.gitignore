@@ -1,4 +1,3 @@
-
 # files to be tracked.
 !automake.sh
 !checkDependency.sh

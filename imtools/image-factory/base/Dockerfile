@@ -11,6 +11,8 @@ ARG BASE_PATH=${WORK_PATH}/${BASE}
 WORKDIR $WORK_PATH
 ADD ${BASE}.tar.gz .
 
+SHELL ["/bin/bash", "-c"]
+
 # install packages and build EPICS base. 
 # build-essential needed to execute make.
 # libreadline-dev needed by epics-base make.
@@ -24,7 +26,8 @@ set -ex
 echo "Types: deb
 URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu/
 Suites: noble noble-updates noble-backports noble-security
-Components: main restricted universe multiverse" | tee /etc/apt/sources.list.d/tuna.sources
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" | tee /etc/apt/sources.list.d/tuna.sources
 rm /etc/apt/sources.list.d/ubuntu.sources
 apt update
 apt install -y build-essential perl libreadline-dev libreadline8 libncurses6 libtirpc-dev re2c iproute2 iputils-ping vim-tiny

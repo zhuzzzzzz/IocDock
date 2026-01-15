@@ -1,5 +1,5 @@
 # files should be tracked.
 !Dockerfile
 !build-and-push.sh
-!README
+!README.md
 !base-7.0.8.1.tar.gz

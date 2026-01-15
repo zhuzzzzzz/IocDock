@@ -12,3 +12,6 @@ base/*
 # ignore uncollected EPICS modules
 ioc-exec/SUPPORT/*
 !ioc-exec/SUPPORT/.gitignore
+
+# docker build logs
+build.log

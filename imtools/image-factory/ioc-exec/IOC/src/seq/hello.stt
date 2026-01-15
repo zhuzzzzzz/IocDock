@@ -1,0 +1,29 @@
+program hello
+int count;
+
+ss hello {
+    state init {
+        when (delay(1)) {
+            printf("\n");
+        } state print_loop
+    }
+
+    state count {
+        when (delay(2.0)) {
+            count++;
+        } state print_loop
+    }
+
+    state print_loop {
+        when (count < 3) {
+            printf("Hello, World!(%d)\n", count);
+        } state count
+        when (count >= 3) {
+            printf("Done!\n");
+        } state silent
+    }
+
+    state silent {
+        when (delay(1.0)) { } state silent
+    }
+}
