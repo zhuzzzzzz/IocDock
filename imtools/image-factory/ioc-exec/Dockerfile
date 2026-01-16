@@ -24,7 +24,7 @@ apt install -y build-essential libreadline-dev python3 zip
 cd $WORK_PATH/SUPPORT
 ./automake.sh ${INSTALL_MODULES:+"--modules=seq ${INSTALL_MODULES}"} install
 cd $WORK_PATH/IOC/ioc-tools
-./ioc-generator.py --with-seq ${INSTALL_MODULES:+"--modules ${INSTALL_MODULES}"}
+./ioc-generator.py --with-seq ${INSTALL_MODULES:+"--modules=${INSTALL_MODULES}"}
 apt remove -y --purge build-essential libreadline-dev python3 zip
 apt autoremove -y
 apt clean

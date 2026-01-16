@@ -6,6 +6,7 @@ script_dir=$(dirname $script_abs)
 base_version=7.0.8.1 # If base image is not exist, this variable will be used to set the base tarball version.
 base_release_version=1.0.0 # From which release version of base image this image will be built.
 release_version=1.0.0 # Default release version.
+print_log=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -26,13 +27,19 @@ while [[ $# -gt 0 ]]; do
             install_modules="${1#*=}"
             shift
             ;;
+        --print-log)
+            print_log=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--base-version=VERSION] [--base-release=VERSION] [--release=VERSION]"
+            echo "Usage: $0 [--base-version=VERSION] [--base-release=VERSION] [--release=VERSION] [--modules=MODULES] [--print-log]"
             exit 1
             ;;
     esac
 done
+
+echo Building image \"ioc-exec:$release_version\"...
 
 # prepare base image
 IMAGE_NAME=base:$base_release_version
@@ -44,18 +51,28 @@ else
     cd ../base
     ./build-and-push.sh --base=$base_version --release=$base_release_version
     cd $script_dir
-    set +ex
+    { set +ex; } 2>/dev/null
 fi
 
 # build image for IOC execution environment
-echo Building image \"ioc-exec:$release_version\"...
-set -x
-docker build --progress=plain \
---build-arg BASE_RELEASE_VERSION=$base_release_version \
---build-arg INSTALL_MODULES=$install_modules \
--t ioc-exec:$release_version . 2>&1 | tee build.log
-return_code=${PIPESTATUS[0]}
-set +x
+if [ "$print_log" = true ]; then
+    set -x
+    docker build --progress=plain \
+    --build-arg BASE_RELEASE_VERSION=$base_release_version \
+    --build-arg INSTALL_MODULES="$install_modules" \
+    -t ioc-exec:$release_version . 2>&1 | tee BuildLog.ioc-exec:$release_version
+    return_code=${PIPESTATUS[0]}
+    { set +x; } 2>/dev/null
+else
+    set -x
+    docker build  \
+    --build-arg BASE_RELEASE_VERSION=$base_release_version \
+    --build-arg INSTALL_MODULES="$install_modules" \
+    -t ioc-exec:$release_version . 
+    return_code=$?
+    { set +x; } 2>/dev/null
+fi
+
 if [ $return_code -ne 0 ]; then 
 	echo Build image \"ioc-exec:$release_version\" failed.
 	exit 1

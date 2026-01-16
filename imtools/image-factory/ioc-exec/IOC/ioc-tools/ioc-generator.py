@@ -1,4 +1,22 @@
 #!/usr/bin/python3
+"""
+IOC Generator Script
+
+This script creates an IOC (Input/Output Controller) project with specified modules for EPICS (Experimental Physics and Industrial Control System).
+
+Usage:
+    python ioc-generator.py --modules="module1 module2 ..." [--with-seq]
+
+Arguments:
+    --modules="module1 module2 ..."   Specify modules to install as a space-separated list in quotes
+                                      Supported modules: seq, asyn, StreamDevice, caPutLog, 
+                                      autosave, iocStats, modbus, s7nodave, BACnet
+    --with-seq                        Enable seq (sequencer) module installation (optional)
+
+Examples:
+    python ioc-generator.py --modules="asyn autosave iocStats"
+    python ioc-generator.py --modules="seq autosave caPutLog iocStats" --with-seq
+"""
 
 import os, shutil
 from subprocess import Popen, TimeoutExpired, PIPE
@@ -229,33 +247,42 @@ def get_module_path(support_dir):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Build IOC with specified modules")
-    parser.add_argument(
-        "--modules",
-        nargs="+",
-        help="List of modules to install, must be one of the modules defined in MODULES_SUPPORTED",
-    )
-    parser.add_argument(
-        "--with-seq",
-        action="store_true",
-        help="Enable seq module installation (default: False)",
-        default=False,
-    )
+    import sys
+    # 解析命令行参数，以支持 --modules="a b c" 的格式
+    args = {'modules': None, 'with_seq': False}
+    
+    # 检查是否有 -h 或 --help 参数
+    if '-h' in sys.argv or '--help' in sys.argv:
+        print(__doc__)
+        sys.exit(0)
+    
+    i = 1
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        
+        if arg.startswith('--modules='):
+            # 提取等号后的值
+            modules_part = arg.split('=', 1)[1]
+            # 按空格分割模块名
+            args['modules'] = modules_part.split()
+            
+        elif arg == '--with-seq':
+            args['with_seq'] = True
+            
+        i += 1
 
-    args = parser.parse_args()
-
-    if args.modules:
+    if args['modules']:
         # 验证传入的模块是否都在MODULES_SUPPORTED的键中
-        invalid_modules = [m for m in args.modules if m not in MODULES_SUPPORTED.keys()]
+        invalid_modules = [m for m in args['modules'] if m not in MODULES_SUPPORTED.keys()]
         if invalid_modules:
             print(f"Error: Invalid modules provided: {', '.join(invalid_modules)}")
             sys.exit(1)
 
         # 更新MODULES_TO_INSTALL
         global MODULES_TO_INSTALL
-        MODULES_TO_INSTALL = args.modules
+        MODULES_TO_INSTALL = args['modules']
 
-    if args.with_seq:
+    if args['with_seq']:
         global with_seq
         with_seq = True
         if "seq" not in MODULES_TO_INSTALL:

@@ -34,7 +34,8 @@ apt install -y build-essential perl libreadline-dev libreadline8 libncurses6 lib
 echo "set nocompatible\nset backspace=indent,eol,start\n" > /root/.vimrc
 mv ./${BASE}/ ./base-src/
 cd base-src
-echo "\nINSTALL_LOCATION=${BASE_PATH}\n" >> ./configure/CONFIG_SITE
+echo -e "\nINSTALL_LOCATION=${BASE_PATH}\n" >> ./configure/CONFIG_SITE
+cat ./configure/CONFIG_SITE
 make
 cd ..
 rm -rf base-src
