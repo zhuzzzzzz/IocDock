@@ -4,17 +4,17 @@ on:
   push:
     branches: [ master ]
     paths:
-      - 'imtools/image-factory/base/'
-      - 'imtools/image-factory/ioc-exec/'
-      - '.github/workflows/build-image-factory.yml'
+      - 'imtools/image-factory/base/**'
+      - 'imtools/image-factory/ioc-exec/**'
+      - '.gitea/workflows/image-factory-test.yaml'
       - '!.gitignore'
       - '!README.md'
   pull_request:
     branches: [ master ]
     paths:
-      - 'imtools/image-factory/base/'
-      - 'imtools/image-factory/ioc-exec/'
-      - '.github/workflows/build-image-factory.yml'
+      - 'imtools/image-factory/base/**'
+      - 'imtools/image-factory/ioc-exec/**'
+      - '.gitea/workflows/image-factory-test.yml'
       - '!.gitignore'
       - '!README.md'
 

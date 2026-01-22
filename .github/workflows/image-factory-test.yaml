@@ -6,7 +6,7 @@ on:
     paths:
       - 'imtools/image-factory/base/'
       - 'imtools/image-factory/ioc-exec/'
-      - '.github/workflows/build-image-factory.yml'
+      - '.github/workflows/image-factory-test.yaml'
       - '!.gitignore'
       - '!README.md'
   pull_request:
@@ -14,7 +14,7 @@ on:
     paths:
       - 'imtools/image-factory/base/'
       - 'imtools/image-factory/ioc-exec/'
-      - '.github/workflows/build-image-factory.yml'
+      - '.github/workflows/image-factory-test.yaml'
       - '!.gitignore'
       - '!README.md'
 
