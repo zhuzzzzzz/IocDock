@@ -23,7 +23,7 @@ docker build -t ioc-exec:prod .
 2. 编译IOC可执行文件
 
 	0) 所有工作在"IOC"目录内完成
-	1) 编辑脚本"ioc-generator.py", 设置IOC的基本信息以及需要为IOC安装的模块(若设置了sequencer, 则需要先将seq SNL文件拷贝至 IOC/src/seq 目录下)
+	1) 编辑脚本"ioc-generator.py", 设置IOC的基本信息以及需要为IOC安装的模块(若设置了sequencer, 则需要先将seq SNL文件拷贝至 IOC/src/seq/ 目录下)
 	2) 运行脚本"ioc-generator.py", 完成IOC可执行文件的创建以及编译(Dockerfile内自动完成)
 
 
