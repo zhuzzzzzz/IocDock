@@ -21,7 +21,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+    env:
+      GIT_SSL_NO_VERIFY: "true"
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
