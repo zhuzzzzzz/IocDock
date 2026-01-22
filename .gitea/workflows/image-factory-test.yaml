@@ -8,15 +8,15 @@ on:
       - 'imtools/image-factory/ioc-exec/**'
       - '.gitea/workflows/image-factory-test.yaml'
       - '!imtools/image-factory/**/.gitignore'
-      - '!README.md'
+      - '!imtools/image-factory/**/README.md'
   pull_request:
     branches: [ master ]
     paths:
       - 'imtools/image-factory/base/**'
       - 'imtools/image-factory/ioc-exec/**'
       - '.gitea/workflows/image-factory-test.yml'
-      - '!.gitignore'
-      - '!README.md'
+      - '!imtools/image-factory/**/.gitignore'
+      - '!imtools/image-factory/**/README.md'
 
 jobs:
   build:
@@ -24,6 +24,7 @@ jobs:
     env:
       GIT_SSL_NO_VERIFY: "true"
     steps:
+
     - name: Checkout repository
       uses: actions/checkout@v4
 
