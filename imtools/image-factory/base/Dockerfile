@@ -51,5 +51,5 @@ ENV EPICS_BASE=${WORK_PATH}/${BASE}
 ENV EPICS_HOST_ARCH=${EPICS_HOST_ARCH}
 ENV PATH=${PATH}:${EPICS_BASE}/bin/${EPICS_HOST_ARCH}
 
-#
+# set not exit
 CMD ["sleep", "infinity"]
