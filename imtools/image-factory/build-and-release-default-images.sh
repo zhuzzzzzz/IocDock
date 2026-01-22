@@ -18,6 +18,8 @@ versions_to_build_for_ioc_exec=(
 )
 
 print_log=""
+skip_confirm=false
+run_tests=false
 
 # 解析命令行参数
 while [[ $# -gt 0 ]]; do
@@ -26,9 +28,17 @@ while [[ $# -gt 0 ]]; do
             print_log_option="true"
             shift
             ;;
+        -y|--yes)
+            skip_confirm=true
+            shift
+            ;;
+        --test)
+            run_tests=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--print-log]"
+            echo "Usage: $0 [--print-log] [-y/--yes] [--test]"
             exit 1
             ;;
     esac
@@ -52,11 +62,13 @@ for version in "${versions_to_build_for_ioc_exec[@]}"; do
 done
 echo "=============================================="
 
-# 询问用户是否继续
-read -p "Do you want to continue with the build process? (y/N): " continue_choice
-if [[ ! $continue_choice =~ ^[Yy]$ ]]; then
-    echo "Build process cancelled."
-    exit 1
+# 如果未设置跳过确认，则询问用户是否继续
+if [ "$skip_confirm" = false ]; then
+    read -p "Do you want to continue with the build process? (y/N): " continue_choice
+    if [[ ! $continue_choice =~ ^[Yy]$ ]]; then
+        echo "Build process cancelled."
+        exit 1
+    fi
 fi
 
 echo
@@ -94,3 +106,42 @@ for arg_list in "${versions_to_build_for_ioc_exec[@]}"; do
     { set +x; } 2>/dev/null
     echo
 done
+
+echo
+echo "Start testing for images..."
+echo
+# 如果启用了测试选项，则运行测试
+if [ "$run_tests" = true ]; then
+    echo "Running tests..."
+    cd $script_dir
+    
+    # 测试所有的 base 镜像
+    echo "Testing base images..."
+    for version_entry in "${versions_to_build_for_base[@]}"; do
+        IFS=';' read -r base_version release_version <<< "$version_entry"
+        image_tag="$release_version"
+        echo "Testing base:$image_tag..."
+        ./test-image.sh base "$image_tag"
+        if [ $? -ne 0 ]; then
+            echo "Tests failed for base:$image_tag"
+            exit 1
+        fi
+    done
+    
+    # 测试所有的 ioc-exec 镜像
+    echo "Testing ioc-exec images..."
+    for version_entry in "${versions_to_build_for_ioc_exec[@]}"; do
+        IFS=';' read -r base_version base_release_version release_version modules <<< "$version_entry"
+        image_tag="$release_version"
+        echo "Testing ioc-exec:$image_tag..."
+        ./test-image.sh ioc-exec "$image_tag"
+        if [ $? -ne 0 ]; then
+            echo "Tests failed for ioc-exec:$image_tag"
+            exit 1
+        fi
+    done
+
+    echo "All tests passed!"
+else
+    echo "Skipping tests (use --test to enable)"
+fi

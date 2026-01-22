@@ -17,10 +17,11 @@ do
 		if test $? -eq 0
 		then
 			echo IOC $item successfully installed.
+			exit 0
 		else
 			echo IOC $item install failed.
+			exit 1
 		fi
-		cd $top_dir
 	fi
 done
 
