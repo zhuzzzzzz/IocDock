@@ -66,7 +66,7 @@ SNAPSHOT_PATH = os.path.join(MANAGER_PATH, "ioc-snapshot")
 TEMPLATE_PATH = os.path.join(MANAGER_PATH, "templates")
 COMPOSE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "compose")
 DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "db")
-OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "OperationLog")
+OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "operation-log", "OperationLog")
 MOUNT_PATH = os.getenv(
     "MOUNT_PATH", os.path.normpath(os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
 )
