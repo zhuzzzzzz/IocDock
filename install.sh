@@ -56,8 +56,8 @@ SERVICE_FILE=/etc/systemd/system/IocDockServer.service
 echo "creating systemd service unit file..."
 cat > "${SERVICE_FILE}" << EOF
 [Unit]
-Description=IocDockServer with and socket server
-After=network.target
+Description=IocDockServer with a task server and a socket server
+After=network.target docker.service
 Requires=docker.service
 
 [Service]

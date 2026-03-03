@@ -46,9 +46,24 @@ class RepeatingTimer:
 
     def _run(self):
         while not self._stop_event.is_set():
-            if self._running:
-                self.function(*self.args, **self.kwargs)
-            self._stop_event.wait(self.interval)
+            with self._lock:
+                run_flag = self._running
+            if run_flag:
+                start_time = time.monotonic()
+                try:
+                    self.function(*self.args, **self.kwargs)
+                except Exception as e:
+                    print(f"Error in RepeatingTimer._run: {e}")
+                elapsed_time = time.monotonic() - start_time
+                sleep_time = self.interval - elapsed_time
+                if sleep_time > 0:
+                    self._stop_event.wait(sleep_time)
+                else:
+                    pass
+                    # self._stop_event.wait(self.interval)
+            else:
+                self._stop_event.wait(0.1)
+        # time.sleep(3)
 
     def start(self):
         with self._lock:
@@ -78,16 +93,18 @@ class RepeatingTimer:
 
     @property
     def is_running(self):
-        return self._running
+        with self._lock:
+            return self._running
 
 
-class IocDockServer:
-    def __init__(self):
+class TaskServer:
+    def __init__(self, pull_interval=10):
 
-        self.pull_interval = 10
+        self.pull_interval = pull_interval
 
         self.ioc_list = get_all_ioc()
         self.service_list = SwarmManager().services
+
         self.ioc_info = {}
         self.service_info = {}
         self.node_info = {}
@@ -151,6 +168,10 @@ class IocDockServer:
         for item in self.timer_tasks.values():
             item.stop()
 
+    def shutdown(self):
+        for item in self.timer_tasks.values():
+            item.shutdown()
+
     def get_tasks_status(self):
         status_info = {}
         for name, task in self.timer_tasks.items():
@@ -166,20 +187,28 @@ class IocDockServer:
 
 class SocketServer:
     def __init__(self, with_cli=True, connection_debug=True):
-        self.socket_path = SOCKET_PATH
+
         self.with_cli = with_cli
         self.connection_debug = connection_debug
 
+        self.socket_path = SOCKET_PATH
         self.server_socket = None
         self.listen_sockets = []
         self.serving = False
         self.lock = threading.Lock()
         self.server_thread = None
 
-        self.dock_server = IocDockServer()
+    def run(self):
+        self.start_listen()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            self.stop_listen()
 
     def cleanup_socket(self):
-        display_message("Cleaning up sockets and connections...")
+        if self.listen_sockets or os.path.exists(self.socket_path):
+            display_message("Cleaning up sockets and connections...")
         for sock in self.listen_sockets:
             sock.close()
         self.server_socket = None
@@ -187,9 +216,90 @@ class SocketServer:
         if os.path.exists(self.socket_path):
             os.unlink(self.socket_path)
 
+    def start_listen(self):
+        if self.serving:
+            return
+        display_message("Starting socket server...")
+        try:
+            self.cleanup_socket()
+            display_message("Initializing server socket...")
+            self.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.server_socket.bind(self.socket_path)
+            os.chmod(self.socket_path, 0o777)
+            self.server_socket.listen(8)
+            self.listen_sockets.append(self.server_socket)
+            self.serving = True
+            self.server_thread = threading.Thread(
+                target=self.process_loop, daemon=False
+            )
+            self.server_thread.start()
+        except Exception as e:
+            self.serving = False
+            self.cleanup_socket()
+            display_message(f"Failed to start socket server: {e}")
+            if not self.with_cli:
+                sys.exit(1)
+        else:
+            display_message("Socket server started.")
+
+    def stop_listen(self):
+        if self.serving:
+            display_message("Stopping socket server...")
+            self.serving = False
+            self.server_thread.join()
+            self.cleanup_socket()
+            display_message("Socket server stopped.")
+
+    def handle_client_request(self, sock):
+        try:
+            cmd = receive_message(sock)
+            if cmd:
+                if self.connection_debug:
+                    display_message(f'Receive request "{cmd}" from {sock}')
+                cmd = cmd.strip()
+                send_message(sock, cmd)
+                display_message(f'echo request "{cmd}"')
+            else:
+                if self.connection_debug:
+                    display_message(f"Close connection {sock}")
+                sock.close()
+                self.listen_sockets.remove(sock)
+        except Exception as e:
+            display_message(f"Exception occurred when communicating with {sock}: {e}")
+            self.listen_sockets.remove(sock)
+            sock.close()
+
+    def handle_client_connection(self, sock):
+        newsock, newaddr = self.server_socket.accept()
+        if self.connection_debug:
+            display_message(f"Connection from {newsock} {newaddr}")
+        self.listen_sockets.append(newsock)
+
+    def process_loop(self):
+        try:
+            while self.serving:
+                rlist, _, _ = select.select(self.listen_sockets, [], [], 1)
+                for sock in rlist:
+                    if sock == self.server_socket:
+                        self.handle_client_connection(sock)
+                    else:
+                        self.handle_client_request(sock)
+        except Exception as e:
+            display_message(f"Error encountered while running the process loop: {e}")
+            self.stop_listen()
+            if not self.with_cli:
+                display_message(f"Socket server exited.")
+                sys.exit(1)
+
+
+class IocDockServer(SocketServer):
+    def __init__(self, with_cli=True, connection_debug=True, pull_interval=10):
+        super().__init__(with_cli=with_cli, connection_debug=connection_debug)
+        self.task_server = TaskServer(pull_interval=pull_interval)
+
     def run(self):
         display_message("Starting all timer tasks...")
-        self.dock_server.start_all_tasks()
+        self.task_server.start_all_tasks()
         self.start_listen()
         if self.with_cli:
             self.console_interface()
@@ -200,40 +310,9 @@ class SocketServer:
             except KeyboardInterrupt:
                 self.exit()
 
-    def start_listen(self):
-        if self.serving:
-            return
-        display_message("Starting socket server...")
-        try:
-            self.cleanup_socket()
-            self.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.server_socket.bind(self.socket_path)
-            os.chmod(self.socket_path, 0o777)
-            self.server_socket.listen(5)
-            self.listen_sockets.append(self.server_socket)
-            self.serving = True
-            self.server_thread = threading.Thread(
-                target=self.process_loop, daemon=False
-            )
-            self.server_thread.start()
-        except Exception as e:
-            self.serving = False
-            display_message(f"Failed to start socket server: {e}")
-            self.cleanup_socket()
-        else:
-            display_message("Socket server started.")
-
-    def stop_listen(self):
-        if self.serving:
-            display_message("Stoping socket server...")
-            self.serving = False
-            self.server_thread.join()
-            self.cleanup_socket()
-            display_message("Socket server stopped.")
-
     def exit(self):
-        display_message("Stoping all timer tasks...")
-        self.dock_server.stop_all_tasks()
+        display_message("Shutting down all timer tasks...")
+        self.task_server.shutdown()
         self.stop_listen()
 
     def console_interface(self):
@@ -252,12 +331,34 @@ class SocketServer:
                         if self.serving
                         else "\033[31mSocket Server Stopped\033[0m"
                     )
-                    print("\033[32mIocDock Server Tasks:\033[0m")
-                    print(json.dumps(self.dock_server.get_tasks_status(), indent=2))
+                    print("\033[32mIocDockServer Tasks:\033[0m")
+                    for key, value in self.task_server.get_tasks_status().items():
+                        print(
+                            f"{key}: " f'{{"status": ',
+                            (
+                                f'"\033[32m{value["status"]}\033[0m", '
+                                if value["status"] == "running"
+                                else f'"\033[31m{value["status"]}\033[0m", '
+                            ),
+                            f'"interval": {value["interval"]}, '
+                            f'"function": "{value["function"]}", '
+                            f'"args": {value["args"]}, '
+                            f'"kwargs": {value["kwargs"]}}}',
+                        ),
                 elif command == "start listen":
-                    self.start_listen()
+                    if not self.serving:
+                        self.start_listen()
+                    else:
+                        print("Socket server is already running.")
                 elif command == "stop listen":
-                    self.stop_listen()
+                    if not self.serving:
+                        print("Socket server is not running.")
+                    else:
+                        self.stop_listen()
+                elif command == "start server":
+                    self.task_server.start_all_tasks()
+                elif command == "stop server":
+                    self.task_server.stop_all_tasks()
                 elif command == "sockets":
                     print(self.listen_sockets)
                 elif command == "debug on":
@@ -288,21 +389,19 @@ class SocketServer:
 
     def handle_server_cmd(self, cmd):
         if cmd == "ioc info":
-            pprint.pprint(self.dock_server.ioc_info)
+            pprint.pprint(self.task_server.ioc_info)
         elif cmd == "service info":
-            pprint.pprint(self.dock_server.service_info)
+            pprint.pprint(self.task_server.service_info)
         elif cmd == "node info":
-            pprint.pprint(self.dock_server.node_info)
+            pprint.pprint(self.task_server.node_info)
         elif cmd == "start all":
-            self.dock_server.start_all_tasks()
+            self.task_server.start_all_tasks()
         elif cmd == "stop all":
-            self.dock_server.stop_all_tasks()
+            self.task_server.stop_all_tasks()
         elif cmd.startswith("start "):
-            print(f'Try starting timer task "{cmd.removeprefix("start ")}"...')
-            self.dock_server.start_task(cmd.removeprefix("start "))
+            self.task_server.start_task(cmd.removeprefix("start "))
         elif cmd.startswith("stop "):
-            print(f'Try stoping timer task "{cmd.removeprefix("stop ")}"...')
-            self.dock_server.stop_task(cmd.removeprefix("stop "))
+            self.task_server.stop_task(cmd.removeprefix("stop "))
         else:
             print(f"{cmd}: subcommand not found")
 
@@ -322,7 +421,7 @@ class SocketServer:
                             f'send response for "{cmd}"', with_prompt=self.with_cli
                         )
                     json_string = json.dumps(
-                        self.dock_server.ioc_info, ensure_ascii=False
+                        self.task_server.ioc_info, ensure_ascii=False
                     )
                     send_message(sock, json_string)
                 elif cmd == "service info":
@@ -331,7 +430,7 @@ class SocketServer:
                             f'send response for "{cmd}"', with_prompt=self.with_cli
                         )
                     json_string = json.dumps(
-                        self.dock_server.service_info, ensure_ascii=False
+                        self.task_server.service_info, ensure_ascii=False
                     )
                     send_message(sock, json_string)
                 elif cmd == "node info":
@@ -340,7 +439,7 @@ class SocketServer:
                             f'send response for "{cmd}"', with_prompt=self.with_cli
                         )
                     json_string = json.dumps(
-                        self.dock_server.node_info, ensure_ascii=False
+                        self.task_server.node_info, ensure_ascii=False
                     )
                     send_message(sock, json_string)
                 else:
@@ -363,31 +462,6 @@ class SocketServer:
             )
             self.listen_sockets.remove(sock)
             sock.close()
-
-    def handle_client_connection(self, sock):
-        newsock, newaddr = self.server_socket.accept()
-        if self.connection_debug:
-            display_message(
-                f"Connection from {newsock} {newaddr}", with_prompt=self.with_cli
-            )
-        self.listen_sockets.append(newsock)
-
-    def process_loop(self):
-        try:
-            while self.serving:
-                rlist, _, _ = select.select(self.listen_sockets, [], [], 1)
-                for sock in rlist:
-                    if sock == self.server_socket:
-                        self.handle_client_connection(sock)
-                    else:
-                        self.handle_client_request(sock)
-        except Exception as e:
-            display_message(
-                f"An error was encountered while running the process loop: {e}",
-                with_prompt=self.with_cli,
-            )
-            self.stop_listen()
-            display_message(with_prompt=self.with_cli)
 
 
 if __name__ == "__main__":

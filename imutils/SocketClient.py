@@ -60,7 +60,7 @@ def client_check_connection(verbose=False):
     return connection
 
 
-def socket_client(req_to_send, verbose=True):
+def socket_client(req_to_send, receive_type="str", verbose=True):
     response = {}
     socket_path = SOCKET_PATH
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -69,10 +69,11 @@ def socket_client(req_to_send, verbose=True):
         send_message(sock, req_to_send)
         response = receive_message(sock)
         if response and response != "invalid request":
-            response = json.loads(response)
+            if receive_type == "json":
+                response = json.loads(response)
     except Exception as e:
         if verbose:
-            print(f"Exception occurred while running socket clinet: {e}")
+            print(f"Exception occurred while running socket client: {e}")
     finally:
         sock.close()
     return response

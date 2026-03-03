@@ -20,7 +20,7 @@ def set_up_file_and_dir_for_every_host():
 
 
 def set_up_dir_according_to_labels():
-    node_info = socket_client("node info")
+    node_info = socket_client("node info", receive_type="json")
     for node_name, node_info in node_info.items():
         if node_info.get("labels", None):
             for key, value in node_info.get("labels").items():
@@ -38,8 +38,8 @@ def set_up_dir_according_to_labels():
 
 if __name__ == "__main__":
     if client_check_connection():
-        print(socket_client("ioc info"))
-    print(socket_client("service info"))
-    print(socket_client("node info"))
+        print(socket_client("ioc info", receive_type="json"))
+    print(socket_client("service info", receive_type="json"))
+    print(socket_client("node info", receive_type="json"))
     # set_up_file_and_dir_for_every_host()
     # set_up_dir_according_to_labels()

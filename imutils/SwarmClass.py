@@ -102,7 +102,10 @@ class SwarmManager:
             print(f"Failed to connect to IocDockServer.")
             socket_result_service = {}
         else:
-            socket_result_service = socket_client("service info", verbose=False)
+            socket_result_service = socket_client(
+                "service info", receive_type="json", verbose=False
+            )
+            print(socket_result_service)
         raw_print = [
             ["Name", "ServiceName", "Type", "Replicas", "Status"],
         ]

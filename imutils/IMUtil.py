@@ -263,8 +263,12 @@ def get_filtered_ioc(
     if show_panel:
         if not client_check_connection(verbose=verbose):
             print(f"Failed to connect to IocDockServer.")
-        socket_result_ioc = socket_client("ioc info", verbose=verbose)
-        socket_result_service = socket_client("service info", verbose=verbose)
+        socket_result_ioc = socket_client(
+            "ioc info", receive_type="json", verbose=verbose
+        )
+        socket_result_service = socket_client(
+            "service info", receive_type="json", verbose=verbose
+        )
 
     # print results.
     ioc_print = []
