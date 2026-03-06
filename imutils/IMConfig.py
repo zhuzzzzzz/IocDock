@@ -116,7 +116,7 @@ DEFAULT_NODES = {
 
 ANSIBLE_SSH_USER = "root"
 ANSIBLE_FOR_USER = "zhu"
-ANSIBLE_CREATE_PASSWORD = "default"
+ANSIBLE_CREATE_PASSWORD = ""
 
 #############################
 ## Ansible Server Settings ##
