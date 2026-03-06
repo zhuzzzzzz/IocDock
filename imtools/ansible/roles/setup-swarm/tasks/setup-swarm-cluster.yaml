@@ -6,7 +6,7 @@
 - name: leave "Swarm Mode" if set docker_swarm_init_new_cluster
   ansible.builtin.shell:
     docker swarm leave --force
-  when: "docker_info.stdout.find('Swarm: active') != -1
+  when: "(docker_info.stdout.find('Swarm: active') != -1 or docker_info.stdout.find('Swarm: pending') != -1)
     and docker_swarm_init_new_cluster is truthy"
 
 - name: refresh docker_info

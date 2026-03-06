@@ -1,4 +1,4 @@
-- name: run the role for cluster setup
+- name: Run the setup role for machines in swarm cluster
   hosts:
     - manager
     - worker
@@ -11,7 +11,7 @@
     skip_create_remote_user: false
     skip_set_up_ssh_connection: false
     skip_set_up_basic_environment: false
-    skip_set_up_cluster: false
+    skip_set_up_swarm: false
     skip_install_docker_engine: false 
     skip_setup_docker_engine: false 
     skip_setup_swarm_cluster: false
@@ -19,3 +19,18 @@
     docker_swarm_init_new_cluster: true
   roles:
     - setup-cluster
+
+- name: Run the setup role for machines not in swarm cluster
+  hosts:
+    - ungrouped
+  become: true
+  gather_facts: true
+  vars:
+    ansible_ssh_user: root
+    for_user: zhu
+    create_password: default
+    skip_create_remote_user: false
+    skip_set_up_ssh_connection: false
+    skip_set_up_basic_environment: false
+  roles:
+    - setup-machine

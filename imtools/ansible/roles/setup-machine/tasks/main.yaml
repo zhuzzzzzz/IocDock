@@ -10,7 +10,3 @@
 # set up basic environment
 - include_tasks: "set-up-basic-environment.yaml"
   when: not skip_set_up_basic_environment
-
-# set up swarm
-- include_tasks: "set-up-swarm.yaml"
-  when: not skip_set_up_swarm

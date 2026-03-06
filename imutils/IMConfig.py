@@ -39,6 +39,8 @@ GLOBAL_SERVICE_FILE_DIR = "global-services"
 
 # MOUNT_DIR = 'ioc-for-docker'
 MOUNT_DIR = "IocDock-data"  # top directory for nfs mounting
+MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/IocDock-data"
+
 SWARM_DIR = "swarm"  # top directory for swarm deploying
 LOG_FILE_DIR = "iocLog"  # directory for running iocLogServer in docker
 
@@ -112,7 +114,9 @@ DEFAULT_NODES = {
     "nfs": "192.168.1.50"
 }
 
-FOR_USER = "zhu"
+ANSIBLE_SSH_USER = "root"
+ANSIBLE_FOR_USER = "zhu"
+ANSIBLE_CREATE_PASSWORD = "default"
 
 #############################
 ## Ansible Server Settings ##
@@ -159,6 +163,8 @@ REGISTRY_CERT_DOCKER_DIR = (
 )
 REGISTRY_SHELL_VAR_FILE = "RegistryVar"  # temp file for shell variables
 
+REGISTRY_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/registry-data"
+
 ## alertManager ##
 ALERT_MANAGER_SHELL_VAR_FILE = "AlertManagerVar"
 ALERT_MANAGER_MASTER_IP = "192.168.1.50"
@@ -180,12 +186,16 @@ ALERT_MANAGER_INFO_WEBHOOK_RECEIVER: str = "http://192.168.1.51:8000/alerts"
 ##
 ALLOWED_VARS = [
     "DEFAULT_MODULES",
+    "MOUNT_DIR_NFS_MOUNT_SRC",
     "CLUSTER_MANAGER_NODES",
     "CLUSTER_WORKER_NODES",
     "DEFAULT_NODES",
-    "FOR_USER",
+    "ANSIBLE_SSH_USER",
+    "ANSIBLE_FOR_USER",
+    "ANSIBLE_CREATE_PASSWORD",
     "PREFIX_STACK_NAME",
     "REGISTRY_PORT",
+    "REGISTRY_NFS_MOUNT_SRC",
     "ALERT_MANAGER_MASTER_IP",
     "ALERT_MANAGER_SMTP_SMART_HOST",
     "ALERT_MANAGER_SMTP_AUTH_USERNAME",

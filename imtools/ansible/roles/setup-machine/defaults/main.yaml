@@ -18,6 +18,3 @@ force_refresh_key_pair: false
 set_hostname: true
 disable_firewall: true
 disable_package_auto_update: true
-
-## set up cluster
-# for this section, you should set vars in vars/main.yaml

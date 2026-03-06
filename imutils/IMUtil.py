@@ -14,11 +14,16 @@ from imutils.IocClass import (
 from imutils.SwarmClass import SwarmManager, SwarmService
 from imutils.IMFunc import try_makedirs, condition_parse
 from imutils.SocketClient import socket_client, client_check_connection
-from imutils.AnsibleClient import (
-    set_up_file_and_dir_for_every_host,
-    set_up_dir_according_to_labels,
+from imutils.AnsibleUtil import (
+    gen_inventory_files,
+    create_remote_user,
+    set_up_ssh_connection,
+    set_up_basic_environment,
+    set_up_cluster,
+    ping,
+    docker_registry_login,
+    set_up_file_and_dir,
 )
-from imutils.AnsibleUtil import gen_inventory_files, ping, docker_registry_login
 
 
 # accepts iterable for input
@@ -517,11 +522,18 @@ def execute_cluster(args):
         gen_inventory_files(verbose=args.verbose)
     elif args.ping:
         ping()
+    elif args.create_remote_user:
+        create_remote_user()
+    elif args.set_up_ssh_connection:
+        set_up_ssh_connection()
+    elif args.set_up_basic_environment:
+        set_up_basic_environment()
+    elif args.set_up_cluster:
+        set_up_cluster()
     elif args.registry_login:
         docker_registry_login()
     elif args.set_up_file_and_dir:
-        set_up_file_and_dir_for_every_host()
-        set_up_dir_according_to_labels()
+        set_up_file_and_dir()
 
 
 if __name__ == "__main__":

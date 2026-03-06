@@ -455,6 +455,26 @@ if __name__ == "__main__":
         help="ping all machines in inventory files using ansible.",
     )
     parser_cluster.add_argument(
+        "--create-remote-user",
+        action="store_true",
+        help="create remote user for cluster machines.",
+    )
+    parser_cluster.add_argument(
+        "--set-up-ssh-connection",
+        action="store_true",
+        help="set up SSH connection to cluster machines.",
+    )
+    parser_cluster.add_argument(
+        "--set-up-basic-environment",
+        action="store_true",
+        help="set up basic environment on cluster machines.",
+    )
+    parser_cluster.add_argument(
+        "--set-up-cluster",
+        action="store_true",
+        help="set up cluster environment for machines in the inventory files.",
+    )
+    parser_cluster.add_argument(
         "--registry-login",
         action="store_true",
         help="login into registry for cluster machines.",
