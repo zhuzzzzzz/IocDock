@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Saved on 2023-07-07 09:14:24 by zhu-->
+<display version="2.0.0">
+  <name>EPICS Env</name>
+  <width>500</width>
+  <height>500</height>
+  <widget type="label" version="2.0.0">
+    <name>Label_3</name>
+    <text>EPICS_CA_ADDR_LIST</text>
+    <x>20</x>
+    <y>50</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_28</name>
+    <pv_name>$(IOC):CA_ADDR_LIST</pv_name>
+    <x>260</x>
+    <y>50</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_4</name>
+    <text>EPICS_CA_AUTO_ADDR_LIST</text>
+    <x>20</x>
+    <y>75</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_29</name>
+    <pv_name>$(IOC):CA_AUTO_ADDR</pv_name>
+    <x>260</x>
+    <y>75</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_5</name>
+    <text>EPICS_CA_CONN_TMO</text>
+    <x>20</x>
+    <y>100</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_30</name>
+    <pv_name>$(IOC):CA_CONN_TIME</pv_name>
+    <x>260</x>
+    <y>100</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_6</name>
+    <text>EPICS_CA_REPEATER_PORT</text>
+    <x>20</x>
+    <y>125</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_31</name>
+    <pv_name>$(IOC):CA_RPTR_PORT</pv_name>
+    <x>260</x>
+    <y>125</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_7</name>
+    <text>EPICS_CA_SERVER_PORT</text>
+    <x>20</x>
+    <y>150</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_32</name>
+    <pv_name>$(IOC):CA_SRVR_PORT</pv_name>
+    <x>260</x>
+    <y>150</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_8</name>
+    <text>EPICS_CA_MAX_ARRAY_BYTES</text>
+    <x>20</x>
+    <y>175</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_33</name>
+    <pv_name>$(IOC):CA_MAX_ARRAY</pv_name>
+    <x>260</x>
+    <y>175</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_9</name>
+    <text>EPICS_CA_BEACON_PERIOD</text>
+    <x>20</x>
+    <y>200</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_34</name>
+    <pv_name>$(IOC):CA_BEAC_TIME</pv_name>
+    <x>260</x>
+    <y>200</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_10</name>
+    <text>EPICS_CA_MAX_SEARCH_PERIOD</text>
+    <x>20</x>
+    <y>225</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_35</name>
+    <pv_name>$(IOC):CA_SRCH_TIME</pv_name>
+    <x>260</x>
+    <y>225</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_11</name>
+    <text>EPICS_CAS_BEACON_PERIOD</text>
+    <x>20</x>
+    <y>300</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_36</name>
+    <pv_name>$(IOC):CAS_BEACON_PERIOD</pv_name>
+    <x>300</x>
+    <y>300</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_12</name>
+    <text>EPICS_CAS_BEACON_PORT</text>
+    <x>20</x>
+    <y>325</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_37</name>
+    <pv_name>$(IOC):CAS_BEACON_PORT</pv_name>
+    <x>300</x>
+    <y>325</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_13</name>
+    <text>EPICS_CAS_BEACON_ADDR_LIST</text>
+    <x>20</x>
+    <y>350</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_38</name>
+    <pv_name>$(IOC):CAS_ADDR_LIST</pv_name>
+    <x>300</x>
+    <y>350</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_14</name>
+    <text>EPICS_CAS_AUTO_BEACON_ADDR_LIST</text>
+    <x>20</x>
+    <y>375</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_39</name>
+    <pv_name>$(IOC):CAS_AUTO_ADDR</pv_name>
+    <x>300</x>
+    <y>375</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_15</name>
+    <text>EPICS_CAS_SERVER_PORT</text>
+    <x>20</x>
+    <y>400</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_40</name>
+    <pv_name>$(IOC):CAS_SRVR_PORT</pv_name>
+    <x>300</x>
+    <y>400</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_16</name>
+    <text>EPICS_CAS_INTF_ADDR_LIST</text>
+    <x>20</x>
+    <y>425</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_41</name>
+    <pv_name>$(IOC):CAS_ADDR_INTF_LIST</pv_name>
+    <x>300</x>
+    <y>425</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_17</name>
+    <text>EPICS_CAS_IGNORE_ADDR_LIST</text>
+    <x>20</x>
+    <y>450</y>
+    <width>280</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_42</name>
+    <pv_name>$(IOC):CAS_ADDR_IGNORE_LIST</pv_name>
+    <x>300</x>
+    <y>450</y>
+    <width>160</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_19</name>
+    <text>EPICS_IOC_LOG_PORT</text>
+    <x>20</x>
+    <y>250</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_44</name>
+    <pv_name>$(IOC):IOC_LOG_PORT</pv_name>
+    <x>260</x>
+    <y>250</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_20</name>
+    <text>EPICS_IOC_LOG_INET</text>
+    <x>20</x>
+    <y>275</y>
+    <width>240</width>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_45</name>
+    <pv_name>$(IOC):IOC_LOG_INET</pv_name>
+    <x>260</x>
+    <y>275</y>
+    <width>200</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="rectangle" version="2.0.0">
+    <name>Rectangle</name>
+    <x>20</x>
+    <y>40</y>
+    <width>440</width>
+    <height>1</height>
+    <line_color>
+      <color name="Text" red="0" green="0" blue="0">
+      </color>
+    </line_color>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label</name>
+    <text>EPICS Environment Variables</text>
+    <x>20</x>
+    <y>10</y>
+    <width>260</width>
+    <font>
+      <font family="Liberation Sans" style="REGULAR" size="16.0">
+      </font>
+    </font>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_1</name>
+    <text>IOC:    $(IOC)</text>
+    <x>270</x>
+    <y>10</y>
+    <width>180</width>
+    <font>
+      <font family="Liberation Sans" style="REGULAR" size="16.0">
+      </font>
+    </font>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+</display>

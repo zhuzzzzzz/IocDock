@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Saved on 2023-07-07 10:13:15 by zhu-->
+<display version="2.0.0">
+  <name>Set Alarm Limits</name>
+  <width>500</width>
+  <height>400</height>
+  <widget type="label" version="2.0.0">
+    <name>Label_3</name>
+    <text># CA Clients</text>
+    <x>20</x>
+    <y>80</y>
+    <width>110</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_28</name>
+    <pv_name>$(IOC):CA_CLNT_CNT</pv_name>
+    <x>130</x>
+    <y>80</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="rectangle" version="2.0.0">
+    <name>Rectangle</name>
+    <x>20</x>
+    <y>40</y>
+    <width>440</width>
+    <height>1</height>
+    <line_color>
+      <color name="Text" red="0" green="0" blue="0">
+      </color>
+    </line_color>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_4</name>
+    <text>Alarm Limits Settings</text>
+    <x>20</x>
+    <y>10</y>
+    <width>260</width>
+    <font>
+      <font family="Liberation Sans" style="REGULAR" size="16.0">
+      </font>
+    </font>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_5</name>
+    <text>IOC:    $(IOC)</text>
+    <x>270</x>
+    <y>10</y>
+    <width>180</width>
+    <font>
+      <font family="Liberation Sans" style="REGULAR" size="16.0">
+      </font>
+    </font>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_6</name>
+    <text>Value</text>
+    <x>130</x>
+    <y>60</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_7</name>
+    <text>HIGH</text>
+    <x>240</x>
+    <y>60</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_8</name>
+    <text>HIHI</text>
+    <x>350</x>
+    <y>60</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_9</name>
+    <text># CA PV Conns</text>
+    <x>20</x>
+    <y>110</y>
+    <width>110</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_33</name>
+    <pv_name>$(IOC):CA_CONN_CNT</pv_name>
+    <x>130</x>
+    <y>110</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_17</name>
+    <text># Suspend Tasks</text>
+    <x>20</x>
+    <y>140</y>
+    <width>110</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_18</name>
+    <text>CPU Load(%)</text>
+    <x>20</x>
+    <y>170</y>
+    <width>110</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_42</name>
+    <pv_name>$(IOC):IOC_CPU_LOAD</pv_name>
+    <x>130</x>
+    <y>170</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_19</name>
+    <text>LOW</text>
+    <x>240</x>
+    <y>200</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_20</name>
+    <text>LOLO</text>
+    <x>350</x>
+    <y>200</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_21</name>
+    <text># Free FDs</text>
+    <x>20</x>
+    <y>220</y>
+    <width>110</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_45</name>
+    <pv_name>$(IOC):FD_FREE</pv_name>
+    <x>130</x>
+    <y>220</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_22</name>
+    <text>Free Mem</text>
+    <x>20</x>
+    <y>250</y>
+    <width>110</width>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_48</name>
+    <pv_name>$(HOST):MEM_FREE</pv_name>
+    <x>130</x>
+    <y>250</y>
+    <horizontal_alignment>1</horizontal_alignment>
+    <vertical_alignment>1</vertical_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry</name>
+    <x>710</x>
+    <y>140</y>
+    <width>1</width>
+    <height>1</height>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_1</name>
+    <pv_name>$(IOC):CA_CLNT_CNT.HIGH</pv_name>
+    <x>240</x>
+    <y>80</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_2</name>
+    <pv_name>$(IOC):CA_CLNT_CNT.HIHI</pv_name>
+    <x>350</x>
+    <y>80</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_3</name>
+    <pv_name>$(IOC):CA_CONN_CNT.HIGH</pv_name>
+    <x>240</x>
+    <y>110</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_4</name>
+    <pv_name>$(IOC):CA_CONN_CNT.HIHI</pv_name>
+    <x>350</x>
+    <y>110</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_5</name>
+    <pv_name>$(IOC):SUSP_TASK_CNT.HIHI</pv_name>
+    <x>350</x>
+    <y>140</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_6</name>
+    <pv_name>$(IOC):FD_FREE.LOW</pv_name>
+    <x>240</x>
+    <y>220</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_7</name>
+    <pv_name>$(IOC):FD_FREE.LOLO</pv_name>
+    <x>350</x>
+    <y>220</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_8</name>
+    <pv_name>$(HOST):MEM_FREE.LOW</pv_name>
+    <x>240</x>
+    <y>250</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_9</name>
+    <pv_name>$(HOST):MEM_FREE.LOLO</pv_name>
+    <x>350</x>
+    <y>250</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_10</name>
+    <pv_name>$(IOC):IOC_CPU_LOAD.HIGH</pv_name>
+    <x>240</x>
+    <y>170</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>Text Entry_11</name>
+    <pv_name>$(IOC):IOC_CPU_LOAD.HIHI</pv_name>
+    <x>350</x>
+    <y>170</y>
+    <horizontal_alignment>1</horizontal_alignment>
+  </widget>
+</display>
