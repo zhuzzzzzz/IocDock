@@ -7,6 +7,7 @@ base_version=7.0.8.1 # If base image is not exist, this variable will be used to
 base_release_version=1.0.0 # From which release version of base image this image will be built.
 release_version=1.0.0 # Default release version.
 print_log=false
+push_image=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -31,9 +32,13 @@ while [[ $# -gt 0 ]]; do
             print_log=true
             shift
             ;;
+        --push-image)
+            push_image=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--base-version=VERSION] [--base-release=VERSION] [--release=VERSION] [--modules=MODULES] [--print-log]"
+            echo "Usage: $0 [--base-version=VERSION] [--base-release=VERSION] [--release=VERSION] [--modules=MODULES] [--print-log] [--push-image]"
             exit 1
             ;;
     esac
@@ -43,13 +48,23 @@ echo Building image \"ioc-exec:$release_version\"...
 
 # prepare base image
 IMAGE_NAME=base:$base_release_version
+if [ "$print_log" = true ]; then
+    print_log_temp="true"
+else
+    print_log_temp=""
+fi
+if [ "$push_image" = true ]; then
+    push_image_temp="true"
+else
+    push_image_temp=""
+fi
 if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${IMAGE_NAME}$"; then
     echo "Find EPICS base image \"$IMAGE_NAME\"."
 else
     echo "EPICS base image \"$IMAGE_NAME\" does not exist. Try to build it..."
     set -ex
     cd ../base
-    ./build-and-push.sh --base=$base_version --release=$base_release_version
+    ./build-and-push.sh --base=$base_version --release=$base_release_version ${print_log_temp:+--print-log} ${push_image_temp:+--push-image}
     cd $script_dir
     { set +ex; } 2>/dev/null
 fi
@@ -76,13 +91,15 @@ fi
 if [ $return_code -ne 0 ]; then 
 	echo Build image \"ioc-exec:$release_version\" failed.
 	exit 1
+else
+	echo Build image \"ioc-exec:$release_version\" succeeded.
 fi
 
 
 # push image if $release_prefix is defined
 release_prefix=`IocManager config REGISTRY_COMMON_NAME`
 # tag and push image to registry
-if [ -n "$release_prefix" ]; then 
+if [ "$push_image" = true ] && [ -n "$release_prefix" ]; then 
 	docker image tag ioc-exec:$release_version $release_prefix/ioc-exec:$release_version
 	docker image push $release_prefix/ioc-exec:$release_version
 fi

@@ -31,4 +31,4 @@ jobs:
     - name: Build images using build-and-release-default-images.sh with test
       run: |
         cd imtools/image-factory
-        ./build-and-release-default-images.sh --print-log -y --test
+        ./build-and-release-default-images.sh --print-log -y --test --no-push

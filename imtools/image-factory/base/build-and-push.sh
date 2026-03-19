@@ -3,6 +3,7 @@
 base_version=7.0.8.1
 release_version=1.0.0
 print_log=false
+push_image=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -19,9 +20,13 @@ while [[ $# -gt 0 ]]; do
             print_log=true
             shift
             ;;
+        --push-image)
+            push_image=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--base=VERSION] [--release=VERSION] [--print-log]"
+            echo "Usage: $0 [--base=VERSION] [--release=VERSION] [--print-log] [--push-image]"
             exit 1
             ;;
     esac
@@ -76,7 +81,7 @@ fi
 # push image if $release_prefix is defined
 release_prefix=`IocManager config REGISTRY_COMMON_NAME`
 # tag and push image to registry
-if [ -n "$release_prefix" ]; then
+if [ "$push_image" = true ] && [ -n "$release_prefix" ]; then
     echo Try to tag and push image to registry...
     set -x
 	docker image tag base:$release_version $release_prefix/base:$release_version

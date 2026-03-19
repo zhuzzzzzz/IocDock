@@ -20,6 +20,7 @@ versions_to_build_for_ioc_exec=(
 print_log=""
 skip_confirm=false
 run_tests=false
+no_push=false
 
 # 解析命令行参数
 while [[ $# -gt 0 ]]; do
@@ -36,9 +37,13 @@ while [[ $# -gt 0 ]]; do
             run_tests=true
             shift
             ;;
+        --no-push)
+            no_push=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--print-log] [-y/--yes] [--test]"
+            echo "Usage: $0 [--print-log] [-y/--yes] [--test] [--no-push]"
             exit 1
             ;;
     esac
@@ -72,7 +77,7 @@ if [ "$skip_confirm" = false ]; then
 fi
 
 echo
-echo "Start building and releasing images for EPICS base..."
+echo "Start building images for EPICS base..."
 echo
 set -ex
 cd $script_dir/base
@@ -88,7 +93,7 @@ for arg_list in "${versions_to_build_for_base[@]}"; do
 done
 
 echo
-echo "Start building and releasing images for ioc-exec..."
+echo "Start building images for ioc-exec..."
 echo
 set -x
 cd $script_dir/ioc-exec
@@ -107,12 +112,12 @@ for arg_list in "${versions_to_build_for_ioc_exec[@]}"; do
     echo
 done
 
-echo
-echo "Start testing for images..."
-echo
+#
 # 如果启用了测试选项，则运行测试
 if [ "$run_tests" = true ]; then
-    echo "Running tests..."
+    echo
+    echo "Start testing for images..."
+    echo
     cd $script_dir
     
     # 测试所有的 base 镜像
@@ -143,5 +148,49 @@ if [ "$run_tests" = true ]; then
 
     echo "All tests passed!"
 else
-    echo "Skipping tests (use --test to enable)"
+    echo "Skip running tests (use --test to enable)"
+fi
+
+if [ "${no_push}" = false ]; then
+    echo
+    echo "Start pushing images to registry..."
+
+    echo
+    echo "Start releasing images for EPICS base..."
+    echo
+    set -ex
+    cd $script_dir/base
+    { set +x; } 2>/dev/null    
+    # 遍历版本数组进行缓存构建，并推送到镜像仓库
+    for arg_list in "${versions_to_build_for_base[@]}"; do
+        # 分割字符串获取 base 版本和 release 版本
+        IFS=';' read -r base_version base_release_version <<< "$arg_list"
+        set -x
+        ./build-and-push.sh --base=$base_version --release=$base_release_version --push-image
+        { set +x; } 2>/dev/null
+        echo
+    done
+    
+    echo
+    echo "Start releasing images for ioc-exec..."
+    echo
+    set -x
+    cd $script_dir/ioc-exec
+    { set +x; } 2>/dev/null
+    # 遍历版本数组进行缓存构建，并推送到镜像仓库
+    for arg_list in "${versions_to_build_for_ioc_exec[@]}"; do
+        # 分割字符串获取 base 、base_release 、release 、模块列表
+        IFS=';' read -r base_version base_release_version release_version modules <<< "$arg_list"
+        set -x
+        ./build-and-push.sh --base-version=$base_version \
+            --base-release=$base_release_version \
+            --release=$release_version \
+            "--modules=$modules" \
+            --push-image
+        { set +x; } 2>/dev/null
+        echo
+    done
+
+else
+    echo "Skip pushing images (remove --no-push to enable)"
 fi

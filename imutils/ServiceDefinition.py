@@ -1,5 +1,5 @@
 import os.path
-from imutils.IMConfig import COMPOSE_TEMPLATE_PATH
+from imutils.IMConfig import SERVICE_TEMPLATE_PATH
 
 #
 GlobalServicesList = [
@@ -22,12 +22,13 @@ LocalServicesList = [
     ("loki", "loki:3.5.2"),
     ("grafana", "grafana:12.0.2-ubuntu"),
     ("alertAnalytics", "alert-analytics:0.1.0"),
+    ("dbwr", "dbwr:0.0.1"),
     # ("portainerServer",)
     # ("portainerAgent",)
 ]
 
 #
 CustomServicesList = [
-    # ("name", "/path/to/compose/file"),
-    ("hello", os.path.join(COMPOSE_TEMPLATE_PATH, "hello.yaml")),
+    # ("name", "/path/to/service/file"),
+    ("hello", os.path.join(SERVICE_TEMPLATE_PATH, "hello.yaml")),
 ]
