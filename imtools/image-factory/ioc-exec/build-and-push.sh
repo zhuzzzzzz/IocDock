@@ -95,11 +95,12 @@ else
 	echo Build image \"ioc-exec:$release_version\" succeeded.
 fi
 
-
-# push image if $release_prefix is defined
-release_prefix=`IocManager config REGISTRY_COMMON_NAME`
-# tag and push image to registry
-if [ "$push_image" = true ] && [ -n "$release_prefix" ]; then 
-	docker image tag ioc-exec:$release_version $release_prefix/ioc-exec:$release_version
-	docker image push $release_prefix/ioc-exec:$release_version
+if [ "$push_image" = true ]; then 
+    # push image if $release_prefix is defined
+    release_prefix=`IocManager config REGISTRY_COMMON_NAME`
+    # tag and push image to registry
+    if [ -n "$release_prefix" ]; then 
+        docker image tag ioc-exec:$release_version $release_prefix/ioc-exec:$release_version
+        docker image push $release_prefix/ioc-exec:$release_version
+    fi
 fi

@@ -49,13 +49,15 @@ else
 	echo Build image \"dbwr:$release_version\" succeeded.
 fi
 
-# push image if $push_image is true and $release_prefix is defined
-release_prefix=`IocManager config REGISTRY_COMMON_NAME`
-# tag and push image to registry
-if [ "$push_image" = true ] && [ -n "$release_prefix" ]; then
-    echo Try to tag and push image to registry...
-    set -x
-	docker image tag dbwr:$release_version $release_prefix/dbwr:$release_version
-	docker image push $release_prefix/dbwr:$release_version
-    { set +x; } 2>/dev/null
+if [ "$push_image" = true ]; then 
+    # push image if $push_image is true and $release_prefix is defined
+    release_prefix=`IocManager config REGISTRY_COMMON_NAME`
+    # tag and push image to registry
+    if [ -n "$release_prefix" ]; then
+        echo Try to tag and push image to registry...
+        set -x
+        docker image tag dbwr:$release_version $release_prefix/dbwr:$release_version
+        docker image push $release_prefix/dbwr:$release_version
+        { set +x; } 2>/dev/null
+    fi
 fi
