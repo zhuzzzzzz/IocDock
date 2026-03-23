@@ -4,7 +4,7 @@ networks:
     name: host
 services:
   srv-dbwr:
-    image: dbwr:test
+    image: registry.iasf/dbwr:0.0.1
     labels:
       service-type: local
       prometheus-job: dbwr

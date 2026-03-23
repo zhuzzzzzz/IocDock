@@ -1,5 +1,6 @@
 #!/bin/bash
 
+image_name="dbwr"
 release_version=0.0.1
 print_log=false
 push_image=false
@@ -27,26 +28,26 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo Building image \"dbwr:$release_version\"...
+echo Building image \"$image_name:$release_version\"...
 # build image for dbwr
 if [ "$print_log" = true ]; then
     set -x
     docker build --progress=plain \
-    -t dbwr:$release_version . 2>&1 | tee BuildLog.dbwr:$release_version
+    -t $image_name:$release_version . 2>&1 | tee BuildLog.$image_name:$release_version
     return_code=${PIPESTATUS[0]}
     { set +x; } 2>/dev/null
 else
     set -x
-    docker build -t dbwr:$release_version .
+    docker build -t $image_name:$release_version .
     return_code=$?
     { set +x; } 2>/dev/null
 fi
 
 if [ $return_code -ne 0 ]; then 
-	echo Build image \"dbwr:$release_version\" failed.
+	echo Build image \"$image_name:$release_version\" failed.
 	exit 1
 else
-	echo Build image \"dbwr:$release_version\" succeeded.
+	echo Build image \"$image_name:$release_version\" succeeded.
 fi
 
 if [ "$push_image" = true ]; then 
@@ -56,8 +57,8 @@ if [ "$push_image" = true ]; then
     if [ -n "$release_prefix" ]; then
         echo Try to tag and push image to registry...
         set -x
-        docker image tag dbwr:$release_version $release_prefix/dbwr:$release_version
-        docker image push $release_prefix/dbwr:$release_version
+        docker image tag $image_name:$release_version $release_prefix/$image_name:$release_version
+        docker image push $release_prefix/$image_name:$release_version
         { set +x; } 2>/dev/null
     fi
 fi
