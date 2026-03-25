@@ -4,6 +4,7 @@
     - worker
   become: true
   gather_facts: true
+  any_errors_fatal: true
   vars:
     ansible_ssh_user: root
     for_user: zhu
@@ -25,6 +26,7 @@
     - ungrouped
   become: true
   gather_facts: true
+  any_errors_fatal: true
   vars:
     ansible_ssh_user: root
     for_user: zhu

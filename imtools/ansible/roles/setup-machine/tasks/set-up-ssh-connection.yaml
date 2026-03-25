@@ -35,5 +35,5 @@
     user: "{{ for_user }}"
     state: present
     key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
-  become: false
+  become: true
 
