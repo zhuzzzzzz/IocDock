@@ -27,9 +27,6 @@ $ sudo ./install.sh
 
 # 重启完成安装
 $ reboot
-
-# 运行以下命令, 若无报错则搭建成功
-$ IocManager list
 ```
 
 ### 2. 构建集群环境

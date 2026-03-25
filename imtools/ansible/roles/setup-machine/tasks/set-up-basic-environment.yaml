@@ -63,10 +63,10 @@
     enabled: no
   when: disable_package_auto_update and ansible_os_family == 'RedHat' and ansible_distribution_major_version >= '8'
 
-- name: prepare working directory
-  ansible.builtin.file:
-    path: "/home/{{ for_user }}/docker"
-    state: directory
-    mode: '0775'
-    owner: "{{ for_user }}"
-    group: "{{ for_user }}"
+# - name: prepare working directory
+#   ansible.builtin.file:
+#     path: "/home/{{ for_user }}/docker"
+#     state: directory
+#     mode: '0775'
+#     owner: "{{ for_user }}"
+#     group: "{{ for_user }}"
