@@ -73,8 +73,7 @@ def create_remote_user():
         f"cd {IMConfig.ANSIBLE_PATH}; "
         f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
         f'-e "skip_set_up_ssh_connection=true skip_set_up_basic_environment=true skip_set_up_swarm=true '
-        f'for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password}" '
-        f"-u {IMConfig.ANSIBLE_SSH_USER}"
+        f'for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
     )
 
 
@@ -84,8 +83,7 @@ def set_up_ssh_connection():
         f"cd {IMConfig.ANSIBLE_PATH}; "
         f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
         f'-e "skip_create_remote_user=true skip_set_up_basic_environment=true skip_set_up_swarm=true '
-        f'for_user={IMConfig.ANSIBLE_FOR_USER}" '
-        f"-u {IMConfig.ANSIBLE_SSH_USER}"
+        f'for_user={IMConfig.ANSIBLE_FOR_USER} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
     )
 
 
@@ -95,8 +93,7 @@ def set_up_basic_environment():
         f"cd {IMConfig.ANSIBLE_PATH}; "
         f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
         f'-e "skip_create_remote_user=true skip_set_up_ssh_connection=true skip_set_up_swarm=true '
-        f'for_user={IMConfig.ANSIBLE_FOR_USER}" '
-        f"-u {IMConfig.ANSIBLE_SSH_USER}"
+        f'for_user={IMConfig.ANSIBLE_FOR_USER} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
     )
 
 
@@ -114,8 +111,7 @@ def set_up_cluster():
     os.system(
         f"cd {IMConfig.ANSIBLE_PATH}; "
         f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
-        f'-e "for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password}" '
-        f"-u {IMConfig.ANSIBLE_SSH_USER}"
+        f'-e "for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
     )
 
 
