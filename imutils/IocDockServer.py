@@ -465,5 +465,10 @@ class IocDockServer(SocketServer):
 
 
 if __name__ == "__main__":
-    s = SocketServer()
-    s.run()
+    # s = SocketServer()
+    # s.run()
+    if "--server" in sys.argv:
+        iocds = IocDockServer(with_cli=False, connection_debug=False, pull_interval=5)
+    else:
+        iocds = IocDockServer(pull_interval=5)
+    iocds.run()

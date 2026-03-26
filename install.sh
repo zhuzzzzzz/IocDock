@@ -65,7 +65,7 @@ Type=simple
 User=${current_user}
 Group=${current_user}
 WorkingDirectory=${script_dir}
-ExecStart=/usr/bin/python3 -u IocDockServer.py --server
+ExecStart=/usr/bin/python3 -u imutils/IocDockServer.py --server
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal
@@ -82,6 +82,12 @@ chmod 644 "${SERVICE_FILE}"
 systemctl daemon-reload
 systemctl enable IocDockServer.service
 systemctl start IocDockServer.service
+
+# copy settings.py if not exists in base directory.
+if [ ! -f "$script_dir/settings.py" ]; then
+    echo "copying settings.py from imutils/ directory..."
+    cp "$script_dir/imutils/settings.py" "$script_dir/settings.py"
+fi
 
 # finished.
 echo installation finished, you may need to re-login or reboot the system.

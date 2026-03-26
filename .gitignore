@@ -6,3 +6,6 @@ __pycache__/
 # local files
 ioc-repository/
 ioc-snapshot/
+
+# custom settings files
+/settings.py

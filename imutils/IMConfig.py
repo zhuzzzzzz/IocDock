@@ -1,12 +1,25 @@
 import os.path
+import importlib.util
+from pathlib import Path
 from imutils.IMError import IMInitError
 
-try:
-    import imutils.IMConfigCustom as CustomConfig
-except ModuleNotFoundError:
-    import_flag = False
-else:
+# resolve custom settings
+custom_settings_path = Path(__file__).parent.parent / "settings.py"
+custom_settings_path = Path(custom_settings_path).resolve()
+if custom_settings_path.is_file():
+    spec = importlib.util.spec_from_file_location(
+        "custom_settings", custom_settings_path
+    )
+    CustomConfig = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(CustomConfig)
     import_flag = True
+else:
+    try:
+        import imutils.settings as CustomConfig
+    except ModuleNotFoundError:
+        import_flag = False
+    else:
+        import_flag = True
 
 
 def get_manager_path() -> str:
@@ -72,9 +85,6 @@ OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "operation-log", "OperationLo
 MOUNT_PATH = os.getenv(
     "MOUNT_PATH", os.path.normpath(os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
 )
-
-## others ##
-OPERATION_LOG_NUM = 1000  # entry numbers of OperationLog
 
 ###########################
 ## IOC Managing Settings ##
@@ -185,17 +195,19 @@ ALERT_MANAGER_INFO_WEBHOOK_RECEIVER: str = "http://192.168.1.51:8000/alerts"
 #######################################################################################################################
 ##
 ALLOWED_VARS = [
-    "DEFAULT_MODULES",
+    "PREFIX_STACK_NAME",
     "MOUNT_DIR_NFS_MOUNT_SRC",
+    "REGISTRY_NFS_MOUNT_SRC",
+    "DEFAULT_MODULES",
+    "RESOURCE_IOC_CPU_LIMIT",
+    "RESOURCE_IOC_MEMORY_LIMIT",
     "CLUSTER_MANAGER_NODES",
     "CLUSTER_WORKER_NODES",
     "DEFAULT_NODES",
     "ANSIBLE_SSH_USER",
     "ANSIBLE_FOR_USER",
     "ANSIBLE_CREATE_PASSWORD",
-    "PREFIX_STACK_NAME",
     "REGISTRY_PORT",
-    "REGISTRY_NFS_MOUNT_SRC",
     "ALERT_MANAGER_MASTER_IP",
     "ALERT_MANAGER_SMTP_SMART_HOST",
     "ALERT_MANAGER_SMTP_AUTH_USERNAME",
@@ -222,12 +234,11 @@ if import_flag:
     else:
         if not_allowed_vars:
             print(
-                f'IocManager: Definition not allowed in IMConfigCustom.py: {", ".join(not_allowed_vars).strip()}.'
+                f'settings.py: Warning. Definitions not allowed: {", ".join(not_allowed_vars).strip()}.'
             )
         if unrecognized_variable:
             print(
-                f"IocManager: Definition unrecognized in IMConfigCustom.py: "
-                f'{", ".join(unrecognized_variable).strip()}.'
+                f'settings.py: Warning. Definitions unrecognized: {", ".join(unrecognized_variable).strip()}.'
             )
 
     #
