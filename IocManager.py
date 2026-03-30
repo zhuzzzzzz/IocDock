@@ -470,6 +470,11 @@ if __name__ == "__main__":
         help="set up basic environment on cluster machines.",
     )
     parser_cluster.add_argument(
+        "--set-up-swarm",
+        action="store_true",
+        help="set up swarm cluster.",
+    )
+    parser_cluster.add_argument(
         "--set-up-cluster",
         action="store_true",
         help="set up cluster environment for machines in the inventory files.",

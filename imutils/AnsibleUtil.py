@@ -97,6 +97,35 @@ def set_up_basic_environment():
     )
 
 
+def set_up_swarm():
+    print("Starting to set up swarm...")
+    if IMConfig.SWARM_ADDVERTISER_IP:
+        print("use ip")
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
+            f'-e "skip_create_remote_user=true skip_set_up_ssh_connection=true skip_set_up_basic_environment=true '
+            f"for_user={IMConfig.ANSIBLE_FOR_USER} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER} "
+            f'docker_swarm_addr={IMConfig.SWARM_ADDVERTISER_IP}"'
+        )
+    elif IMConfig.SWARM_ADDVERTISER_INTERFACE:
+        print("use interface")
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
+            f'-e "skip_create_remote_user=true skip_set_up_ssh_connection=true skip_set_up_basic_environment=true '
+            f"for_user={IMConfig.ANSIBLE_FOR_USER} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER} "
+            f' docker_swarm_interface={IMConfig.SWARM_ADDVERTISER_INTERFACE}"'
+        )
+    else:
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
+            f'-e "skip_create_remote_user=true skip_set_up_ssh_connection=true skip_set_up_basic_environment=true '
+            f'for_user={IMConfig.ANSIBLE_FOR_USER} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
+        )
+
+
 def set_up_cluster():
     # Prompt for credentials
     print("Enter remote user password(Leave blank to use ANSIBLE_CREATE_PASSWORD).")
@@ -108,11 +137,26 @@ def set_up_cluster():
             print("Failed. Password not provided and ANSIBLE_CREATE_PASSWORD not set.")
             return
     print("Starting to set up cluster...")
-    os.system(
-        f"cd {IMConfig.ANSIBLE_PATH}; "
-        f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
-        f'-e "for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
-    )
+    if IMConfig.SWARM_ADDVERTISER_IP:
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
+            f'-e "for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}'
+            f' docker_swarm_addr={IMConfig.SWARM_ADDVERTISER_IP}"'
+        )
+    elif IMConfig.SWARM_ADDVERTISER_INTERFACE:
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
+            f'-e "for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}'
+            f' docker_swarm_interface={IMConfig.SWARM_ADDVERTISER_INTERFACE}"'
+        )
+    else:
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cluster.yaml -i inventory/ -kK "
+            f'-e "for_user={IMConfig.ANSIBLE_FOR_USER} create_password={password} ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}"'
+        )
 
 
 def ping():

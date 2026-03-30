@@ -16,7 +16,6 @@
     skip_install_docker_engine: false 
     skip_setup_docker_engine: false 
     skip_setup_swarm_cluster: false
-    docker_swarm_interface: enp0s3
     docker_swarm_init_new_cluster: true
   roles:
     - setup-cluster

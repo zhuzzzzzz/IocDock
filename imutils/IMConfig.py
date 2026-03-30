@@ -111,18 +111,21 @@ CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
     "ubuntu-server": "192.168.1.50",
     "ubuntu-new": "192.168.1.51",
-    "swarm-manager": "192.168.1.52",
-    "swarm-manager1": "192.168.1.55",
+    "manager0": "192.168.1.52",
+    "manager1": "192.168.1.53",
 }
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",
-    "swarm-node0": "192.168.1.53",
-    "swarm-node1": "192.168.1.54",
+    "worker0": "192.168.1.54",
+    "worker1": "192.168.1.55",
 }
 DEFAULT_NODES = {
     # "hostname": "ip address",
     "nfs": "192.168.1.50"
 }
+
+SWARM_ADDVERTISER_IP = ""
+SWARM_ADDVERTISER_INTERFACE = ""
 
 ANSIBLE_SSH_USER = "root"
 ANSIBLE_FOR_USER = "zhu"
@@ -204,10 +207,11 @@ ALLOWED_VARS = [
     "CLUSTER_MANAGER_NODES",
     "CLUSTER_WORKER_NODES",
     "DEFAULT_NODES",
+    "SWARM_ADDVERTISER_IP",
+    "SWARM_ADDVERTISER_INTERFACE",
     "ANSIBLE_SSH_USER",
     "ANSIBLE_FOR_USER",
     "ANSIBLE_CREATE_PASSWORD",
-    "REGISTRY_PORT",
     "ALERT_MANAGER_MASTER_IP",
     "ALERT_MANAGER_SMTP_SMART_HOST",
     "ALERT_MANAGER_SMTP_AUTH_USERNAME",

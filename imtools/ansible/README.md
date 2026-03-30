@@ -73,6 +73,9 @@
     # 为集群服务器设置基础运行环境
     $ IocManager cluster --set-up-basic-environment
 
-    # 创建swarm集群
+    # 构建swarm集群
+    $ IocManager cluster --set-up-swarm
+
+    # 按顺序执行以上四步
     $ IocManager cluster --set-up-cluster
     ```

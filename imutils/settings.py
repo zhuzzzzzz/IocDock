@@ -24,33 +24,29 @@ CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
     "ubuntu-server": "192.168.1.50",
     "ubuntu-new": "192.168.1.51",
-    "swarm-manager": "192.168.1.52",
-    "swarm-manager1": "192.168.1.55",
+    "manager0": "192.168.1.52",
+    "manager1": "192.168.1.53",
 }
 # swarm集群工作节点
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",
-    "swarm-node0": "192.168.1.53",
-    "swarm-node1": "192.168.1.54",
+    "worker0": "192.168.1.54",
+    "worker1": "192.168.1.55",
 }
 # 其余服务器节点
 DEFAULT_NODES = {
     # "hostname": "ip address",
     "nfs": "192.168.1.50"
 }
-
+# swarm集群adververtiser IP(SWARM_ADDVERTISER_IP或SWARM_ADDVERTISER_INTERFACE填写一个即可)
+SWARM_ADDVERTISER_IP = ""
+SWARM_ADDVERTISER_INTERFACE = "enp3s0"
 # Ansible远程登录用户(需要具有root权限)
 ANSIBLE_SSH_USER = "root"
 # Ansible创建用户
 ANSIBLE_FOR_USER = "zhu"
 # Ansible创建用户密码
 ANSIBLE_CREATE_PASSWORD = ""
-
-
-################# Registry 配置 ############################
-
-# Registry 端口
-REGISTRY_PORT = 443
 
 ################# AlertManager 配置 ########################
 

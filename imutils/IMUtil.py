@@ -23,6 +23,7 @@ from imutils.AnsibleUtil import (
     ping,
     docker_registry_login,
     set_up_file_and_dir,
+    set_up_swarm,
 )
 
 
@@ -530,6 +531,8 @@ def execute_cluster(args):
         set_up_basic_environment()
     elif args.set_up_cluster:
         set_up_cluster()
+    elif args.set_up_swarm:
+        set_up_swarm()
     elif args.registry_login:
         docker_registry_login()
     elif args.set_up_file_and_dir:
