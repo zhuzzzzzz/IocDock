@@ -38,8 +38,8 @@ $ sudo ./install.sh
 
 **关于如何部署预置的集群基础设施服务, 见文档 `系统部署指南.md` .**
 
-| 系统基础服务 | 访问地址 |
-| ------------ | ------- |
+| 系统服务 | 访问地址 |
+| ------- | ------- |
 | registry | `https://node_ip:443` |
 | prometheus | `http://node_ip:9090` |
 | alertManager | `http://node_ip:9093` |
@@ -106,12 +106,12 @@ worker_test_5  IOC that implements a ramper for testing.
 # SnapshotConsistency表当前仓库文件与快照文件的一致性
 # RunningConsistency表当前仓库文件与运行文件的一致性
 $ IocManager list -p
-IOC            Host    Description                               State    Status    DeployStatus            SnapshotConsistency    RunningConsistency
-worker_test_1  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
-worker_test_2  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
-worker_test_3  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
-worker_test_4  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
-worker_test_5  swarm   IOC that implements a ramper for test...  normal   exported  Running 38 minutes ago  consistent             consistent
+IOC            Host   Description                               State   Status    DeployStatus            SnapshotConsistency  RunningConsistency
+worker_test_1  swarm  IOC that implements a ramper for test...  normal  exported  Running 38 minutes ago  consistent           consistent
+worker_test_2  swarm  IOC that implements a ramper for test...  normal  exported  Running 38 minutes ago  consistent           consistent
+worker_test_3  swarm  IOC that implements a ramper for test...  normal  exported  Running 38 minutes ago  consistent           consistent
+worker_test_4  swarm  IOC that implements a ramper for test...  normal  exported  Running 38 minutes ago  consistent           consistent
+worker_test_5  swarm  IOC that implements a ramper for test...  normal  exported  Running 38 minutes ago  consistent           consistent
 ```
 
 #### 5.2 连接系统内运行的 IOC PV
@@ -129,34 +129,34 @@ $ IocManager client camonitor pv_name
 ```shell
 # 显示系统管理的 swarm 集群摘要信息
 $ IocManager swarm --show-digest
-Name           ServiceName             Type    Replicas    Status
-alertManager   iasf_srv-alertManager   local   3/3         Running 4 hours ago
-grafana        iasf_srv-grafana        local   1/1         Running 5 hours ago
-loki           iasf_srv-loki           local   1/1         Running 5 hours ago
-prometheus     iasf_srv-prometheus     local   1/1         Running 5 hours ago
-registry       iasf_srv-registry       local   3/3         Running 5 hours ago
-alloy          iasf_srv-alloy          global  6/6         Running 5 hours ago
-cAdvisor       iasf_srv-cAdvisor       global  6/6         Running 5 hours ago
-client         iasf_srv-client         global  6/6         Running 5 hours ago
-iocLogServer   iasf_srv-iocLogServer   global  6/6         Running 5 hours ago
-nodeExporter   iasf_srv-nodeExporter   global  6/6         Running 5 hours ago
-hello          iasf_srv-hello          custom  -/-         Available. Not deployed
-worker_test_1  iasf_srv-worker_test_1  ioc     1/1         Running 4 hours ago
-worker_test_2  iasf_srv-worker_test_2  ioc     1/1         Running 4 hours ago
-worker_test_3  iasf_srv-worker_test_3  ioc     1/1         Running 4 hours ago
-worker_test_4  iasf_srv-worker_test_4  ioc     1/1         Running 4 hours ago
-worker_test_5  iasf_srv-worker_test_5  ioc     1/1         Running 4 hours ago
+Name           ServiceName             Type    Replicas  Status
+alertManager   iasf_srv-alertManager   local   3/3       Running 4 hours ago
+grafana        iasf_srv-grafana        local   1/1       Running 5 hours ago
+loki           iasf_srv-loki           local   1/1       Running 5 hours ago
+prometheus     iasf_srv-prometheus     local   1/1       Running 5 hours ago
+registry       iasf_srv-registry       local   3/3       Running 5 hours ago
+alloy          iasf_srv-alloy          global  6/6       Running 5 hours ago
+cAdvisor       iasf_srv-cAdvisor       global  6/6       Running 5 hours ago
+client         iasf_srv-client         global  6/6       Running 5 hours ago
+iocLogServer   iasf_srv-iocLogServer   global  6/6       Running 5 hours ago
+nodeExporter   iasf_srv-nodeExporter   global  6/6       Running 5 hours ago
+hello          iasf_srv-hello          custom  -/-       Available. Not deployed
+worker_test_1  iasf_srv-worker_test_1  ioc     1/1       Running 4 hours ago
+worker_test_2  iasf_srv-worker_test_2  ioc     1/1       Running 4 hours ago
+worker_test_3  iasf_srv-worker_test_3  ioc     1/1       Running 4 hours ago
+worker_test_4  iasf_srv-worker_test_4  ioc     1/1       Running 4 hours ago
+worker_test_5  iasf_srv-worker_test_5  ioc     1/1       Running 4 hours ago
 
 
 # 显示系统内部署的所有集群节点及其详细信息
 $ IocManager swarm --show-nodes --detail
-HOSTNAME         STATUS    AVAILABILITY   MANAGER STATUS   TLS STATUS   ENGINE VERSION
-swarm-manager    Ready     Active         Reachable        Ready        28.3.2
-swarm-manager1   Ready     Active         Reachable        Ready        28.3.3
-swarm-node0      Ready     Active                          Ready        28.3.2
-swarm-node1      Ready     Active                          Ready        28.3.2
-*ubuntu-new*     Ready     Active         Reachable        Ready        28.3.3
-ubuntu-server    Ready     Active         Leader           Ready        28.3.2
+HOSTNAME        STATUS  AVAILABILITY  MANAGER STATUS  TLS STATUS  ENGINE VERSION
+swarm-manager   Ready   Active        Reachable       Ready       28.3.2
+swarm-manager1  Ready   Active        Reachable       Ready       28.3.3
+swarm-node0     Ready   Active                        Ready       28.3.2
+swarm-node1     Ready   Active                        Ready       28.3.2
+*ubuntu-new*    Ready   Active        Reachable       Ready       28.3.3
+ubuntu-server   Ready   Active        Leader          Ready       28.3.2
 
 ------------
 Node Details:
