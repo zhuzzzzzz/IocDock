@@ -41,9 +41,8 @@ usage() {
   list                    列出所有证书（默认）
   verify                  验证所有证书的有效性
   show <service>          显示指定证书的详细信息
-  check-expiry            检查即将过期的证书（30 天内）
   delete <service>        删除指定的服务器证书
-  fix root                修复根证书指纹（当指纹丢失但证书和密钥完整时）
+  fix                     修复根证书指纹（当指纹丢失但证书和密钥完整时）
 
 示例:
   # 列出所有证书
@@ -55,21 +54,17 @@ usage() {
   # 显示 registry 服务的证书详情
   $0 show registry
   
-  # 检查即将过期的证书
-  $0 check-expiry
-  
   # 修复根证书目录下的指纹文件
-  $0 fix root
+  $0 fix
   
-  # 强制修复根证书指纹（不确认）
-  $0 fix root --force
+  # 强制修复根证书指纹
+  $0 fix --force
   
   # 删除 registry 服务的证书
   $0 delete registry
   
-  # 强制删除证书（不确认）
+  # 强制删除证书
   $0 delete registry --force
-
 EOF
     exit 1
 }
@@ -79,18 +74,29 @@ EOF
 # -----------------------------------------------------------------------------
 
 # 命令和参数解析
-COMMAND="${1:-}"
-SERVICE_NAME="${2:-}"
+COMMAND=""
+SERVICE_NAME=""
 FORCE=false
+
+# 解析所有参数，支持 --force 出现在任意位置
+shift_count=0
+for arg in "$@"; do
+    if [[ "$arg" == "--force" ]]; then
+        FORCE=true
+    else
+        # 非 --force 参数按顺序赋值
+        shift_count=$((shift_count + 1))
+        if [[ $shift_count -eq 1 ]]; then
+            COMMAND="$arg"
+        elif [[ $shift_count -eq 2 ]]; then
+            SERVICE_NAME="$arg"
+        fi
+    fi
+done
 
 # 如果没有提供任何参数，显示帮助信息
 if [[ -z "$COMMAND" ]]; then
     usage
-fi
-
-# 解析额外参数（如 --force）
-if [[ "${3:-}" == "--force" ]]; then
-    FORCE=true
 fi
 
 # -----------------------------------------------------------------------------
@@ -271,9 +277,9 @@ validate_server_certificate() {
         RESULT_VALID=false
         RESULT_MESSAGE="证书已过期"
     elif is_certificate_expiring_soon "$server_cert_file"; then
-        # 优先级 7：有效期检查（即将过期）
+        # 优先级 7：有效期检查（即将过期）- 仅警告，不影响有效性
         RESULT_STATUS="即将过期 ⚠"
-        RESULT_VALID=false
+        RESULT_VALID=true
         RESULT_MESSAGE="证书即将过期"
     else
         # 所有检查通过
@@ -344,8 +350,9 @@ validate_root_certificate() {
         RESULT_VALID=false
         RESULT_MESSAGE="证书已过期"
     elif is_certificate_expiring_soon "$DEFAULT_ROOT_CERT"; then
+        # 即将过期 - 仅警告，不影响有效性
         RESULT_STATUS="即将过期 ⚠"
-        RESULT_VALID=false
+        RESULT_VALID=true
         RESULT_MESSAGE="证书即将过期"
     else
         RESULT_STATUS="有效 ✓"
@@ -361,7 +368,6 @@ validate_root_certificate() {
 # 列出所有证书
 # -----------------------------------------------------------------------------
 list_certificates() {
-    
     # 验证根证书
     validate_root_certificate
     local root_status="$RESULT_STATUS"
@@ -379,7 +385,8 @@ list_certificates() {
         root_fingerprint=$(calculate_root_fingerprint "$DEFAULT_ROOT_CERT")
         
         printf "  名称：%-30s  状态：%s\n" "$DEFAULT_ROOT_CERT_NAME" "$root_status"
-        printf "  路径：%-30s\n" "$DEFAULT_ROOT_CERT"
+        printf "  证书路径：%-30s\n" "$DEFAULT_ROOT_CERT"
+        printf "  密钥路径：%-30s\n" "$DEFAULT_ROOT_KEY"
         printf "  剩余天数：%-30s\n" "$root_remaining"
         printf "  指纹：%-30s\n" "${root_fingerprint:0:64}..."
         
@@ -554,28 +561,24 @@ list_certificates() {
 # 验证所有证书
 # -----------------------------------------------------------------------------
 verify_all_certificates() {
-    echo ""
-    echo "=========================================="
-    echo "       证 书 验 证"
-    echo "=========================================="
-    echo ""
-    
     local all_valid=true
+    local has_warnings=false
     
     # 验证根证书（使用统一的验证函数）
     printf "验证根证书... "
     validate_root_certificate
     
+    # 根据状态符号判断是警告还是错误
     if [[ "$RESULT_VALID" == true ]]; then
-        log_success "有效 ✓"
+        if [[ "$RESULT_STATUS" == *"⚠"* ]]; then
+            log_warn "$RESULT_STATUS"
+            has_warnings=true
+        else
+            log_success "$RESULT_STATUS"
+        fi
     else
         log_error "$RESULT_STATUS"
         all_valid=false
-        
-        # 显示详细信息
-        if [[ -n "$RESULT_MESSAGE" ]]; then
-            log_info "  原因：$RESULT_MESSAGE"
-        fi
     fi
     
     echo ""
@@ -587,20 +590,21 @@ verify_all_certificates() {
                 local service_name
                 service_name=$(basename "$service_dir")
                 
-                printf "验证服务器证书 [%-20s]... " "$service_name"
+                printf "验证服务器证书 (%s)... " "$service_name"
                 
                 validate_server_certificate "$service_name"
                 
+                # 根据状态符号判断是警告还是错误
                 if [[ "$RESULT_VALID" == true ]]; then
-                    log_success "有效 ✓"
+                    if [[ "$RESULT_STATUS" == *"⚠"* ]]; then
+                        log_warn "$RESULT_STATUS"
+                        has_warnings=true
+                    else
+                        log_success "$RESULT_STATUS"
+                    fi
                 else
                     log_error "$RESULT_STATUS"
                     all_valid=false
-                    
-                    # 显示详细信息
-                    if [[ -n "$RESULT_MESSAGE" ]]; then
-                        log_info "  原因：$RESULT_MESSAGE"
-                    fi
                 fi
             fi
         done
@@ -608,11 +612,13 @@ verify_all_certificates() {
     
     echo ""
     echo "------------------------------------------"
-    if [[ "$all_valid" == true ]]; then
-        log_success "所有证书验证通过"
-    else
+    if [[ "$all_valid" == false ]]; then
         log_error "存在无效或过期的证书"
         exit 1
+    elif [[ "$has_warnings" == true ]]; then
+        log_warn "所有证书有效，但部分证书即将过期"
+    else
+        log_success "所有证书验证通过"
     fi
     echo ""
 }
@@ -625,7 +631,7 @@ show_certificate_details() {
     
     if [[ -z "$service_name" ]]; then
         log_error "必须指定服务名称"
-        usage
+        exit 1
     fi
     
     local cert_file
@@ -642,95 +648,11 @@ show_certificate_details() {
     
     echo ""
     echo "=========================================="
-    echo "     证 书 详 情：$service_name"
+    echo "  证 书 详 情 : $service_name"
     echo "=========================================="
     echo ""
     
     openssl x509 -in "$cert_file" -text -noout
-    echo ""
-}
-
-# -----------------------------------------------------------------------------
-# 检查即将过期的证书
-# -----------------------------------------------------------------------------
-check_expiring_certificates() {
-    echo ""
-    echo "=========================================="
-    echo "   即 将 过 期 证 书 检 查 (30 天)"
-    echo "=========================================="
-    echo ""
-    
-    local found_expiring=false
-    
-    # 检查根证书
-    if [[ -f "$DEFAULT_ROOT_CERT" ]]; then
-        # 先检查文件完整性
-        local root_complete=true
-        if [[ ! -f "$DEFAULT_ROOT_KEY" ]]; then
-            printf "根证书：密钥文件缺失 ⚠\n"
-            printf "  路径：%-30s\n" "$DEFAULT_ROOT_CERT"
-            echo ""
-            root_complete=false
-        elif [[ ! -f "$DEFAULT_ROOT_FINGERPRINT_FILE" ]]; then
-            printf "根证书：指纹文件缺失 ⚠\n"
-            printf "  路径：%-30s\n" "$DEFAULT_ROOT_CERT"
-            echo ""
-            root_complete=false
-        else
-            # 验证指纹匹配性
-            local current_fingerprint
-            current_fingerprint=$(calculate_root_fingerprint "$DEFAULT_ROOT_CERT")
-            local stored_fingerprint
-            stored_fingerprint=$(cat "$DEFAULT_ROOT_FINGERPRINT_FILE")
-            
-            if [[ "$current_fingerprint" != "$stored_fingerprint" ]]; then
-                printf "根证书：指纹不匹配 ✗\n"
-                printf "  路径：%-30s\n" "$DEFAULT_ROOT_CERT"
-                echo ""
-                root_complete=false
-            fi
-        fi
-        
-        # 如果文件完整且指纹匹配，检查有效期
-        if $root_complete; then
-            if is_certificate_expiring_soon "$DEFAULT_ROOT_CERT" 30; then
-                local remaining
-                remaining=$(get_remaining_days "$DEFAULT_ROOT_CERT")
-                printf "根证书将在 %-5s 天内过期 ⚠\n" "$remaining"
-                printf "  路径：%-30s\n" "$DEFAULT_ROOT_CERT"
-                echo ""
-                found_expiring=true
-            fi
-        fi
-    fi
-    
-    # 检查服务器证书
-    if [[ -d "$DEFAULT_SERVER_CERT_DIR" ]]; then
-        for service_dir in "$DEFAULT_SERVER_CERT_DIR"/*/; do
-            if [[ -d "$service_dir" ]]; then
-                local service_name
-                service_name=$(basename "$service_dir")
-                local cert_file="$service_dir${service_name}.crt"
-                
-                if [[ -f "$cert_file" ]]; then
-                    if is_certificate_expiring_soon "$cert_file" 30; then
-                        local remaining
-                        remaining=$(get_remaining_days "$cert_file")
-                        printf "服务器证书 [%-20s] 将在 %-5s 天内过期\n" "$service_name" "$remaining"
-                        printf "  路径：%-30s\n" "$cert_file"
-                        echo ""
-                        found_expiring=true
-                    fi
-                fi
-            fi
-        done
-    fi
-    
-    if [[ "$found_expiring" == false ]]; then
-        log_success "没有即将过期的证书（30 天内）"
-    else
-        log_warn "发现即将过期的证书，请及时更新"
-    fi
     echo ""
 }
 
@@ -743,7 +665,7 @@ delete_certificate() {
     
     if [[ -z "$service_name" ]]; then
         log_error "必须指定服务名称"
-        usage
+        exit 1
     fi
     
     # 不允许删除根证书
@@ -778,9 +700,9 @@ delete_certificate() {
     [[ -f "$fingerprint_file" ]] && printf "  ✓ %s\n" "$fingerprint_file"
     echo ""
     
-    # 询问确认（除非使用 --force）
+    # 询问确认 (除非使用 --force)
     if [[ "$force" != true ]]; then
-        read -p "确认删除？[y/N]: " -n 1 -r
+        read -p "确认删除？[y/N]: " -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             log_info "已取消删除操作"
@@ -877,9 +799,9 @@ fix_root_fingerprint() {
         log_info "指纹文件不存在，将创建新指纹文件"
     fi
     
-    # 询问确认（除非使用 --force）
+    # 询问确认 (除非使用 --force)
     if [[ "$force" != true ]]; then
-        read -p "确认重建根证书指纹？[y/N]: " -n 1 -r
+        read -p "确认重建根证书指纹？[y/N]: " -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             log_info "已取消修复操作"
@@ -888,7 +810,7 @@ fix_root_fingerprint() {
         fi
     fi
     
-    # 写入指纹文件（先比对后写入）
+    # 写入指纹文件 (先比对后写入)
     if [[ -f "$DEFAULT_ROOT_FINGERPRINT_FILE" ]]; then
         local existing_fingerprint
         existing_fingerprint=$(cat "$DEFAULT_ROOT_FINGERPRINT_FILE")
@@ -910,24 +832,6 @@ fix_root_fingerprint() {
 }
 
 # -----------------------------------------------------------------------------
-# 修复证书指纹（仅支持根证书）
-# -----------------------------------------------------------------------------
-fix_certificate() {
-    local service_name="${1:-}"
-    
-    # 如果指定了服务名但不是 root，提示错误
-    if [[ -n "$service_name" && "$service_name" != "root" && "$service_name" != "root-ca" ]]; then
-        log_error "fix 命令仅支持修复根证书指纹"
-        echo ""
-        log_info "使用方法：$0 fix root"
-        echo ""
-        return 1
-    fi
-    
-    fix_root_fingerprint "$FORCE"
-}
-
-# -----------------------------------------------------------------------------
 # 主函数
 # -----------------------------------------------------------------------------
 main() {
@@ -941,14 +845,11 @@ main() {
         show)
             show_certificate_details "$SERVICE_NAME"
             ;;
-        check-expiry)
-            check_expiring_certificates
-            ;;
         delete)
             delete_certificate "$SERVICE_NAME" "$FORCE"
             ;;
         fix)
-            fix_certificate "$SERVICE_NAME"
+            fix_root_fingerprint "$FORCE"
             ;;
         help|-h|--help)
             usage
