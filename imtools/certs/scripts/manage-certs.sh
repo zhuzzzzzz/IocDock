@@ -14,7 +14,7 @@ script_dir=$(dirname $script_abs)
 # -----------------------------------------------------------------------------
 
 # 组织名称（动态获取 + 降级策略）
-DEFAULT_ORG_NAME=$(IocManager config PREFIX_STACK_NAME 2>/dev/null || true)
+DEFAULT_ORG_NAME=$(IocManager config PREFIX_STACK_NAME || true)
 DEFAULT_ORG_NAME="${DEFAULT_ORG_NAME:-iasf}"
 
 # 根证书固定路径配置
@@ -42,7 +42,7 @@ usage() {
   verify                  验证所有证书的有效性
   show <service>          显示指定证书的详细信息
   delete <service>        删除指定的服务器证书
-  fix                     修复根证书指纹（当指纹丢失但证书和密钥完整时）
+  fix                     修复所有可修复的问题（当前仅修复指纹）
 
 示例:
   # 列出所有证书
@@ -53,18 +53,15 @@ usage() {
   
   # 显示 registry 服务的证书详情
   $0 show registry
-  
-  # 修复根证书目录下的指纹文件
-  $0 fix
-  
-  # 强制修复根证书指纹
-  $0 fix --force
-  
+
   # 删除 registry 服务的证书
   $0 delete registry
   
-  # 强制删除证书
+  # 强制删除 registry 服务的证书
   $0 delete registry --force
+  
+  # 修复所有可修复的问题（当前仅修复证书指纹）
+  $0 fix
 EOF
     exit 1
 }
@@ -482,8 +479,11 @@ list_certificates() {
                 local cert_remaining
                 cert_remaining=$(get_remaining_days "$cert_file")
                 
+                local key_file="$service_dir${service_name}.key"
+                
                 printf "  服务名：%-30s  状态：%s\n" "$service_name" "$cert_status"
-                printf "    路径：%-30s\n" "$cert_file"
+                printf "    证书路径：%-30s\n" "$cert_file"
+                printf "    密钥路径：%-30s\n" "$key_file"
                 printf "    剩余天数：%-30s\n" "$cert_remaining"
                 
                 # 仅在证书状态异常时显示详情
@@ -491,7 +491,6 @@ list_certificates() {
                     echo ""
                     echo "    问题详情:"
                     
-                    local key_file="$service_dir${service_name}.key"
                     local fingerprint_file="$service_dir/$DEFAULT_FINGERPRINT_FILE_NAME"
                     
                     # 检查并显示证书文件问题
@@ -680,13 +679,13 @@ delete_certificate() {
     local key_file="$cert_dir/${service_name}.key"
     local fingerprint_file="$cert_dir/$DEFAULT_FINGERPRINT_FILE_NAME"
     
-    # 检查证书是否存在
-    if [[ ! -f "$cert_file" ]]; then
-        log_error "证书不存在：$cert_file"
+    # 检查证书目录是否存在
+    if [[ ! -d "$cert_dir" ]]; then
+        log_error "证书目录不存在：$cert_dir"
         exit 1
     fi
     
-    # 显示将要删除的文件
+    # 显示将要删除的文件（如果存在）
     echo ""
     echo "=========================================="
     echo "     即将删除证书：$service_name"
@@ -694,10 +693,24 @@ delete_certificate() {
     echo ""
     printf "证书目录：%-50s\n" "$cert_dir"
     echo ""
-    echo "将要删除的文件："
+    [[ -f "$cert_file" || -f "$key_file" || -f "$fingerprint_file" ]] && echo "将要删除的文件："
     [[ -f "$cert_file" ]] && printf "  ✓ %s\n" "$cert_file"
     [[ -f "$key_file" ]] && printf "  ✓ %s\n" "$key_file"
     [[ -f "$fingerprint_file" ]] && printf "  ✓ %s\n" "$fingerprint_file"
+    
+    # 检查是否有其他非标准文件
+    local has_other_files=false
+    for file in "$cert_dir"/*; do
+        if [[ -e "$file" && "$file" != "$cert_file" && "$file" != "$key_file" && "$file" != "$fingerprint_file" ]]; then
+            has_other_files=true
+            break
+        fi
+    done
+    
+    if [[ "$has_other_files" == true ]]; then
+        echo ""
+        log_warn "目录下存在其他非标准文件，将一并删除"
+    fi
     echo ""
     
     # 询问确认 (除非使用 --force)
@@ -750,14 +763,7 @@ verify_cert_key_match() {
 # 修复根证书指纹
 # -----------------------------------------------------------------------------
 fix_root_fingerprint() {
-    local force="${1:-false}"
-    
-    echo ""
-    echo "=========================================="
-    echo "       修 复 根 证 书 指 纹"
-    echo "=========================================="
-    echo ""
-    
+
     # 检查根证书文件
     if [[ ! -f "$DEFAULT_ROOT_CERT" ]]; then
         log_error "根证书不存在：$DEFAULT_ROOT_CERT"
@@ -790,44 +796,136 @@ fix_root_fingerprint() {
         
         if [[ "$current_fingerprint" == "$stored_fingerprint" ]]; then
             log_success "指纹文件已存在且匹配，无需修复"
-            echo ""
             return 0
         else
             log_warn "指纹文件存在但不匹配，将覆盖现有指纹"
         fi
     else
-        log_info "指纹文件不存在，将创建新指纹文件"
-    fi
-    
-    # 询问确认 (除非使用 --force)
-    if [[ "$force" != true ]]; then
-        read -p "确认重建根证书指纹？[y/N]: " -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log_info "已取消修复操作"
-            echo ""
-            return 0
-        fi
-    fi
-    
-    # 写入指纹文件 (先比对后写入)
-    if [[ -f "$DEFAULT_ROOT_FINGERPRINT_FILE" ]]; then
-        local existing_fingerprint
-        existing_fingerprint=$(cat "$DEFAULT_ROOT_FINGERPRINT_FILE")
-        
-        if [[ "$current_fingerprint" == "$existing_fingerprint" ]]; then
-            log_info "指纹文件内容已匹配，跳过写入"
-            echo ""
-            return 0
-        fi
+        log_warn "指纹文件不存在，将创建新指纹文件"
     fi
     
     # 创建或更新指纹文件
     echo "$current_fingerprint" > "$DEFAULT_ROOT_FINGERPRINT_FILE"
-    chmod 600 "$DEFAULT_ROOT_FINGERPRINT_FILE"
+    chmod 644 "$DEFAULT_ROOT_FINGERPRINT_FILE"
     
     log_success "根证书指纹已成功重建"
     printf "  指纹：%s\n" "${current_fingerprint:0:64}..."
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
+# 修复所有证书指纹
+# -----------------------------------------------------------------------------
+fix_all_certificates() {
+
+    # 步骤 1：先修复根证书指纹
+    log_info "正在检查并修复根证书指纹..."
+    fix_root_fingerprint
+    
+    # 步骤 2：验证根证书是否有效（如果失败则无法继续）
+    validate_root_certificate
+    if [[ "$RESULT_VALID" != "true" ]]; then
+        log_error "根证书无效，无法修复服务器证书指纹"
+        echo ""
+        return 1
+    fi
+    
+    # 步骤 3：遍历所有服务器证书并尝试修复
+    log_info "检查并修复服务器证书指纹"
+    
+    # 检查 server 目录下是否有子目录（服务器证书）
+    local has_server_certs=false
+    for service_dir in "$DEFAULT_SERVER_CERT_DIR"/*/; do
+        if [[ -d "$service_dir" ]]; then
+            has_server_certs=true
+            break
+        fi
+    done
+    
+    if [[ "$has_server_certs" == false ]]; then
+        log_info "暂无服务器证书"
+        echo ""
+        return 0
+    fi
+    
+    local total_count=0
+    local no_need_count=0      # 无需修复（指纹已正确）
+    local fixed_count=0        # 已成功修复
+    local cannot_fix_count=0   # 无法修复（不满足条件被跳过）
+    
+    for service_dir in "$DEFAULT_SERVER_CERT_DIR"/*/; do
+        if [[ -d "$service_dir" ]]; then
+            local service_name
+            service_name=$(basename "$service_dir")
+            local server_cert_file="$service_dir${service_name}.crt"
+            local server_key_file="$service_dir${service_name}.key"
+            local fingerprint_file="$service_dir/$DEFAULT_FINGERPRINT_FILE_NAME"
+            
+            total_count=$((total_count + 1))
+            
+            printf "  [%d] %s ... " "$total_count" "$service_name"
+            
+            # 条件 1：检查服务器证书和密钥是否存在
+            if [[ ! -f "$server_cert_file" ]] || [[ ! -f "$server_key_file" ]]; then
+                echo "跳过 (证书或密钥缺失)"
+                cannot_fix_count=$((cannot_fix_count + 1))
+                continue
+            fi
+            
+            # 条件 2：验证服务器证书和密钥是否匹配
+            if ! verify_cert_key_match "$server_cert_file" "$server_key_file"; then
+                echo "跳过 (证书与密钥不匹配)"
+                cannot_fix_count=$((cannot_fix_count + 1))
+                continue
+            fi
+            
+            # 条件 3：验证服务器证书是否由当前根证书签发
+            if ! openssl verify -CAfile "$DEFAULT_ROOT_CERT" "$server_cert_file" >/dev/null 2>&1; then
+                echo "跳过 (证书不是由当前根证书签发)"
+                cannot_fix_count=$((cannot_fix_count + 1))
+                continue
+            fi
+            
+            # 条件 4：计算当前根证书指纹
+            local current_fingerprint
+            current_fingerprint=$(calculate_root_fingerprint "$DEFAULT_ROOT_CERT")
+            
+            # 条件 5：检查是否需要修复指纹
+            local needs_fix=false
+            if [[ ! -f "$fingerprint_file" ]]; then
+                needs_fix=true
+            else
+                local stored_fingerprint
+                stored_fingerprint=$(cat "$fingerprint_file")
+                if [[ "$current_fingerprint" != "$stored_fingerprint" ]]; then
+                    needs_fix=true
+                fi
+            fi
+            
+            # 如果需要修复，直接执行（已通过严格验证，无需再询问）
+            if [[ "$needs_fix" == true ]]; then
+                # 写入指纹文件
+                echo "$current_fingerprint" > "$fingerprint_file"
+                chmod 644 "$fingerprint_file"
+                
+                echo "✓ 已修复"
+                fixed_count=$((fixed_count + 1))
+            else
+                echo "✓ 无需修复"
+                no_need_count=$((no_need_count + 1))
+            fi
+        fi
+    done
+    
+    # 显示统计信息
+    echo ""
+    echo "------------------------------------------"
+    echo "修复完成统计:"
+    echo "------------------------------------------"
+    printf "  总证书数：%d\n" "$total_count"
+    printf "  无需修复：%d\n" "$no_need_count"
+    printf "  已修复：%d\n" "$fixed_count"
+    printf "  无法修复：%d\n" "$cannot_fix_count"
     echo ""
 }
 
@@ -849,7 +947,11 @@ main() {
             delete_certificate "$SERVICE_NAME" "$FORCE"
             ;;
         fix)
-            fix_root_fingerprint "$FORCE"
+            # fix 命令自动执行所有修复功能      
+            # 1. 修复证书指纹
+            fix_all_certificates
+            # 2. 未来可扩展其他修复功能
+            # fix_other_features
             ;;
         help|-h|--help)
             usage

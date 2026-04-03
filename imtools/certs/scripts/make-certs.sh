@@ -490,13 +490,13 @@ verify_root_certificate_for_generation() {
     
     # 比较指纹
     if [[ "$saved_fingerprint" != "$current_fingerprint" ]]; then
-        log_error "根证书指纹不匹配！"
-        log_error "当前的根证书与之前生成证书时使用的根证书不一致"
+        log_error "根证书与指纹不匹配！"
         log_error "已保存的指纹：$saved_fingerprint"
         log_error "当前指纹：$current_fingerprint"
         log_error "原因可能是："
         log_error "  1. 根证书已被重新生成或替换"
-        log_error "  2. 所有现有的服务器证书已失效"
+        log_error "  2. 根证书指纹文件损坏"        
+        log_error "  3. 现有的服务器证书可能已失效"
         log_error "解决方案："
         log_error "  1. 删除旧的服务器证书：rm -rf $DEFAULT_SERVER_CERT_DIR/*"
         log_error "  2. 使用当前根证书重新生成所有服务器证书"
