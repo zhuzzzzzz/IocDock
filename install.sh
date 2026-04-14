@@ -87,6 +87,10 @@ systemctl start IocDockServer.service
 if [ ! -f "$script_dir/settings.py" ]; then
     echo "copying settings.py from imutils/ directory..."
     cp "$script_dir/imutils/settings.py" "$script_dir/settings.py"
+    if [ $? -eq 0 ]; then
+    chown "$current_user:$current_user" "$script_dir/settings.py"
+    chmod g+w "$script_dir/settings.py"
+    fi
 fi
 
 # finished.
