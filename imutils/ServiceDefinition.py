@@ -5,8 +5,8 @@ from imutils.IMConfig import SERVICE_TEMPLATE_PATH
 GlobalServicesList = [
     # ("name",),  # omit "image" to use original image setting of the compose file
     # ("name", "image")
-    ("client", "base:beta-0.2.2"),
-    ("iocLogServer", "base:beta-0.2.2"),
+    ("client", "base:1.0.0"),
+    ("iocLogServer", "base:1.0.0"),
     ("cAdvisor", "cadvisor:v0.52.1"),
     ("nodeExporter", "node-exporter:v1.9.1"),
     ("alloy", "alloy:v1.9.2"),

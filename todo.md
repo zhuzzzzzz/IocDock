@@ -1,5 +1,3 @@
-1. 基于服务进行密钥证书的集中管理(done)
-2. 将可修改的系统配置项集中至文件供用户旧地修改，隐藏系统的默认配置文件(done)
-3. 为服务的配置文件设置带后缀的默认配置，方便用户修改配置文件并持久化保存(done)
-4. settings.py 创建时更改正确的文件拥有者权限(done)
-5. 使用 make -j 加速镜像编译(done)
+1. 基于 nginx 实现 registry push 时的 session 粘性（sticky session）
+2. 确定容器服务的重启策略 (always 或 on-failure)
+3. 应排除 check_running 运行时会比较的 .iocsh_history文件
