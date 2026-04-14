@@ -447,7 +447,7 @@ def main():
     # execute make
     os.chdir(ioc_top_dir)
     print(f"Move to {ioc_top_dir}\n then execute make...")
-    if os.system("make"):
+    if os.system("make -j$(nproc)"):
         print(f"error: failed to execute make.")
         exit(1)
     else:

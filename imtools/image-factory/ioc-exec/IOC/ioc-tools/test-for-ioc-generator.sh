@@ -13,7 +13,7 @@ do
 	then
 		cd $item
 		make distclean &> /dev/null
-		make &> /dev/null
+		make -j$(nproc) &> /dev/null
 		if test $? -eq 0
 		then
 			echo IOC $item successfully installed.

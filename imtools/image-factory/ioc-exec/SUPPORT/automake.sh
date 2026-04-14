@@ -125,7 +125,7 @@ else
 	then
 		echo move to path \"$1/\" to install ...
 		cd $script_dir/$1
-		make
+		make -j$(nproc)
 		if test $? -eq 0
 		then
 			echo $1 successfully installed.

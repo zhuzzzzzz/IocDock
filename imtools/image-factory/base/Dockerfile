@@ -36,7 +36,7 @@ mv ./${BASE}/ ./base-src/
 cd base-src
 echo -e "\nINSTALL_LOCATION=${BASE_PATH}\n" >> ./configure/CONFIG_SITE
 cat ./configure/CONFIG_SITE
-make
+make -j$(nproc)
 cd ..
 rm -rf base-src
 apt remove -y --purge build-essential libreadline-dev
