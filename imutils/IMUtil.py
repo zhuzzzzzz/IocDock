@@ -290,7 +290,7 @@ def get_filtered_ioc(
             "Status",
             "DeployStatus",
             "SnapshotConsistency",
-            "RunningConsistency",
+            "DeployConsistency",
         ],
     ]
     for i in index_reserved:
@@ -322,9 +322,9 @@ def get_filtered_ioc(
                     else ioc_list[i].check_snapshot_consistency(print_info=False)[1]
                 ),
                 (
-                    socket_info_ioc.get("running_consistency")
+                    socket_info_ioc.get("deploy_consistency")
                     if socket_info_ioc
-                    else ioc_list[i].check_running_consistency(print_info=False)[1]
+                    else ioc_list[i].check_deploy_consistency(print_info=False)[1]
                 ),
             ]
             panel_print.append(t_l)
@@ -402,8 +402,8 @@ def execute_ioc(args):
                             ),
                             verbose=args.verbose,
                         )
-                    elif args.check_running:
-                        ioc_temp.check_running_consistency(print_info=True)
+                    elif args.check_deploy:
+                        ioc_temp.check_deploy_consistency(print_info=True)
                     else:
                         print(f"execute_ioc: No execution operation specified.")
                         break  # break to avoid repeat print of no exec operation.

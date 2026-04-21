@@ -126,7 +126,7 @@ class TaskServer:
                 "state": item.state_manager.get_config("state"),
                 "status": item.state_manager.get_config("status"),
                 "snapshot_consistency": item.check_snapshot_consistency()[1],
-                "running_consistency": item.check_running_consistency()[1],
+                "deploy_consistency": item.check_deploy_consistency()[1],
                 "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 

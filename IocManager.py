@@ -307,7 +307,7 @@ if __name__ == "__main__":
         "conflicts with the one in repository.",
     )
     parser_execute.add_argument(
-        "--check-running",
+        "--check-deploy",
         action="store_true",
         help="check differences between files in running dir and repository.",
     )

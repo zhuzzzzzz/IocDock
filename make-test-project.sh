@@ -10,8 +10,8 @@
 
 # set variables below to change generating configureation.
 image_prefix=`./IocManager.py config REGISTRY_COMMON_NAME`
-base_image="$image_prefix/base:beta-0.2.2"
-ioc_image="$image_prefix/ioc-exec:beta-0.2.2"
+base_image="$image_prefix/base:1.0.0"
+ioc_image="$image_prefix/ioc-exec:1.0.0"
 create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "worker_test_5")
 
 
@@ -44,7 +44,7 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			./IocManager.py set "$item" -o " host = swarm" $verbose
 			./IocManager.py set "$item" -o " image = $ioc_image " $verbose
 			./IocManager.py set "$item" -s deploy -o "cpu-limit=0.8" $verbose
-			./IocManager.py set "$item" -s deploy -o "memory-limit=1G" $verbose
+			./IocManager.py set "$item" -s deploy -o "memory-limit=0.8G" $verbose
 			./IocManager.py set "$item" -s deploy -o "labels=test=true" $verbose
 			# add set options here..
 			
