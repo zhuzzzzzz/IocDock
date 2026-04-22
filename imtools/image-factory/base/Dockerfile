@@ -31,7 +31,7 @@ Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" | tee /etc/apt/source
 rm /etc/apt/sources.list.d/ubuntu.sources
 apt update
 apt install -y build-essential perl libreadline-dev libreadline8 libncurses6 libtirpc-dev re2c iproute2 iputils-ping vim-tiny
-echo "set nocompatible\nset backspace=indent,eol,start\n" > /root/.vimrc
+echo -e "set nocompatible\nset backspace=indent,eol,start\n" > /root/.vimrc
 mv ./${BASE}/ ./base-src/
 cd base-src
 echo -e "\nINSTALL_LOCATION=${BASE_PATH}\n" >> ./configure/CONFIG_SITE

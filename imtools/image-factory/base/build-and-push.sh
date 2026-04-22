@@ -1,7 +1,7 @@
 #!/bin/bash
 
 base_version=7.0.8.1
-release_version=1.0.0
+release_version=1.0.1
 print_log=false
 push_image=false
 

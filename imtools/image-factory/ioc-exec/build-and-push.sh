@@ -4,7 +4,7 @@ script_abs=$(readlink -f "$0")
 script_dir=$(dirname $script_abs)
 
 base_version=7.0.8.1 # If base image is not exist, this variable will be used to set the base tarball version.
-base_release_version=1.0.0 # From which release version of base image this image will be built.
+base_release_version=1.0.1 # From which release version of base image this image will be built.
 release_version=1.0.0 # Default release version.
 print_log=false
 push_image=false

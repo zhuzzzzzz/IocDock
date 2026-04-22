@@ -5,16 +5,16 @@ script_dir=$(dirname $script_abs)
 
 # 为 EPICS base 定义要构建的版本数组
 # 格式 "base_version;release_version"
-versions_to_build_for_base=("7.0.8.1;1.0.0" )
+versions_to_build_for_base=("7.0.8.1;1.0.1" )
 
 # 为 ioc-exec 定义要构建的版本数组
 # 格式 "base_version;base_release_version;release_version;[moduleA [moduleB ...]]"
 versions_to_build_for_ioc_exec=(
-    "7.0.8.1;1.0.0;1.0.0;seq autosave caPutLog iocStats" 
-    "7.0.8.1;1.0.0;1.0.1;seq asyn autosave caPutLog iocStats StreamDevice modbus" 
-    "7.0.8.1;1.0.0;1.0.2;seq asyn autosave caPutLog iocStats s7nodave" 
-    "7.0.8.1;1.0.0;1.0.3;seq autosave caPutLog iocStats BACnet" 
-    "7.0.8.1;1.0.0;1.0.A;seq asyn autosave caPutLog iocStats StreamDevice modbus s7nodave BACnet" 
+    "7.0.8.1;1.0.1;1.1.0;seq autosave caPutLog iocStats" 
+    "7.0.8.1;1.0.1;1.1.1;seq asyn autosave caPutLog iocStats StreamDevice modbus" 
+    "7.0.8.1;1.0.1;1.1.2;seq asyn autosave caPutLog iocStats s7nodave" 
+    "7.0.8.1;1.0.1;1.1.3;seq autosave caPutLog iocStats BACnet" 
+    "7.0.8.1;1.0.1;1.1.A;seq asyn autosave caPutLog iocStats StreamDevice modbus s7nodave BACnet" 
 )
 
 print_log=""
