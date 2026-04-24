@@ -1,7 +1,7 @@
 services:
   srv-loki:
     image: registry.iasf/loki:3.5.2
-    command: 
+    command:
     - -config.file=/etc/loki/local-config.yaml
     labels:
       service-type: local

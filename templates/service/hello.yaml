@@ -1,7 +1,7 @@
 services:
   srv-hello:
     image: registry.iasf/busybox:1.37.0
-    entrypoint: 
+    entrypoint:
     - /bin/sh
     - -c
     - "echo hello; sleep infinity"

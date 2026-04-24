@@ -3,10 +3,9 @@ import sys
 import datetime
 import shutil
 import socket
-import filecmp
 import logging
 from logging.handlers import RotatingFileHandler
-
+from ruamel.yaml import YAML
 from imutils.IMConfig import OPERATION_LOG_FILE_PATH
 
 
@@ -189,47 +188,11 @@ def format_normalize(raw_str: str):
     return raw_str
 
 
-def dircmp_compare(dcmp, print_info=False):
-    diff_flag = False
-    res_str = f"diff {dcmp.left} {dcmp.right}\n"
-    if dcmp.diff_files:
-        diff_flag = True
-        res_str += "changed files: "
-        for item in dcmp.diff_files:
-            res_str += f'"{item}", '
-        else:
-            res_str = res_str.rstrip(", ")
-            res_str += ".\n"
-    if dcmp.left_only:
-        diff_flag = True
-        res_str += "missing files and directories: "
-        for item in dcmp.left_only:
-            res_str += f'"{item}", '
-        else:
-            res_str = res_str.rstrip(", ")
-            res_str += ".\n"
-    if dcmp.right_only:
-        diff_flag = True
-        res_str += "untracked files and directories: "
-        for item in dcmp.right_only:
-            res_str += f'"{item}", '
-        else:
-            res_str = res_str.rstrip(", ")
-            res_str += ".\n"
-    if print_info:
-        print(res_str)
-    for sub_dcmp in dcmp.subdirs.values():
-        if dircmp_compare(sub_dcmp, print_info):
-            diff_flag = True
-
-    return diff_flag
-
-
-def dir_compare(snapshot_dir, source_dir, print_info=False):
-    compare_res = filecmp.dircmp(snapshot_dir, source_dir)
-    return dircmp_compare(compare_res, print_info=print_info)
-    # print('==============')
-    # compare_res.report_full_closure()
+def get_yaml_tool():
+    yaml = YAML()
+    yaml.width = 4096
+    yaml.preserve_quotes = True
+    return yaml
 
 
 #########################################################

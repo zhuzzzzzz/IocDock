@@ -11,6 +11,7 @@ from imutils.IMFunc import (
     try_makedirs,
     file_copy,
     dir_copy,
+    get_yaml_tool,
 )
 from imutils.ServiceDefinition import (
     GlobalServicesList,
@@ -271,59 +272,60 @@ class SwarmManager:
 
     @staticmethod
     def gen_template_services(verbose):
-        print(f"SwarmManager: Create deployment file for template services.")
         # hello
         template_path = os.path.join(SERVICE_TEMPLATE_PATH, "hello.yaml")
-        os.system(
-            f"sed -i -r "
-            f'"s/image: .*/image: registry.{PREFIX_STACK_NAME}\\/busybox:1.37.0/" '
-            f"{template_path}"
-        )
+        if not os.path.isfile(template_path):
+            print(f'SwarmManager: Failed. Service "hello" is not in repository.')
+        else:
+            yaml = get_yaml_tool()
+            with open(template_path, "r") as f:
+                data = yaml.load(f)
+            image_string = f"{REGISTRY_COMMON_NAME}/busybox:1.37.0"
+            data["services"]["srv-hello"]["image"] = image_string
+            with open(template_path, "w") as f:
+                yaml.dump(data, f)
+            print(f'SwarmManager: Success. Create deployment file for service "hello".')
 
     @staticmethod
     def gen_global_services(verbose):
         #
-        top_path = os.path.join(MOUNT_PATH, "swarm")
-        # make directory for iocLogServer
+        top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
+        # make directories
         try_makedirs(os.path.join(top_path, LOG_FILE_DIR))
-        #
         try_makedirs(os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR))
         try_makedirs(os.path.join(top_path, GLOBAL_SERVICE_FILE_DIR, "config"))
         #
 
-        excluded_item = []
+        service_config_ok = {}
 
-        # setup alloy
+        # setup alloy configuration file
+        service_config_ok["alloy"] = True
         temp_service = SwarmService("alloy", service_type="global")
-        if temp_service.is_deployed:  # check whether the directory being mounted.
-            excluded_item.append("alloy")
-        else:
-            if "config.alloy" in os.listdir(GLOBAL_SERVICES_CONFIG_FILE_PATH):
-                #
+        if not temp_service.is_deployed:
+            if "config.alloy" not in os.listdir(GLOBAL_SERVICES_CONFIG_DIR_PATH):
+                service_config_ok["alloy"] = False
+                print('SwarmManager: Error! File "config.alloy" not found.')
+            if "run.alloy" not in os.listdir(GLOBAL_SERVICES_CONFIG_DIR_PATH):
+                service_config_ok["alloy"] = False
+                print('SwarmManager: Error! File "run.alloy" not found.')
+            if service_config_ok["alloy"]:
+                ## config.alloy is not a yaml file
                 template_path = os.path.join(
-                    GLOBAL_SERVICES_CONFIG_FILE_PATH, "config.alloy"
+                    GLOBAL_SERVICES_CONFIG_DIR_PATH, "config.alloy"
                 )
-                #
-                os.system(
-                    f"sed -i -r "
-                    f'"s/url = .*_srv-loki:3100.*/url = \\"http:\\/\\/{PREFIX_STACK_NAME}_srv-loki:3100\\/loki\\/api\\/v1\\/push\\"/" '
-                    f"{template_path}"
-                )
-                #
-                cmd = (
-                    f"sed -i -r "
-                    f'"s/regex = \\".*\\|test\\"/regex = \\"{PREFIX_STACK_NAME}\\|test\\"/" '
-                    f"{template_path}"
-                )
+                cmd = f"sed -i -r 's|url = .*_srv-loki:3100.*|url = \"http://{PREFIX_STACK_NAME}_srv-loki:3100/loki/api/v1/push\"|' {template_path}"
+                # print(cmd)
+                os.system(cmd)
+                cmd = f'sed -i -r \'s#regex = ".*\\|test"#regex = "{PREFIX_STACK_NAME}\\|test"#\' {template_path}'
                 # print(cmd)
                 os.system(cmd)
                 file_path = os.path.join(
                     top_path, GLOBAL_SERVICE_FILE_DIR, "config", "config.alloy"
                 )
                 file_copy(template_path, file_path, mode="r", verbose=verbose)
-                #
+                ## run.alloy
                 template_path = os.path.join(
-                    GLOBAL_SERVICES_CONFIG_FILE_PATH, "run.alloy"
+                    GLOBAL_SERVICES_CONFIG_DIR_PATH, "run.alloy"
                 )
                 file_path = os.path.join(
                     top_path, GLOBAL_SERVICE_FILE_DIR, "config", "run.alloy"
@@ -332,43 +334,48 @@ class SwarmManager:
 
         for item in GlobalServicesList:
             name = item[0]
+            if not service_config_ok.get(name, True):
+                print(
+                    f'SwarmManager: Failed to create deployment files for service "{name}".'
+                )
+                continue
             image = item[1] if len(item) > 1 else None
             temp_service = SwarmService(name, service_type="global")
-            if f"{name}.yaml" in os.listdir(GLOBAL_SERVICES_PATH):
-                if name in excluded_item or temp_service.is_deployed:
-                    print(
-                        f'SwarmManager: Failed to create deployment file for "{name}" as it is running.'
-                    )
+            if not f"{name}.yaml" in os.listdir(GLOBAL_SERVICES_PATH):
+                print(f'SwarmManager: Failed. Service "{name}" is not in repository.')
+            else:
+                if temp_service.is_deployed:
+                    print(f'SwarmManager: Failed. Service "{name}" is running.')
                 else:
                     template_path = os.path.join(GLOBAL_SERVICES_PATH, f"{name}.yaml")
-                    # set image with prefix if provided
+                    # set image with local prefix if provided
                     if image:
-                        os.system(
-                            f"sed -i -r "
-                            f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}'
-                        )
+                        yaml = get_yaml_tool()
+                        with open(template_path, "r") as f:
+                            data = yaml.load(f)
+                        image_string = f"{REGISTRY_COMMON_NAME}/{image}"
+                        data["services"][f"srv-{name}"]["image"] = image_string
+                        with open(template_path, "w") as f:
+                            yaml.dump(data, f)
                     # copy yaml file
                     file_path = os.path.join(
                         top_path, GLOBAL_SERVICE_FILE_DIR, f"{name}.yaml"
                     )
                     file_copy(template_path, file_path, mode="r", verbose=verbose)
-                    print(f'SwarmManager: Create deployment file for "{name}".')
-            else:
-                print(
-                    f'SwarmManager: Failed to create deployment file for "{name}" as its template file dose not exist.'
-                )
+                    print(
+                        f'SwarmManager: Success. Create deployment file for service "{name}".'
+                    )
 
     @staticmethod
     def gen_local_services(verbose):
         #
-        top_path = os.path.join(MOUNT_PATH, "swarm")
-        excluded_item = []
+        top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
+
+        service_config_ok = {}
 
         # setup registry
         temp_service = SwarmService("registry", service_type="local")
-        if temp_service.is_deployed:  # check whether the directory being mounted.
-            excluded_item.append("registry")
-        else:
+        if not temp_service.is_deployed:
             # write shell variable file
             file_path = os.path.join(
                 SERVICES_PATH, "registry", "scripts", REGISTRY_SHELL_VAR_FILE
@@ -379,10 +386,7 @@ class SwarmManager:
 
         # setup prometheus
         temp_service = SwarmService("prometheus", service_type="local")
-        if temp_service.is_deployed:  # check whether the directory being mounted.
-            excluded_item.append("prometheus")
-        else:
-            # write shell variable file
+        if not temp_service.is_deployed:
             file_path = os.path.join(
                 SERVICES_PATH, "prometheus", "config", "rules-for-cAdvisor.yaml"
             )
@@ -394,9 +398,7 @@ class SwarmManager:
 
         # setup alertManager
         temp_service = SwarmService("alertManager", service_type="local")
-        if temp_service.is_deployed:
-            excluded_item.append("alertManager")
-        else:
+        if not temp_service.is_deployed:
             # write shell variable file
             file_path = os.path.join(
                 SERVICES_PATH, "alertManager", "scripts", ALERT_MANAGER_SHELL_VAR_FILE
@@ -504,16 +506,15 @@ class SwarmManager:
                     with open(file_path, "w") as f:
                         f.write(ALERT_MANAGER_SMTP_AUTH_PASSWORD)
                 else:
+                    service_config_ok["alertManager"] = False
                     print(
-                        f'SwarmManager: Warning! For alertManager: Password file "smtp_password" not exist '
-                        f'and "ALERT_MANAGER_SMTP_AUTH_PASSWORD" not set in IMConfig.py.'
+                        f'SwarmManager: ERROR! Neither password file "smtp_password" prepared nor '
+                        f' "ALERT_MANAGER_SMTP_AUTH_PASSWORD" set for service "alertManager".'
                     )
 
         # setup loki
         temp_service = SwarmService("loki", service_type="local")
-        if temp_service.is_deployed:
-            excluded_item.append("loki")
-        else:
+        if not temp_service.is_deployed:
             file_path = os.path.join(
                 SERVICES_PATH, "loki", "config", "loki-config.yaml"
             )
@@ -530,9 +531,7 @@ class SwarmManager:
 
         # setup grafana
         temp_service = SwarmService("grafana", service_type="local")
-        if temp_service.is_deployed:
-            excluded_item.append("grafana")
-        else:
+        if not temp_service.is_deployed:
             src_path = os.path.join(SERVICES_PATH, "grafana", "datasources")
             file_path = os.path.join(src_path, "loki.yaml")
             os.system(
@@ -546,30 +545,36 @@ class SwarmManager:
         # copy directory of all local services defined.
         for item in LocalServicesList:
             name = item[0]
+            if not service_config_ok.get(name, True):
+                print(
+                    f'SwarmManager: Failed to create deployment files for service "{name}".'
+                )
+                continue
             image = item[1] if len(item) > 1 else None
             temp_service = SwarmService(name, service_type="local")
             src_path = os.path.join(SERVICES_PATH, name)
-            if os.path.isdir(src_path):
-                if name in excluded_item or temp_service.is_deployed:
-                    print(
-                        f'SwarmManager: Failed to create deployment directory for "{name}" as it is running.'
-                    )
+            if not os.path.isdir(src_path):
+                print(f'SwarmManager: Failed. Service "{name}" is not in repository.')
+            else:
+                if temp_service.is_deployed:
+                    print(f'SwarmManager: Failed. Service "{name}" is running.')
                 else:
                     template_path = os.path.join(src_path, f"{name}.yaml")
                     # set image with prefix if provided
                     if image:
-                        os.system(
-                            f"sed -i -r "
-                            f'"s/image: .*/image: {REGISTRY_COMMON_NAME}\\/{image}/" {template_path}'
-                        )
+                        yaml = get_yaml_tool()
+                        with open(template_path, "r") as f:
+                            data = yaml.load(f)
+                        image_string = f"{REGISTRY_COMMON_NAME}/{image}"
+                        data["services"][f"srv-{name}"]["image"] = image_string
+                        with open(template_path, "w") as f:
+                            yaml.dump(data, f)
+                    # copy service dir
                     dest_path = os.path.join(top_path, name)
                     dir_copy(src_path, dest_path, verbose=verbose)
-                    print(f'SwarmManager: Create deployment directory for "{name}".')
-            else:
-                print(
-                    f'SwarmManager: Failed to create deployment directory for "{name}" '
-                    f"as there is no valid dir exists in repository."
-                )
+                    print(
+                        f'SwarmManager: Success. Create deployment file for service "{name}".'
+                    )
 
     @staticmethod
     def get_deployed_swarm_services():

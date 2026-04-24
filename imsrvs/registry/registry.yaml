@@ -22,7 +22,7 @@ services:
       mode: host # bypass the routing mesh
     environment:
       OTEL_TRACES_EXPORTER: none
-    volumes:    
+    volumes:
     - ../../../registry-data:/var/lib/registry
     - ./certs:/certs
     - ./auth:/auth

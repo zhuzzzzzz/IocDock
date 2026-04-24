@@ -21,13 +21,7 @@ services:
     entrypoint:
     - bash
     - -c
-    - export HOSTNAME=$$(cat /etc/hostname);
-      . ~/.bash_aliases; 
-      date; 
-      export EPICS_IOC_LOG_FILE_NAME=/opt/EPICS/RUN/iocLog/$$HOSTNAME.ioc.log; 
-      echo export EPICS_IOC_LOG_FILE_NAME=$$EPICS_IOC_LOG_FILE_NAME; 
-      echo run iocLogServer...; 
-      iocLogServer;
+    - export HOSTNAME=$$(cat /etc/hostname); . ~/.bash_aliases; date; export EPICS_IOC_LOG_FILE_NAME=/opt/EPICS/RUN/iocLog/$$HOSTNAME.ioc.log; echo export EPICS_IOC_LOG_FILE_NAME=$$EPICS_IOC_LOG_FILE_NAME; echo run iocLogServer...; iocLogServer;
     image: registry.iasf/base:1.0.0
     tty: true
     volumes:
