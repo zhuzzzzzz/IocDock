@@ -255,6 +255,24 @@ def set_up_file_and_dir():
         set_up_dir_according_to_labels(pfm.password_file)
 
 
+def set_up_root_cert():
+    root_cert_file = os.path.join(
+        IMConfig.ROOT_CERT_PATH, f"{IMConfig.PREFIX_STACK_NAME}.crt"
+    )
+    if not os.path.exists(root_cert_file):
+        print(
+            "Failed. No certificate available, please create a root certificate first."
+        )
+    else:
+        print("Setting up cluster root certificate...")
+        cert_name = f"{IMConfig.PREFIX_STACK_NAME}.crt"
+        os.system(
+            f"cd {IMConfig.ANSIBLE_PATH}; "
+            f"ansible-playbook setup-cert.yaml -i inventory/ -kK "
+            f'-e "ca_cert_path={IMConfig.ROOT_CERT_PATH} ca_cert_name={cert_name}" -u {IMConfig.ANSIBLE_FOR_USER}'
+        )
+
+
 if __name__ == "__main__":
     pass
     # gen_inventory_files(verbose=True)

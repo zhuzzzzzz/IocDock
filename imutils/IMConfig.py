@@ -41,19 +41,40 @@ def get_manager_path() -> str:
 ## Tool Path Settings ##
 #######################################################################################################################
 
-## directories ##
+MANAGER_PATH = os.path.normpath(get_manager_path())
 
 REPOSITORY_DIR = "ioc-repository"
+REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
+
+IOC_SNAPSHOT_DIR = "ioc-snapshot"
+SNAPSHOT_PATH = os.path.join(MANAGER_PATH, IOC_SNAPSHOT_DIR)
 
 TOOLS_DIR = "imtools"
+TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
+ANSIBLE_PATH = os.path.join(TOOLS_PATH, "ansible")
+ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, "inventory")
+CLUSTER_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "cluster")
+DEFAULT_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "default")
+ROOT_CERT_PATH = os.path.join(TOOLS_PATH, "certs", "root")
+SERVER_CERT_PATH = os.path.join(TOOLS_PATH, "certs", "server")
+OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "operation-log", "OperationLog")
 
 SERVICES_DIR = "imsrvs"
+SERVICES_PATH = os.path.join(MANAGER_PATH, SERVICES_DIR)
 GLOBAL_SERVICE_FILE_DIR = "global-services"
+GLOBAL_SERVICES_PATH = os.path.join(SERVICES_PATH, GLOBAL_SERVICE_FILE_DIR)
+GLOBAL_SERVICES_CONFIG_DIR_PATH = os.path.join(GLOBAL_SERVICES_PATH, "config")
+
+TEMPLATE_DIR = "templates"
+TEMPLATE_PATH = os.path.join(MANAGER_PATH, TEMPLATE_DIR)
+SERVICE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "service")
+DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "db")
 
 # MOUNT_DIR = 'ioc-for-docker'
 MOUNT_DIR = "IocDock-data"  # top directory for nfs mounting
+MOUNT_PATH = os.getenv("MOUNT_PATH", os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
+MOUNT_PATH = os.path.normpath(MOUNT_PATH)
 MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/IocDock-data"
-
 SWARM_DIR = "swarm"  # top directory for swarm deploying
 LOG_FILE_DIR = "iocLog"  # directory for running iocLogServer in docker
 
@@ -61,34 +82,13 @@ IOC_BACKUP_DIR = "ioc-backup"  # backup directory for IOC project files
 
 SWARM_BACKUP_DIR = "swarm-backup"  # backup directory for swarm
 
-## files ##
-IOC_CONFIG_FILE = "ioc.ini"
-IOC_STATE_INFO_FILE = ".info.ini"
-IOC_SERVICE_FILE = "compose-swarm.yaml"
-
-## path ##
-MANAGER_PATH = os.path.normpath(get_manager_path())
-REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
-TOOLS_PATH = os.path.join(MANAGER_PATH, TOOLS_DIR)
-ANSIBLE_PATH = os.path.join(TOOLS_PATH, "ansible")
-ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, "inventory")
-CLUSTER_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "cluster")
-DEFAULT_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "default")
-SERVICES_PATH = os.path.join(MANAGER_PATH, SERVICES_DIR)
-GLOBAL_SERVICES_PATH = os.path.join(SERVICES_PATH, GLOBAL_SERVICE_FILE_DIR)
-GLOBAL_SERVICES_CONFIG_DIR_PATH = os.path.join(GLOBAL_SERVICES_PATH, "config")
-SNAPSHOT_PATH = os.path.join(MANAGER_PATH, "ioc-snapshot")
-TEMPLATE_PATH = os.path.join(MANAGER_PATH, "templates")
-SERVICE_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "service")
-DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "db")
-OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "operation-log", "OperationLog")
-MOUNT_PATH = os.getenv(
-    "MOUNT_PATH", os.path.normpath(os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
-)
-
 ###########################
 ## IOC Managing Settings ##
 #######################################################################################################################
+
+IOC_CONFIG_FILE = "ioc.ini"
+IOC_STATE_INFO_FILE = ".info.ini"
+IOC_SERVICE_FILE = "compose-swarm.yaml"
 
 STATE_NORMAL = "normal"  # IOC state string
 STATE_WARNING = "warning"

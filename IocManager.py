@@ -490,6 +490,11 @@ if __name__ == "__main__":
         help="set up file and dir resources for service deploying.",
     )
     parser_cluster.add_argument(
+        "--set-up-root-cert",
+        action="store_true",
+        help="set up root certificate for cluster machines.",
+    )
+    parser_cluster.add_argument(
         "-v", "--verbose", action="store_true", help="show processing details."
     )
     parser_cluster.set_defaults(func="parse_cluster")

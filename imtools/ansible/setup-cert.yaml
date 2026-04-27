@@ -1,0 +1,47 @@
+- name: Install custom CA on Ubuntu
+  hosts: all
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  vars:
+    ca_cert_path: ../certs/root/
+    ca_cert_name: iasf.crt
+  tasks:
+
+  - name: Install certificate on Debian/Ubuntu systems
+    block:
+    - name: Copy to trusted certificates directory
+      copy:
+        src: "{{ ca_cert_path }}/{{ ca_cert_name }}"
+        dest: "/usr/local/share/ca-certificates/{{ ca_cert_name }}"
+        owner: root
+        group: root
+        mode: '0644'
+      register: cert_copy
+    - name: Update CA certificates database
+      command: update-ca-certificates
+      when: cert_copy.changed    
+      changed_when: cert_copy.changed     
+    - name: Verify certificate installation
+      shell: openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt "/usr/local/share/ca-certificates/{{ ca_cert_name }}"
+      changed_when: false
+    when: ansible_facts['os_family'] == 'Debian'
+    
+  - name: Install certificate on RHEL/CentOS/Fedora systems
+    block:
+    - name: Copy to trusted anchors directory
+      copy:
+        src: "{{ temp_cert_dir }}/{{ ca_cert_name }}"
+        dest: "/etc/pki/ca-trust/source/anchors/{{ ca_cert_name }}"
+        owner: root
+        group: root
+        mode: '0644'
+      register: cert_copy
+    - name: Update CA trust store
+      command: update-ca-trust extract
+      when: cert_copy.changed
+      changed_when: cert_copy.changed
+    - name: Verify certificate installation
+      command: openssl verify -CAfile /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem "/etc/pki/ca-trust/source/anchors/{{ ca_cert_name }}"
+      changed_when: false
+    when: ansible_facts['os_family'] == 'RedHat'

@@ -24,6 +24,7 @@ from imutils.AnsibleUtil import (
     docker_registry_login,
     set_up_file_and_dir,
     set_up_swarm,
+    set_up_root_cert,
 )
 
 
@@ -537,6 +538,8 @@ def execute_cluster(args):
         docker_registry_login()
     elif args.set_up_file_and_dir:
         set_up_file_and_dir()
+    elif args.set_up_root_cert:
+        set_up_root_cert()
 
 
 if __name__ == "__main__":
