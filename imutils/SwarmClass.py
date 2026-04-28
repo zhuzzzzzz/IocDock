@@ -3,6 +3,7 @@ import os
 from ruamel.yaml import YAML
 import subprocess
 import docker
+import getpass
 from tabulate import tabulate
 
 from imutils.IMConfig import *
@@ -284,7 +285,9 @@ class SwarmManager:
             data["services"]["srv-hello"]["image"] = image_string
             with open(template_path, "w") as f:
                 yaml.dump(data, f)
-            print(f'SwarmManager: Success. Create deployment file for service "hello".')
+            print(
+                f'SwarmManager: Success. Create deployment files for service "hello".'
+            )
 
     @staticmethod
     def gen_global_services(verbose):
@@ -363,7 +366,7 @@ class SwarmManager:
                     )
                     file_copy(template_path, file_path, mode="r", verbose=verbose)
                     print(
-                        f'SwarmManager: Success. Create deployment file for service "{name}".'
+                        f'SwarmManager: Success. Create deployment files for service "{name}".'
                     )
 
     @staticmethod
@@ -374,15 +377,89 @@ class SwarmManager:
         service_config_ok = {}
 
         # setup registry
+        print('Setting up serivce "registry"...')
         temp_service = SwarmService("registry", service_type="local")
         if not temp_service.is_deployed:
-            # write shell variable file
-            file_path = os.path.join(
-                SERVICES_PATH, "registry", "scripts", REGISTRY_SHELL_VAR_FILE
+            # check service certificate
+            registry_service_path = os.path.join(SERVICES_PATH, "registry")
+            registry_crt_path = os.path.join(
+                SERVER_CERT_PATH, "registry", "registry.crt"
             )
-            with open(file_path, "w") as f:
-                f.write(f"REGISTRY_COMMON_NAME={REGISTRY_COMMON_NAME}\n")
-                f.write(f"REGISTRY_CERT_DOCKER_DIR={REGISTRY_CERT_DOCKER_DIR}\n")
+            registry_key_path = os.path.join(
+                SERVER_CERT_PATH, "registry", "registry.key"
+            )
+            if not (
+                os.path.isfile(registry_crt_path) and os.path.isfile(registry_key_path)
+            ):
+                service_config_ok["registry"] = False
+                print(
+                    'SwarmManager: Error! No certificate files for service "registry".'
+                )
+            else:
+                # verify certificate
+                certificate_flag_ok = True
+                if os.system(
+                    f'cd "{SCRIPTS_CERT_PATH}" && ./manage-certs.sh verify registry'
+                ):
+                    certificate_flag_ok = False
+                    service_config_ok["registry"] = False
+                    print(
+                        'SwarmManager: Error! Invalid certificate for service "registry".'
+                    )
+                if certificate_flag_ok:
+                    # copy certificate to run directory
+                    resgistry_crt_path_run = os.path.join(
+                        registry_service_path, "certs", "registry.crt"
+                    )
+                    file_copy(
+                        registry_crt_path,
+                        resgistry_crt_path_run,
+                        mode="r",
+                        verbose=verbose,
+                    )
+                    registry_key_path_run = os.path.join(
+                        registry_service_path, "certs", "registry.key"
+                    )
+                    file_copy(
+                        registry_key_path,
+                        registry_key_path_run,
+                        mode="r",
+                        verbose=verbose,
+                    )
+                    # check htpasswd file
+                    registry_passwd_path = os.path.join(
+                        registry_service_path, "auth", "htpasswd"
+                    )
+                    if not (os.path.isfile(registry_passwd_path)):
+                        if not (REGISTRY_LOGIN_USERNAME and REGISTRY_LOGIN_PASSWORD):
+                            # ask for username and password
+                            username = input(
+                                "Enter username for registry login: "
+                            ).strip()
+                            password = getpass.getpass(
+                                "Enter password for registry login: "
+                            )
+                            password_confirm = getpass.getpass(
+                                "Confirm password for registry login: "
+                            )
+                            if not username:
+                                service_config_ok["registry"] = False
+                                print("Error: Username cannot be empty.")
+                            if not password:
+                                service_config_ok["registry"] = False
+                                print("Error: Invalid password.")
+                            if password != password_confirm:
+                                service_config_ok["registry"] = False
+                                print("Error: Passwords do not match.")
+                        else:
+                            username = REGISTRY_LOGIN_USERNAME
+                            password = REGISTRY_LOGIN_PASSWORD
+
+                        from passlib.apache import HtpasswdFile
+
+                        ht = HtpasswdFile()
+                        ht.set_password(username, password)
+                        ht.save(registry_passwd_path)
 
         # setup prometheus
         temp_service = SwarmService("prometheus", service_type="local")
@@ -573,7 +650,7 @@ class SwarmManager:
                     dest_path = os.path.join(top_path, name)
                     dir_copy(src_path, dest_path, verbose=verbose)
                     print(
-                        f'SwarmManager: Success. Create deployment file for service "{name}".'
+                        f'SwarmManager: Success. Create deployment files for service "{name}".'
                     )
 
     @staticmethod

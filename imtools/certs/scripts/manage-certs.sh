@@ -39,7 +39,7 @@ usage() {
 
 命令:
   list                    列出所有证书（默认）
-  verify                  验证所有证书的有效性
+  verify [service|all]    验证指定服务或全部证书
   show <service>          显示指定证书的详细信息
   delete <service>        删除指定的服务器证书
   fix                     修复所有可修复的问题（当前仅修复指纹）
@@ -49,8 +49,11 @@ usage() {
   $0
   
   # 验证所有证书
-  $0 verify
+  $0 verify all
   
+  # 验证 registry 服务的证书
+  $0 verify registry
+
   # 显示 registry 服务的证书详情
   $0 show registry
 
@@ -557,6 +560,59 @@ list_certificates() {
 }
 
 # -----------------------------------------------------------------------------
+# 验证指定服务器证书
+# -----------------------------------------------------------------------------
+verify_single_certificate() {
+    local service_name="$1"
+    
+    if [[ -z "$service_name" ]]; then
+        log_error "调用 verify_single_certificate 必须指定服务名称"
+        exit 1
+    fi
+    
+    # 检查是否为根证书
+    if [[ "$service_name" == "root" || "$service_name" == "root-ca" ]]; then
+        printf "验证根证书... "
+        validate_root_certificate
+        
+        if [[ "$RESULT_VALID" == true ]]; then
+            if [[ "$RESULT_STATUS" == *"⚠"* ]]; then
+                log_warn "$RESULT_STATUS"
+            else
+                log_success "$RESULT_STATUS"
+            fi
+        else
+            log_error "$RESULT_STATUS"
+            exit 1
+        fi
+        return
+    fi
+    
+    # 检查服务器证书目录是否存在
+    local cert_dir="$DEFAULT_SERVER_CERT_DIR/$service_name"
+    if [[ ! -d "$cert_dir" ]]; then
+        log_error "证书目录不存在：$cert_dir"
+        exit 1
+    fi
+    
+    printf "验证服务器证书 (%s)... " "$service_name"
+    
+    validate_server_certificate "$service_name"
+    
+    # 根据状态符号判断是警告还是错误
+    if [[ "$RESULT_VALID" == true ]]; then
+        if [[ "$RESULT_STATUS" == *"⚠"* ]]; then
+            log_warn "$RESULT_STATUS"
+        else
+            log_success "$RESULT_STATUS"
+        fi
+    else
+        log_error "$RESULT_STATUS"
+        exit 1
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # 验证所有证书
 # -----------------------------------------------------------------------------
 verify_all_certificates() {
@@ -938,7 +994,13 @@ main() {
             list_certificates
             ;;
         verify)
-            verify_all_certificates
+            if [[ "$SERVICE_NAME" == "all" ]] || [[ -z "$SERVICE_NAME" ]]; then
+                # 如果参数是 all 或者没有参数，则验证所有证书
+                verify_all_certificates
+            else
+                # 否则验证指定的服务证书
+                verify_single_certificate "$SERVICE_NAME"
+            fi
             ;;
         show)
             show_certificate_details "$SERVICE_NAME"

@@ -233,7 +233,14 @@ validate_params() {
     else
         COMMON_NAME="${SERVICE_NAME}.${DEFAULT_ORG_NAME}"
     fi
-    
+
+    # 设置默认SAN
+    if [[ -z "$SUBJECT_ALT_NAMES" ]]; then
+        if [[ "$CERT_MODE" != "root" ]]; then
+            SUBJECT_ALT_NAMES="DNS:${COMMON_NAME}"
+        fi
+    fi
+
     # 验证服务器证书参数
     if [[ "$CERT_MODE" == "server" ]]; then
         if [[ -z "$SERVICE_NAME" ]]; then

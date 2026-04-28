@@ -23,7 +23,7 @@ storage:
       enabled: false
 auth:
   htpasswd:
-    realm: Registry Realm
+    realm: Registry Login
     path: /auth/htpasswd
 http:
   addr: :5000

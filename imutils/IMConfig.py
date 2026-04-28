@@ -55,6 +55,7 @@ ANSIBLE_PATH = os.path.join(TOOLS_PATH, "ansible")
 ANSIBLE_INVENTORY_PATH = os.path.join(ANSIBLE_PATH, "inventory")
 CLUSTER_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "cluster")
 DEFAULT_INVENTORY_FILE_PATH = os.path.join(ANSIBLE_INVENTORY_PATH, "default")
+SCRIPTS_CERT_PATH = os.path.join(TOOLS_PATH, "certs", "scripts")
 ROOT_CERT_PATH = os.path.join(TOOLS_PATH, "certs", "root")
 SERVER_CERT_PATH = os.path.join(TOOLS_PATH, "certs", "server")
 OPERATION_LOG_FILE_PATH = os.path.join(TOOLS_PATH, "operation-log", "OperationLog")
@@ -174,7 +175,9 @@ REGISTRY_CERT_DOCKER_DIR = (
     if REGISTRY_PORT == 443
     else f"{REGISTRY_COMMON_NAME}:{REGISTRY_PORT}"
 )
-REGISTRY_SHELL_VAR_FILE = "RegistryVar"  # temp file for shell variables
+
+REGISTRY_LOGIN_USERNAME = ""
+REGISTRY_LOGIN_PASSWORD = ""
 
 REGISTRY_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/registry-data"
 
@@ -212,6 +215,8 @@ ALLOWED_VARS = [
     "ANSIBLE_SSH_USER",
     "ANSIBLE_FOR_USER",
     "ANSIBLE_CREATE_PASSWORD",
+    "REGISTRY_LOGIN_USERNAME",
+    "REGISTRY_LOGIN_PASSWORD",
     "ALERT_MANAGER_MASTER_IP",
     "ALERT_MANAGER_SMTP_SMART_HOST",
     "ALERT_MANAGER_SMTP_AUTH_USERNAME",

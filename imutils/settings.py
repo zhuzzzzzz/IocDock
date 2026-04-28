@@ -3,9 +3,8 @@
 # 集群栈名称(命名空间)
 PREFIX_STACK_NAME = "iasf"
 
-# NFS挂载配置
+# 系统共享目录NFS挂载配置
 MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/IocDock-data"
-REGISTRY_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/registry-data"
 
 ################# 部署配置 ##################################
 
@@ -47,6 +46,14 @@ ANSIBLE_SSH_USER = "root"
 ANSIBLE_FOR_USER = "zhu"
 # Ansible创建用户密码
 ANSIBLE_CREATE_PASSWORD = ""
+
+################# Registry 配置 ############################
+
+# registry数据共享目录挂载配置
+REGISTRY_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/registry-data"
+
+REGISTRY_LOGIN_USERNAME = ""
+REGISTRY_LOGIN_PASSWORD = ""
 
 ################# AlertManager 配置 ########################
 
