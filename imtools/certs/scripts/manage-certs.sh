@@ -595,7 +595,7 @@ verify_single_certificate() {
         exit 1
     fi
     
-    printf "验证服务器证书 (%s)... " "$service_name"
+    printf "验证服务器证书(%s)... " "$service_name"
     
     validate_server_certificate "$service_name"
     
@@ -645,7 +645,7 @@ verify_all_certificates() {
                 local service_name
                 service_name=$(basename "$service_dir")
                 
-                printf "验证服务器证书 (%s)... " "$service_name"
+                printf "验证服务器证书(%s)... " "$service_name"
                 
                 validate_server_certificate "$service_name"
                 

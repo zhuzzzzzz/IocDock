@@ -10,4 +10,4 @@ datasources:
   url: http://iasf_srv-loki:3100
   basicAuth: false
   isDefault: false
-  editable: true 
+  editable: true

@@ -70,7 +70,7 @@ frontend:
 compactor:
   delete_request_store: filesystem
   retention_enabled: true
-  
+
 analytics:
   reporting_enabled: false
 

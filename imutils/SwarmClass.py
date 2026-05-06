@@ -462,6 +462,7 @@ class SwarmManager:
                         ht.save(registry_passwd_path)
 
         # setup prometheus
+        print('Setting up serivce "prometheus"...')
         temp_service = SwarmService("prometheus", service_type="local")
         if not temp_service.is_deployed:
             file_path = os.path.join(
@@ -474,6 +475,7 @@ class SwarmManager:
             )
 
         # setup alertManager
+        print('Setting up serivce "alertManager"...')
         temp_service = SwarmService("alertManager", service_type="local")
         if not temp_service.is_deployed:
             # write shell variable file
@@ -485,23 +487,19 @@ class SwarmManager:
                 f.write(
                     f"ALERT_MANAGER_MASTER_IP_PORT={ALERT_MANAGER_MASTER_IP}:{ALERT_MANAGER_MASTER_GOSSIP_PORT}\n"
                 )
-            # set smtp account
-            file_path = os.path.join(
+            yaml = get_yaml_tool()
+            config_file_path = os.path.join(
                 SERVICES_PATH, "alertManager", "config", "alertManager-config.yaml"
             )
-            os.system(
-                f'sed -i -r "s/smtp_from: .*/smtp_from: {ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS}/" {file_path}'
-            )
-            os.system(
-                f'sed -i -r "s/smtp_smarthost: .*/smtp_smarthost: {ALERT_MANAGER_SMTP_SMART_HOST}/" {file_path}'
-            )
-            os.system(
-                f"sed -i -r "
-                f'"s/smtp_auth_username: .*/smtp_auth_username: {ALERT_MANAGER_SMTP_AUTH_USERNAME}/" {file_path}'
-            )
+            with open(config_file_path, "r", encoding="utf-8") as f:
+                config_data = yaml.load(f)
+            # set smtp account
+            config_data["global"]["smtp_from"] = ALERT_MANAGER_SMTP_EMAIL_SEND_ADDRESS
+            config_data["global"]["smtp_smarthost"] = ALERT_MANAGER_SMTP_SMART_HOST
+            config_data["global"][
+                "smtp_auth_username"
+            ] = ALERT_MANAGER_SMTP_AUTH_USERNAME
             # set receivers
-            yaml = YAML()
-            yaml.preserve_quotes = True
             if any(
                 [
                     ALERT_MANAGER_RECEIVE_EMAIL_LIST,
@@ -509,8 +507,6 @@ class SwarmManager:
                     ALERT_MANAGER_INFO_WEBHOOK_RECEIVER,
                 ]
             ):
-                with open(file_path, "r", encoding="utf-8") as f:
-                    config_data = yaml.load(f)
                 receiver_list = [
                     (
                         {
@@ -572,8 +568,8 @@ class SwarmManager:
                     ),
                 ]
                 config_data["receivers"] = list(filter(None, receiver_list))
-                with open(file_path, "w", encoding="utf-8") as f:
-                    yaml.dump(config_data, f)
+            with open(file_path, "w", encoding="utf-8") as f:
+                yaml.dump(config_data, f)
             # set password
             file_path = os.path.join(
                 SERVICES_PATH, "alertManager", "config", "smtp_password"
@@ -583,41 +579,56 @@ class SwarmManager:
                     with open(file_path, "w") as f:
                         f.write(ALERT_MANAGER_SMTP_AUTH_PASSWORD)
                 else:
-                    service_config_ok["alertManager"] = False
-                    print(
-                        f'SwarmManager: ERROR! Neither password file "smtp_password" prepared nor '
-                        f' "ALERT_MANAGER_SMTP_AUTH_PASSWORD" set for service "alertManager".'
+                    password = getpass.getpass(
+                        "Enter password for alertManager sending smtp email: "
                     )
+                    if not password:
+                        service_config_ok["alertManager"] = False
+                        print("Error: Invalid password.")
+                    else:
+                        with open(file_path, "w") as f:
+                            f.write(password)
 
         # setup loki
+        print('Setting up serivce "loki"...')
         temp_service = SwarmService("loki", service_type="local")
         if not temp_service.is_deployed:
-            file_path = os.path.join(
+            yaml = get_yaml_tool()
+            config_file_path = os.path.join(
                 SERVICES_PATH, "loki", "config", "loki-config.yaml"
             )
-            os.system(
-                f"sed -i -r "
-                f'"s/url: .*_srv-prometheus/url: http:\\/\\/{PREFIX_STACK_NAME}_srv-prometheus/" '
-                f"{file_path}"
-            )
-            os.system(
-                f"sed -i -r "
-                f'"s/alertmanager_url: .*/alertmanager_url: http:\\/\\/{ALERT_MANAGER_MASTER_IP}:9093/" '
-                f"{file_path}"
-            )
+            with open(config_file_path, "r", encoding="utf-8") as f:
+                config_data = yaml.load(f)
+            config_data["ruler"]["remote_write"]["clients"]["prometheus"][
+                "url"
+            ] = f"http://{PREFIX_STACK_NAME}_srv-prometheus:9090/api/v1/write"
+            config_data["ruler"][
+                "alertmanager_url"
+            ] = f"http://{ALERT_MANAGER_MASTER_IP}:9093"
+            with open(config_file_path, "w", encoding="utf-8") as f:
+                yaml.dump(config_data, f)
 
         # setup grafana
+        print('Setting up serivce "grafana"...')
         temp_service = SwarmService("grafana", service_type="local")
         if not temp_service.is_deployed:
             src_path = os.path.join(SERVICES_PATH, "grafana", "datasources")
+            yaml = get_yaml_tool()
             file_path = os.path.join(src_path, "loki.yaml")
-            os.system(
-                f'sed -i -r "s/url: .*/url: http:\\/\\/{PREFIX_STACK_NAME}_srv-loki:3100/" {file_path}'
-            )
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = yaml.load(f)
+            data["datasources"][0]["url"] = f"http://{PREFIX_STACK_NAME}_srv-loki:3100"
+            with open(file_path, "w", encoding="utf-8") as f:
+                yaml.dump(data, f)
+            yaml = get_yaml_tool()
             file_path = os.path.join(src_path, "prometheus.yaml")
-            os.system(
-                f'sed -i -r "s/url: .*/url: http:\\/\\/{PREFIX_STACK_NAME}_srv-prometheus:9090/" {file_path}'
-            )
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = yaml.load(f)
+            data["datasources"][0][
+                "url"
+            ] = f"http://{PREFIX_STACK_NAME}_srv-prometheus:9090"
+            with open(file_path, "w", encoding="utf-8") as f:
+                yaml.dump(data, f)
 
         # copy directory of all local services defined.
         for item in LocalServicesList:
