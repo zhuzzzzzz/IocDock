@@ -119,19 +119,13 @@ def dir_copy(source_folder, destination_folder, verbose=False):
         return True
 
 
-def relative_and_absolute_path_to_abs(input_path, default_path=None):
+def relative_path_to_abs(input_path):
     """
-    return an absolute path or a relative path against current work path in normalized format.
-    If no input_path was given use default_path.
+    return an absolute path in normalized format against current work path of an absolute path or a relative path.
 
     :param input_path:
-    :param default_path:
     :return:
     """
-    if not default_path:
-        default_path = os.getcwd()
-    if not input_path:
-        input_path = default_path
     if not os.path.isabs(input_path):
         output_path = os.path.join(os.getcwd(), input_path)
     else:

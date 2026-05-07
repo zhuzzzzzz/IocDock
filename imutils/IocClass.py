@@ -16,7 +16,7 @@ from imutils.IMFunc import (
     condition_parse,
     multi_line_parse,
     format_normalize,
-    relative_and_absolute_path_to_abs,
+    relative_path_to_abs,
 )
 
 
@@ -524,8 +524,10 @@ class IOC:
             if self.verbose:
                 print(f'IOC("{self.name}").get_src_file: Finished in IOC init mode.')
             return
-
-        src_p = relative_and_absolute_path_to_abs(src_dir, self.src_path)
+        if src_dir:
+            src_p = relative_path_to_abs(src_dir)
+        else:
+            src_p = self.src_path
         if not os.path.exists(src_p):
             print(
                 f'IOC("{self.name}").get_src_file: Failed. Dir path "{src_p}" not exist.'
@@ -1640,9 +1642,10 @@ def repository_backup(backup_mode, backup_dir, verbose):
     """
     ioc_list = get_all_ioc(read_mode=True)
     if ioc_list:
-        backup_path = relative_and_absolute_path_to_abs(
-            backup_dir, IOC_BACKUP_DIR
-        )  # default: ./ioc-backup/
+        if backup_dir:
+            backup_path = relative_path_to_abs(backup_dir)  # default: ./ioc-backup/
+        else:
+            backup_path = relative_path_to_abs(IOC_BACKUP_DIR)
         if not os.path.exists(backup_path):
             try_makedirs(backup_path, verbose)
         now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -1716,15 +1719,13 @@ def restore_backup(backup_path, force_overwrite, verbose):
     :param verbose:
     :return:
     """
-    extract_path = relative_and_absolute_path_to_abs(backup_path)
+    extract_path = relative_path_to_abs(backup_path)
     if not os.path.isfile(extract_path):
         print(f'restore_backup: Failed. File "{extract_path}" to extract not exists.')
         return
 
     # make temporary directory.
-    temp_dir = relative_and_absolute_path_to_abs(
-        f'/tmp/tar_temp_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}'
-    )
+    temp_dir = f'/tmp/tar_temp_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}'
     try_makedirs(temp_dir, verbose=verbose)
     # extract tgz files into temporary directory.
     try:

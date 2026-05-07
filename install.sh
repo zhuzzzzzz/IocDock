@@ -83,13 +83,21 @@ systemctl daemon-reload
 systemctl enable IocDockServer.service
 systemctl start IocDockServer.service
 
-# copy settings.py if not exists in base directory.
+# copy settings.py and services.py if not exists in base directory.
 if [ ! -f "$script_dir/settings.py" ]; then
     echo "copying settings.py from imutils/ directory..."
     cp "$script_dir/imutils/settings.py" "$script_dir/settings.py"
     if [ $? -eq 0 ]; then
     chown "$current_user:$current_user" "$script_dir/settings.py"
     chmod g+w "$script_dir/settings.py"
+    fi
+fi
+if [ ! -f "$script_dir/services.py" ]; then
+    echo "copying services.py from imutils/ directory..."
+    cp "$script_dir/imutils/services.py" "$script_dir/services.py"
+    if [ $? -eq 0 ]; then
+    chown "$current_user:$current_user" "$script_dir/services.py"
+    chmod g+w "$script_dir/services.py"
     fi
 fi
 

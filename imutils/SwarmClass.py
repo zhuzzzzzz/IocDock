@@ -8,13 +8,13 @@ from tabulate import tabulate
 
 from imutils.IMConfig import *
 from imutils.IMFunc import (
-    relative_and_absolute_path_to_abs,
+    relative_path_to_abs,
     try_makedirs,
     file_copy,
     dir_copy,
     get_yaml_tool,
 )
-from imutils.ServiceDefinition import (
+from imutils.IMServiceDefinition import (
     GlobalServicesList,
     LocalServicesList,
     CustomServicesList,
@@ -272,25 +272,8 @@ class SwarmManager:
             return
 
     @staticmethod
-    def gen_template_services(verbose):
-        # hello
-        template_path = os.path.join(SERVICE_TEMPLATE_PATH, "hello.yaml")
-        if not os.path.isfile(template_path):
-            print(f'SwarmManager: Failed. Service "hello" is not in repository.')
-        else:
-            yaml = get_yaml_tool()
-            with open(template_path, "r") as f:
-                data = yaml.load(f)
-            image_string = f"{REGISTRY_COMMON_NAME}/busybox:1.37.0"
-            data["services"]["srv-hello"]["image"] = image_string
-            with open(template_path, "w") as f:
-                yaml.dump(data, f)
-            print(
-                f'SwarmManager: Success. Create deployment files for service "hello".'
-            )
-
-    @staticmethod
     def gen_global_services(verbose):
+        print(f'SwarmManager: Creating deployment files for global services...')
         #
         top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
         # make directories
@@ -371,6 +354,7 @@ class SwarmManager:
 
     @staticmethod
     def gen_local_services(verbose):
+        print(f'SwarmManager: Creating deployment files for local services...')
         #
         top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
 
@@ -665,6 +649,39 @@ class SwarmManager:
                     )
 
     @staticmethod
+    def gen_custom_services(verbose):
+        print(f'SwarmManager: Creating deployment files for custom services...')
+        #
+        top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
+        # make directories
+        try_makedirs(os.path.join(top_path, CUSTOM_SERVICE_FILE_DIR))
+        #
+        for item in CustomServicesList:
+            name = item[0]
+            temp_service = SwarmService(name, service_type="custom")
+            if not temp_service.service_file:
+                print(f'SwarmManager: Failed. Service "{name}" is not in repository.')
+            else:
+                if temp_service.is_deployed:
+                    print(f'SwarmManager: Failed. Service "{name}" is running.')
+                else:
+                    # copy service file
+                    file_path = os.path.join(
+                        temp_service.src_dir_path, temp_service.service_file
+                    )
+                    dest_path = os.path.join(
+                        CUSTOM_SERVICE_PATH, temp_service.service_file
+                    )
+                    file_copy(file_path, dest_path, mode="r", verbose=verbose)
+                    dest_path = os.path.join(
+                        top_path, CUSTOM_SERVICE_FILE_DIR, temp_service.service_file
+                    )
+                    file_copy(file_path, dest_path, mode="r", verbose=verbose)
+                    print(
+                        f'SwarmManager: Success. Create deployment files for service "{name}".'
+                    )
+
+    @staticmethod
     def get_deployed_swarm_services():
         result = subprocess.run(
             [
@@ -767,7 +784,7 @@ class SwarmManager:
     def restore_swarm(backup_file):
         print(f"Restoring swarm...")
 
-        extract_path = relative_and_absolute_path_to_abs(backup_file)
+        extract_path = relative_path_to_abs(backup_file)
         if not str(extract_path).endswith(".swarm.tar.gz"):
             print(
                 f'restore_swarm: Failed. File "{extract_path}" is not a valid swarm backup file.'
@@ -831,47 +848,36 @@ class SwarmService:
         self.service_name = f"{PREFIX_STACK_NAME}_srv-{name}"
         if service_type == "ioc":
             self.service_type = "ioc"
-            self.dir_path = os.path.abspath(
-                os.path.join(get_manager_path(), "..", MOUNT_DIR, SWARM_DIR, self.name)
-            )
+            self.dir_path = os.path.join(MOUNT_PATH, self.name)
             self.service_file = IOC_SERVICE_FILE
         elif service_type == "global":
             self.service_type = "global"
-            self.dir_path = os.path.abspath(
-                os.path.join(
-                    get_manager_path(),
-                    "..",
-                    MOUNT_DIR,
-                    SWARM_DIR,
-                    GLOBAL_SERVICE_FILE_DIR,
-                )
-            )
+            self.dir_path = os.path.join(MOUNT_PATH, GLOBAL_SERVICE_FILE_DIR)
             self.service_file = f"{self.name}.yaml"
         elif service_type == "local":
             self.service_type = "local"
-            self.dir_path = os.path.abspath(
-                os.path.join(get_manager_path(), "..", MOUNT_DIR, SWARM_DIR, self.name)
-            )
+            self.dir_path = os.path.join(MOUNT_PATH, self.name)
             self.service_file = f"{self.name}.yaml"
         else:
             self.service_type = "custom"
+            self.dir_path = os.path.join(MOUNT_PATH, CUSTOM_SERVICE_FILE_DIR)
             compose_file_path = kwargs.get("compose_file")
             if not compose_file_path:
                 # if no extra arg about compose_file path given, try to find it from ServiceDefinition.py.
                 flag = False
                 for item in CustomServicesList:
                     if self.name == item[0]:
-                        compose_file_path = relative_and_absolute_path_to_abs(item[1])
-                        self.dir_path = os.path.dirname(compose_file_path)
+                        compose_file_path = relative_path_to_abs(item[1])
+                        self.src_dir_path = os.path.dirname(compose_file_path)
                         self.service_file = os.path.basename(compose_file_path)
                         flag = True
                         break
                 if not flag:
-                    self.dir_path = ""
+                    self.src_dir_path = ""
                     self.service_file = ""
             else:
-                compose_file_path = relative_and_absolute_path_to_abs(compose_file_path)
-                self.dir_path = os.path.dirname(compose_file_path)
+                compose_file_path = relative_path_to_abs(compose_file_path)
+                self.src_dir_path = os.path.dirname(compose_file_path)
                 self.service_file = os.path.basename(compose_file_path)
 
     def __repr__(self):
