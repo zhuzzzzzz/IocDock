@@ -1523,6 +1523,9 @@ def gen_swarm_files(iocs, verbose):
                 "-c",
                 f'cd RUN/{ioc_settings["service_dir"]}/startup/iocBoot; ./st.cmd;',
             ],
+            "environment": {
+                "EPICS_IOCSH_HISTFILE": f"/opt/EPICS/RUN/{ioc_settings['service_dir']}/logs/.iocsh_history",
+            },
             "tty": True,
             "stdin_open": True,
             "networks": ["hostnet"],
@@ -1534,7 +1537,7 @@ def gen_swarm_files(iocs, verbose):
                 },
                 {
                     "type": "bind",
-                    "source": f".",
+                    "source": f"../{LOG_FILE_DIR}",
                     "target": f"{os.path.join(CONTAINER_IOC_RUN_PATH, LOG_FILE_DIR)}",
                 },
                 {
