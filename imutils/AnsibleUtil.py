@@ -208,6 +208,11 @@ def docker_registry_login():
     username = input(f"Username: ").strip()
     password = getpass.getpass("Password: ")
     os.system(
+        f"ansible all -bK -m lineinfile -a "
+        f"\"path=/etc/hosts line='{IMConfig.REGISTRY_MASTER_IP} {IMConfig.REGISTRY_COMMON_NAME}' state=present\" "
+        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER} "
+    )
+    os.system(
         f"ansible all -m community.docker.docker_login -a "
         f'"registry_url=https://{IMConfig.REGISTRY_COMMON_NAME} username={username} password={password} reauthorize=true" '
         f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER}"
@@ -256,6 +261,12 @@ def set_up_file_and_dir():
 
 
 def set_up_root_cert():
+    ans = input(
+        "Warning: This operation will restart all docker daemon in cluster. Continue?|[y/n]:"
+    )
+    if not ans.lower().strip() in ("y", "yes"):
+        print("Operation canceled.")
+        return
     root_cert_file = os.path.join(
         IMConfig.ROOT_CERT_PATH, f"{IMConfig.PREFIX_STACK_NAME}.crt"
     )
@@ -264,7 +275,7 @@ def set_up_root_cert():
             "Failed. No certificate available, please create a root certificate first."
         )
     else:
-        print("Setting up cluster root certificate...")
+        print("Setting up root certificate trust...")
         cert_name = f"{IMConfig.PREFIX_STACK_NAME}.crt"
         os.system(
             f"cd {IMConfig.ANSIBLE_PATH}; "

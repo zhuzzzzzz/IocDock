@@ -273,7 +273,7 @@ class SwarmManager:
 
     @staticmethod
     def gen_global_services(verbose):
-        print(f'SwarmManager: Creating deployment files for global services...')
+        print(f"SwarmManager: Creating deployment files for global services...")
         #
         top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
         # make directories
@@ -354,7 +354,7 @@ class SwarmManager:
 
     @staticmethod
     def gen_local_services(verbose):
-        print(f'SwarmManager: Creating deployment files for local services...')
+        print(f"SwarmManager: Creating deployment files for local services...")
         #
         top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
 
@@ -441,7 +441,7 @@ class SwarmManager:
 
                         from passlib.apache import HtpasswdFile
 
-                        ht = HtpasswdFile()
+                        ht = HtpasswdFile(default_scheme="bcrypt")
                         ht.set_password(username, password)
                         ht.save(registry_passwd_path)
 
@@ -650,7 +650,7 @@ class SwarmManager:
 
     @staticmethod
     def gen_custom_services(verbose):
-        print(f'SwarmManager: Creating deployment files for custom services...')
+        print(f"SwarmManager: Creating deployment files for custom services...")
         #
         top_path = os.path.join(MOUNT_PATH, SWARM_DIR)
         # make directories
@@ -848,19 +848,19 @@ class SwarmService:
         self.service_name = f"{PREFIX_STACK_NAME}_srv-{name}"
         if service_type == "ioc":
             self.service_type = "ioc"
-            self.dir_path = os.path.join(MOUNT_PATH, self.name)
+            self.dir_path = os.path.join(MOUNT_PATH, SWARM_DIR, self.name)
             self.service_file = IOC_SERVICE_FILE
         elif service_type == "global":
             self.service_type = "global"
-            self.dir_path = os.path.join(MOUNT_PATH, GLOBAL_SERVICE_FILE_DIR)
+            self.dir_path = os.path.join(MOUNT_PATH, SWARM_DIR, GLOBAL_SERVICE_FILE_DIR)
             self.service_file = f"{self.name}.yaml"
         elif service_type == "local":
             self.service_type = "local"
-            self.dir_path = os.path.join(MOUNT_PATH, self.name)
+            self.dir_path = os.path.join(MOUNT_PATH, SWARM_DIR, self.name)
             self.service_file = f"{self.name}.yaml"
         else:
             self.service_type = "custom"
-            self.dir_path = os.path.join(MOUNT_PATH, CUSTOM_SERVICE_FILE_DIR)
+            self.dir_path = os.path.join(MOUNT_PATH, SWARM_DIR, CUSTOM_SERVICE_FILE_DIR)
             compose_file_path = kwargs.get("compose_file")
             if not compose_file_path:
                 # if no extra arg about compose_file path given, try to find it from ServiceDefinition.py.
