@@ -8,6 +8,7 @@ program_user="iocdock"
 script_abs=$(readlink -f "$0")
 script_dir=$(dirname "$script_abs")
 
+groupadd -r docker &>/dev/null
 useradd -r -m -s /usr/sbin/nologin "$program_user" &>/dev/null
 usermod -aG "$program_user" "$current_user"
 usermod -aG docker "$program_user"
