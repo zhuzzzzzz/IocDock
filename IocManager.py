@@ -7,7 +7,7 @@ import subprocess
 import configparser
 
 from imutils.IMConfig import (
-    get_manager_path,
+    MANAGER_PATH,
     IOC_CONFIG_FILE,
     IOC_BACKUP_DIR,
     PREFIX_STACK_NAME,
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     parser_execute.add_argument(
         "--backup-path",
         type=str,
-        default=f'{os.path.join(get_manager_path(), "..", IOC_BACKUP_DIR)}',
+        default=f'{os.path.join(MANAGER_PATH, "..", IOC_BACKUP_DIR)}',
         help=f"path of directory used for storing backup files of IOC projects."
         f'\ndefault: "$MANAGER_PATH/../{IOC_BACKUP_DIR}/" ',
     )
@@ -669,7 +669,11 @@ if __name__ == "__main__":
     try:
         operation_log()
     except Exception as e:
-        print(f"IocManager: Failed to execute operation_log(), {e}")
+        if args.func == "parse_config" and not args.set_value:
+            pass
+        else:
+            print(f"IocManager: Failed to execute operation_log(), {e}")
+        
 
     # print(f'{args}')
     if not hasattr(args, "verbose"):

@@ -9,7 +9,8 @@
 
 
 # set variables below to change generating configureation.
-image_prefix=`./IocManager.py config REGISTRY_COMMON_NAME`
+image_prefix=`IocManager config REGISTRY_COMMON_NAME`
+template_path=`IocManager config TEMPLATE_PATH`
 base_image="$image_prefix/base:1.0.0"
 ioc_image="$image_prefix/ioc-exec:1.0.0"
 create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "worker_test_5")
@@ -18,14 +19,14 @@ create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "wor
 if [ "$1" == 'delete' -o "$1" == 'del' ]; then
 	verbose="-v"
 	for item in "${create_ioc[@]}"; do 
-		./IocManager.py remove "$item" -rf $verbose
+		IocManager remove "$item" -rf $verbose
 		verbose=""
 	done
 elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 	#  remove first.
 	verbose="-v"
 	for item in "${create_ioc[@]}"; do 
-		./IocManager.py remove "$item" -f $verbose
+		IocManager remove "$item" -f $verbose
 		verbose=""
 	done
 	# make
@@ -36,28 +37,28 @@ elif [ "$1" == 'create' -o "$1" == 'make' ]; then
 			echo 
 			echo "####### $item #######" 
 			# create IOC project
-			./IocManager.py create "$item" -f "./templates/test/ioc.ini" $verbose
+			IocManager create "$item" -f "$template_path/test/ioc.ini" $verbose
 			# add source files
-			./IocManager.py exec "$item" --add-src-file ./templates/test $verbose
+			IocManager exec "$item" --add-src-file "$template_path/test" $verbose
 			# set options
-			./IocManager.py set "$item" -s db -o "load = ramper.db, name=$item" $verbose
-			./IocManager.py set "$item" -o " host = swarm" $verbose
-			./IocManager.py set "$item" -o " image = $ioc_image " $verbose
-			./IocManager.py set "$item" -s deploy -o "cpu-limit=0.8" $verbose
-			./IocManager.py set "$item" -s deploy -o "memory-limit=0.8G" $verbose
-			./IocManager.py set "$item" -s deploy -o "labels=test=true" $verbose
+			IocManager set "$item" -s db -o "load = ramper.db, name=$item" $verbose
+			IocManager set "$item" -o " host = swarm" $verbose
+			IocManager set "$item" -o " image = $ioc_image " $verbose
+			IocManager set "$item" -s deploy -o "cpu-limit=0.8" $verbose
+			IocManager set "$item" -s deploy -o "memory-limit=0.8G" $verbose
+			IocManager set "$item" -s deploy -o "labels=test=true" $verbose
 			# add set options here..
 			
 			
 			
 			# generate startup files
-			./IocManager.py exec "$item" --gen-startup-file $verbose
+			IocManager exec "$item" --gen-startup-file $verbose
 			# copy files to default mount path 
-			./IocManager.py exec "$item" --export-for-mount $verbose
+			IocManager exec "$item" --export-for-mount $verbose
 			# generate compose file for swarm deploying
-			./IocManager.py exec "$item" --gen-swarm-file $verbose
+			IocManager exec "$item" --gen-swarm-file $verbose
 			# add snapshot
-			./IocManager.py exec "$item" --add-snapshot-file $verbose
+			IocManager exec "$item" --add-snapshot-file $verbose
 			verbose=""
 		done
 		echo

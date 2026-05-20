@@ -38,7 +38,7 @@ usage() {
 证书管理工具 - 列出、验证和管理 TLS 证书
 
 命令:
-  list                    列出所有证书（默认）
+  list                    列出所有证书
   verify [service|all]    验证指定服务或全部证书
   show <service>          显示指定证书的详细信息
   delete <service>        删除指定的服务器证书
@@ -46,7 +46,7 @@ usage() {
 
 示例:
   # 列出所有证书
-  $0
+  $0 list
   
   # 验证所有证书
   $0 verify all

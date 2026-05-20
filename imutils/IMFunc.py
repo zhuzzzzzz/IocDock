@@ -194,13 +194,13 @@ def operation_log():
     # 生成日志内容
     log_time = datetime.datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
     log_command = " ".join(sys.argv)
-    log_user = os.getenv("USER")
-    log_host = socket.gethostname()
-    log_ssh = os.getenv("SSH_CLIENT")
-    log_id = f"{log_user}@{log_host}"
+    log_user = os.getenv("SUDO_USER")
+    if not log_user:
+        log_user = os.getenv("USER")
+    log_ssh = os.getenv("SSH_CONNECTION")
     log_str = (
-        "\t".join(
-            [log_time, f'ssh="{log_ssh}"', f'id="{log_id}"', f'cmd="{log_command}"']
+        "  ".join(
+            [log_time, f'ssh="{log_ssh}"', f'user="{log_user}"', f'cmd="{log_command}"']
         )
         + "\n"
     )

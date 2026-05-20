@@ -1,7 +1,6 @@
 import os.path
 import importlib.util
 from pathlib import Path
-from imutils.IMError import IMInitError
 
 # resolve custom settings
 custom_settings_path = Path(__file__).parent.parent / "settings.py"
@@ -21,27 +20,13 @@ else:
     else:
         import_flag = True
 
-
-def get_manager_path() -> str:
-    manager_path = os.environ.get("MANAGER_PATH", default="")
-    if manager_path:
-        if os.path.isdir(manager_path):
-            return manager_path
-        else:
-            raise IMInitError(
-                f'Invalid system environment variable "$MANAGER_PATH": {manager_path}.'
-            )
-    else:
-        raise IMInitError(
-            f'System environment variable "$MANAGER_PATH" is not defined.'
-        )
-
-
 ########################
 ## Tool Path Settings ##
 #######################################################################################################################
 
-MANAGER_PATH = os.path.normpath(get_manager_path())
+HOME_PATH = "/opt/IocDockHome"
+PROJECT_NAME = "IocDock"
+MANAGER_PATH = os.path.join(HOME_PATH, PROJECT_NAME)
 
 REPOSITORY_DIR = "ioc-repository"
 REPOSITORY_PATH = os.path.join(MANAGER_PATH, REPOSITORY_DIR)
