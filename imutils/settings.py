@@ -42,9 +42,7 @@ SWARM_ADDVERTISER_IP = ""
 SWARM_ADDVERTISER_INTERFACE = "enp3s0"
 # Ansible远程登录用户(需要具有root权限)
 ANSIBLE_SSH_USER = "root"
-# Ansible创建用户
-ANSIBLE_FOR_USER = "zhu"
-# Ansible创建用户密码
+# Ansible创建的iocdock用户密码
 ANSIBLE_CREATE_PASSWORD = ""
 
 ################# Registry 配置 ############################

@@ -160,25 +160,35 @@ def set_up_cluster():
 
 
 def ping():
-    os.system(
-        f"ansible all -m ping -i {IMConfig.ANSIBLE_INVENTORY_PATH} -u {IMConfig.ANSIBLE_FOR_USER}"
-    )
+    os.system(f"ansible all -m ping -i {IMConfig.ANSIBLE_INVENTORY_PATH}")
 
 
-def ansible_touch_dir(dir_name, host_pattern):
+def ansible_touch_dir(dir_name, host_pattern, become_password_file=None):
     base_path = os.path.normpath(os.path.join(IMConfig.MANAGER_PATH, ".."))
     dir_path = os.path.join(base_path, dir_name)
-    os.system(
-        f'ansible {host_pattern} -m file -a "dest={dir_path} mode=777 state=directory" '
-        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER}"
-    )
+    if not become_password_file:
+        os.system(
+            f'ansible {host_pattern} -m file -a "dest={dir_path} mode=777 state=directory" '
+            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
+        )
+    else:
+        os.system(
+            f'ansible {host_pattern} -b -m file -a "dest={dir_path} mode=777 state=directory" '
+            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
+        )
 
 
-def ansible_create_file(file_path, contents, host_pattern):
-    os.system(
-        f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path}\" "
-        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER}"
-    )
+def ansible_create_file(file_path, contents, host_pattern, become_password_file=None):
+    if not become_password_file:
+        os.system(
+            f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path}\" "
+            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
+        )
+    else:
+        os.system(
+            f"ansible {host_pattern} -b -m copy -a \"content='{contents}' dest={file_path}\" "
+            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
+        )
 
 
 def ansible_nfs_mount(dir_name, host_pattern, become_password_file):
@@ -188,13 +198,13 @@ def ansible_nfs_mount(dir_name, host_pattern, become_password_file):
         os.system(
             f'ansible {host_pattern} -b -m mount -a "path={dir_path} src={IMConfig.REGISTRY_NFS_MOUNT_SRC} '
             f'fstype=nfs opts=rw,_netdev state=mounted" '
-            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER} --become-password-file={become_password_file}"
+            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
         )
     elif dir_name == "IocDock-data":
         os.system(
             f'ansible {host_pattern} -b -m mount -a "path={dir_path} src={IMConfig.MOUNT_DIR_NFS_MOUNT_SRC} '
             f'fstype=nfs opts=rw,_netdev state=mounted" '
-            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER} --become-password-file={become_password_file}"
+            f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
         )
     else:
         print(
@@ -210,12 +220,12 @@ def docker_registry_login():
     os.system(
         f"ansible all -bK -m lineinfile -a "
         f"\"path=/etc/hosts line='{IMConfig.REGISTRY_MASTER_IP} {IMConfig.REGISTRY_COMMON_NAME}' state=present\" "
-        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER} "
+        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
     )
     os.system(
         f"ansible all -m community.docker.docker_login -a "
         f'"registry_url=https://{IMConfig.REGISTRY_COMMON_NAME} username={username} password={password} reauthorize=true" '
-        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} -u {IMConfig.ANSIBLE_FOR_USER}"
+        f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
     )
 
 
@@ -227,31 +237,57 @@ def set_up_file_and_dir_for_every_host(become_password_file):
         node_info[node.attrs["Description"]["Hostname"]] = {
             "ip": node.attrs["Status"]["Addr"],
         }
+    node_list = []
     for node_name, node_info in node_info.items():
         ansible_create_file(
-            IMConfig.NODE_IP_FILE, f'NODE_IP={node_info["ip"]}', node_name
+            IMConfig.NODE_IP_FILE,
+            f'NODE_IP={node_info["ip"]}',
+            node_name,
+            become_password_file,
         )
-        ansible_touch_dir("alloy-data", node_name)
-        ansible_touch_dir("IocDock-data", node_name)
-        ansible_nfs_mount("IocDock-data", node_name, become_password_file)
+        node_list.append(node_name)
+    node_pattern_str = " ".join(node_list)
+    ansible_touch_dir("IocDock-data", node_pattern_str, become_password_file)
+    ansible_nfs_mount("IocDock-data", node_pattern_str, become_password_file)
+    ansible_touch_dir("alloy-data", node_pattern_str, become_password_file)
 
 
 def set_up_dir_according_to_labels(become_password_file):
     node_info = socket_client("node info", receive_type="json")
+    alertmanager_node_list = []
+    grafana_node_list = []
+    loki_node_list = []
+    prometheus_node_list = []
+    registry_node_list = []
     for node_name, node_info in node_info.items():
         if node_info.get("labels", None):
             for key, value in node_info.get("labels").items():
                 if key == "alertmanager" and value == "true":
-                    ansible_touch_dir("alertManager-data", node_name)
+                    alertmanager_node_list.append(node_name)
                 elif key == "grafana" and value == "true":
-                    ansible_touch_dir("grafana-data", node_name)
+                    grafana_node_list.append(node_name)
                 elif key == "loki" and value == "true":
-                    ansible_touch_dir("loki-data", node_name)
+                    loki_node_list.append(node_name)
                 elif key == "prometheus" and value == "true":
-                    ansible_touch_dir("prometheus-data", node_name)
+                    prometheus_node_list.append(node_name)
                 elif key == "registry" and value == "true":
-                    ansible_touch_dir("registry-data", node_name)
-                    ansible_nfs_mount("registry-data", node_name, become_password_file)
+                    registry_node_list.append(node_name)
+    if registry_node_list:
+        pattern_str = " ".join(registry_node_list)
+        ansible_touch_dir("registry-data", pattern_str, become_password_file)
+        ansible_nfs_mount("registry-data", pattern_str, become_password_file)
+    if prometheus_node_list:
+        pattern_str = " ".join(prometheus_node_list)
+        ansible_touch_dir("prometheus-data", pattern_str, become_password_file)
+    if alertmanager_node_list:
+        pattern_str = " ".join(alertmanager_node_list)
+        ansible_touch_dir("alertManager-data", pattern_str, become_password_file)
+    if grafana_node_list:
+        pattern_str = " ".join(grafana_node_list)
+        ansible_touch_dir("grafana-data", pattern_str, become_password_file)
+    if loki_node_list:
+        pattern_str = " ".join(loki_node_list)
+        ansible_touch_dir("loki-data", pattern_str, become_password_file)
 
 
 def set_up_file_and_dir():
@@ -280,7 +316,7 @@ def set_up_root_cert():
         os.system(
             f"cd {IMConfig.ANSIBLE_PATH}; "
             f"ansible-playbook setup-cert.yaml -i inventory/ -kK "
-            f'-e "ca_cert_path={IMConfig.ROOT_CERT_PATH} ca_cert_name={cert_name}" -u {IMConfig.ANSIBLE_FOR_USER}'
+            f'-e "ca_cert_path={IMConfig.ROOT_CERT_PATH} ca_cert_name={cert_name}"'
         )
 
 
