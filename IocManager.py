@@ -11,6 +11,7 @@ from imutils.IMConfig import (
     IOC_CONFIG_FILE,
     IOC_BACKUP_DIR,
     PREFIX_STACK_NAME,
+    SCRIPTS_CERT_PATH,
 )
 from imutils.IMFunc import operation_log, condition_parse
 from imutils.IMUtil import (
@@ -660,6 +661,32 @@ if __name__ == "__main__":
     parser_config.set_defaults(func="parse_client")
     # endregion
 
+    # region for subparser command "make-certs"
+    # subparser for make-certs command
+    parser_config = subparsers.add_parser(
+        "make-certs",
+        help="Execute ./make-certs.sh script.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_config.add_argument(
+        "cmds", nargs=argparse.REMAINDER, help="arguments for make-certs.sh script."
+    )
+    parser_config.set_defaults(func="parse_make_certs")
+    # endregion
+
+    # region for subparser command "manage-certs"
+    # subparser for manage-certs command
+    parser_config = subparsers.add_parser(
+        "manage-certs",
+        help="Execute ./manage-certs.sh script.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_config.add_argument(
+        "cmds", nargs=argparse.REMAINDER, help="arguments for manage-certs.sh script."
+    )
+    parser_config.set_defaults(func="parse_manage_certs")
+    # endregion
+
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
@@ -673,7 +700,6 @@ if __name__ == "__main__":
             pass
         else:
             print(f"IocManager: Failed to execute operation_log(), {e}")
-        
 
     # print(f'{args}')
     if not hasattr(args, "verbose"):
@@ -813,5 +839,23 @@ if __name__ == "__main__":
     if args.func == "parse_cluster":
         # ./IocManager.py cluster
         execute_cluster(args)
+    if args.func == "parse_make_certs":
+        passthrough = args.cmds
+        if passthrough and passthrough[0] == "--":
+            passthrough = passthrough[1:]
+        subprocess.run(
+            ["./make-certs.sh"] + passthrough,
+            cwd=SCRIPTS_CERT_PATH,
+            check=True,
+        )
+    if args.func == "parse_manage_certs":
+        passthrough = args.cmds
+        if passthrough and passthrough[0] == "--":
+            passthrough = passthrough[1:]
+        subprocess.run(
+            ["./manage-certs.sh"] + passthrough,
+            cwd=SCRIPTS_CERT_PATH,
+            check=True,
+        )
     if args.verbose:
         print()

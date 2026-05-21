@@ -25,6 +25,8 @@
   ansible.builtin.apt:
     update_cache: true
     name: nfs-common
+  retries: 99
+  delay: 10
   when: ansible_os_family == 'Debian'
 
 - name: install nfs client
