@@ -6,6 +6,7 @@
     shell: /bin/bash
     password: "{{ pwdhash }}"
     password_lock: false
+    system: true
 
 - name: add user to sudo list for Debian OS
   ansible.builtin.shell: "sudo usermod -aG sudo {{ for_user }}"

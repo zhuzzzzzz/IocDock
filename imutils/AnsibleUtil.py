@@ -168,12 +168,12 @@ def ansible_touch_dir(dir_name, host_pattern, become_password_file=None):
     dir_path = os.path.join(base_path, dir_name)
     if not become_password_file:
         os.system(
-            f'ansible {host_pattern} -m file -a "dest={dir_path} mode=777 state=directory" '
+            f'ansible {host_pattern} -m file -a "dest={dir_path} owner={IMConfig.ANSIBLE_FOR_USER} mode=777 state=directory" '
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
         )
     else:
         os.system(
-            f'ansible {host_pattern} -b -m file -a "dest={dir_path} mode=777 state=directory" '
+            f'ansible {host_pattern} -b -m file -a "dest={dir_path} owner={IMConfig.ANSIBLE_FOR_USER} mode=777 state=directory" '
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
         )
 
@@ -181,12 +181,12 @@ def ansible_touch_dir(dir_name, host_pattern, become_password_file=None):
 def ansible_create_file(file_path, contents, host_pattern, become_password_file=None):
     if not become_password_file:
         os.system(
-            f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path}\" "
+            f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} \" "
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
         )
     else:
         os.system(
-            f"ansible {host_pattern} -b -m copy -a \"content='{contents}' dest={file_path}\" "
+            f"ansible {host_pattern} -b -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} \" "
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
         )
 
@@ -246,7 +246,7 @@ def set_up_file_and_dir_for_every_host(become_password_file):
             become_password_file,
         )
         node_list.append(node_name)
-    node_pattern_str = " ".join(node_list)
+    node_pattern_str = ":".join(node_list)
     ansible_touch_dir("IocDock-data", node_pattern_str, become_password_file)
     ansible_nfs_mount("IocDock-data", node_pattern_str, become_password_file)
     ansible_touch_dir("alloy-data", node_pattern_str, become_password_file)
@@ -273,20 +273,20 @@ def set_up_dir_according_to_labels(become_password_file):
                 elif key == "registry" and value == "true":
                     registry_node_list.append(node_name)
     if registry_node_list:
-        pattern_str = " ".join(registry_node_list)
+        pattern_str = ":".join(registry_node_list)
         ansible_touch_dir("registry-data", pattern_str, become_password_file)
         ansible_nfs_mount("registry-data", pattern_str, become_password_file)
     if prometheus_node_list:
-        pattern_str = " ".join(prometheus_node_list)
+        pattern_str = ":".join(prometheus_node_list)
         ansible_touch_dir("prometheus-data", pattern_str, become_password_file)
     if alertmanager_node_list:
-        pattern_str = " ".join(alertmanager_node_list)
+        pattern_str = ":".join(alertmanager_node_list)
         ansible_touch_dir("alertManager-data", pattern_str, become_password_file)
     if grafana_node_list:
-        pattern_str = " ".join(grafana_node_list)
+        pattern_str = ":".join(grafana_node_list)
         ansible_touch_dir("grafana-data", pattern_str, become_password_file)
     if loki_node_list:
-        pattern_str = " ".join(loki_node_list)
+        pattern_str = ":".join(loki_node_list)
         ansible_touch_dir("loki-data", pattern_str, become_password_file)
 
 
