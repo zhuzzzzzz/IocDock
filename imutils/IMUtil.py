@@ -545,7 +545,7 @@ def execute_cluster(args):
         os.system(f"cd {dir_path}; ./prepare-images.sh")
     elif args.prepare_ioc_images:
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
-        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y --test")
+        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y")
 
 
 if __name__ == "__main__":
