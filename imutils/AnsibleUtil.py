@@ -180,7 +180,9 @@ def ansible_touch_dir(dir_name, host_pattern, become_password_file=None):
 
 
 def ansible_create_file(file_path, contents, host_pattern, become_password_file=None):
-    print(f'ansible_create_file: pattern "{host_pattern}", file "{file_path}", contents "{contents}"')
+    print(
+        f'ansible_create_file: pattern "{host_pattern}", file "{file_path}", contents "{contents}"'
+    )
     if not become_password_file:
         os.system(
             f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} group={IMConfig.ANSIBLE_FOR_USER} \" "
@@ -233,26 +235,25 @@ def docker_registry_login():
 
 
 def set_up_file_and_dir_for_every_host(become_password_file):
-    docker_client = docker.from_env()
-    node_info = {}
-    nodes = docker_client.nodes.list()
-    for node in nodes:
-        node_info[node.attrs["Description"]["Hostname"]] = {
-            "ip": node.attrs["Status"]["Addr"],
-        }
+    node_ip = {}
     node_list = []
-    for node_name, node_info in node_info.items():
-        ansible_create_file(
-            IMConfig.NODE_IP_FILE,
-            f'NODE_IP={node_info["ip"]}',
-            node_name,
-            become_password_file,
-        )
-        node_list.append(node_name)
+    nodes = IMConfig.CLUSTER_MANAGER_NODES | IMConfig.CLUSTER_WORKER_NODES
+    for node, ip in nodes.items():
+        node_ip[node] = ip
+        node_list.append(node)
     node_pattern_str = ":".join(node_list)
+    ansible_touch_dir("../IocDockHome", node_pattern_str, become_password_file)
     ansible_touch_dir("IocDock-data", node_pattern_str, become_password_file)
     ansible_nfs_mount("IocDock-data", node_pattern_str, become_password_file)
     ansible_touch_dir("alloy-data", node_pattern_str, become_password_file)
+    print("set_up_file_and_dir_for_every_host: Setting up node ip file...")
+    for node_name, node_ip in node_ip.items():
+        ansible_create_file(
+            IMConfig.NODE_IP_FILE,
+            f"NODE_IP={node_ip}",
+            node_name,
+            become_password_file,
+        )
 
 
 def set_up_dir_according_to_labels(become_password_file):
