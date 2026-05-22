@@ -25,8 +25,8 @@ mkdir -p "$home_path"
 cp -r "$script_dir/." "$home_path/$project_name"
 repository_path=$(./IocManager.py config REPOSITORY_PATH)
 mkdir -p "$repository_path"
-chown -R "$program_user:$program_user" "$home_path"
 top_path="$home_path/$project_name"
+chown -R "$program_user:$program_user" "$top_path"
 cd "$top_path"
 
 # install shell command completion.
