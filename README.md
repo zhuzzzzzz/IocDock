@@ -22,6 +22,7 @@ cd IocDock
 pip install -r requirments.txt
 
 # 安装工具
+# 注意 安装将创建 用户id=9981 组id=9981 的系统用户, 请确保集群内其他主机均未占用相关编号!
 sudo ./install.sh
 
 # 多用户配置(为本机其他用户配置工具的执行权限)

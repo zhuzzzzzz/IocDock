@@ -27,8 +27,6 @@
     - name: Verify certificate installation
       shell: openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt "/usr/local/share/ca-certificates/{{ ca_cert_name }}"
       changed_when: false
-    - name: Restart docker
-      shell: systemctl restart docker
     when: ansible_facts['os_family'] == 'Debian'
     
   - name: Install certificate on RHEL/CentOS/Fedora systems
@@ -48,6 +46,4 @@
     - name: Verify certificate installation
       command: openssl verify -CAfile /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem "/etc/pki/ca-trust/source/anchors/{{ ca_cert_name }}"
       changed_when: false
-    - name: Restart docker
-      shell: systemctl restart docker
     when: ansible_facts['os_family'] == 'RedHat'

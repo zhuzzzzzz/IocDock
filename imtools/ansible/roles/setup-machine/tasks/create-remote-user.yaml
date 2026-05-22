@@ -1,3 +1,9 @@
+- name: add user group
+  ansible.builtin.group:
+    name: "{{ for_user }}"
+    gid: 9981
+    system: true
+
 - name: add user account and set password
   vars:
     pwdhash: "{{ create_password | password_hash }}"
@@ -7,6 +13,8 @@
     password: "{{ pwdhash }}"
     password_lock: false
     system: true
+    uid: 9981
+    group: "{{ for_user }}"
 
 - name: add user to sudo list for Debian OS
   ansible.builtin.shell: "sudo usermod -aG sudo {{ for_user }}"

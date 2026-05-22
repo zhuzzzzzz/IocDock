@@ -4,7 +4,7 @@
 PREFIX_STACK_NAME = "iasf"
 
 # 系统共享目录NFS挂载配置
-MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.60:/home/iocdock/NFS/IocDock-data"
+MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.60:/NFS/IocDock-data"
 
 ################# 部署配置 ##################################
 
@@ -47,7 +47,7 @@ ANSIBLE_CREATE_PASSWORD = ""
 ################# Registry 配置 ############################
 
 # registry数据共享目录挂载配置
-REGISTRY_NFS_MOUNT_SRC = "192.168.1.60:/home/iocdock/NFS/registry-data"
+REGISTRY_NFS_MOUNT_SRC = "192.168.1.60:/NFS/registry-data"
 REGISTRY_MASTER_IP = "192.168.1.60"
 REGISTRY_LOGIN_USERNAME = ""
 REGISTRY_LOGIN_PASSWORD = ""
