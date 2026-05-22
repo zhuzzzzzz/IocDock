@@ -129,11 +129,11 @@ def set_up_swarm():
 def set_up_cluster():
     # Prompt for credentials
     print("Enter remote user password(Leave blank to use ANSIBLE_CREATE_PASSWORD).")
-    password = enter_password()
-    if not password:
-        if IMConfig.ANSIBLE_CREATE_PASSWORD:
-            password = IMConfig.ANSIBLE_CREATE_PASSWORD
-        else:
+    if IMConfig.ANSIBLE_CREATE_PASSWORD:
+        password = IMConfig.ANSIBLE_CREATE_PASSWORD
+    else:
+        password = enter_password()
+        if not password:
             print("Failed. Password not provided and ANSIBLE_CREATE_PASSWORD not set.")
             return
     print("Starting to set up cluster...")
