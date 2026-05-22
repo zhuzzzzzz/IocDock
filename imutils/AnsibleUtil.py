@@ -320,7 +320,7 @@ def set_up_root_cert():
         os.system(
             f"cd {IMConfig.ANSIBLE_PATH}; "
             f"ansible-playbook setup-cert.yaml -i inventory/ -kK "
-            f'-e "ca_cert_path={IMConfig.ROOT_CERT_PATH} ca_cert_name={cert_name}"'
+            f'-e "ca_cert_path={IMConfig.ROOT_CERT_PATH} ca_cert_name={cert_name}" ansible_ssh_user={IMConfig.ANSIBLE_SSH_USER}'
         )
 
 

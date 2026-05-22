@@ -6,7 +6,7 @@
   vars:
     ca_cert_path: ../certs/root/
     ca_cert_name: iasf.crt
-    ansible_ssh_host_key_checking = false
+    ansible_ssh_host_key_checking: false
   tasks:
 
   - name: Install certificate on Debian/Ubuntu systems
