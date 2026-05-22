@@ -481,6 +481,16 @@ if __name__ == "__main__":
         help="set up cluster environment for machines in the inventory files.",
     )
     parser_cluster.add_argument(
+        "--prepare-service-images",
+        action="store_true",
+        help="prepare service images.",
+    )
+    parser_cluster.add_argument(
+        "--prepare-ioc-images",
+        action="store_true",
+        help="prepare IOC images.",
+    )
+    parser_cluster.add_argument(
         "--registry-login",
         action="store_true",
         help="login into registry for cluster machines.",

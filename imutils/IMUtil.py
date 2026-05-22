@@ -540,6 +540,12 @@ def execute_cluster(args):
         set_up_file_and_dir()
     elif args.set_up_root_cert:
         set_up_root_cert()
+    elif args.prepare_service_images:
+        dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
+        os.system(f"cd {dir_path}; ./prepare-images.sh")
+    elif args.prepare_ioc_images:
+        dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
+        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y --test")
 
 
 if __name__ == "__main__":

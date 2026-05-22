@@ -301,12 +301,6 @@ def set_up_file_and_dir():
 
 
 def set_up_root_cert():
-    ans = input(
-        "Warning: This operation will restart all docker daemon in cluster. Continue?|[y/n]:"
-    )
-    if not ans.lower().strip() in ("y", "yes"):
-        print("Operation canceled.")
-        return
     root_cert_file = os.path.join(
         IMConfig.ROOT_CERT_PATH, f"{IMConfig.PREFIX_STACK_NAME}.crt"
     )

@@ -34,7 +34,7 @@ _mycommand_completion() {
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
 	#
-	cluster_prompt="--gen-inventory-files --create-remote-user --set-up-ssh-connection --set-up-basic-environment --set-up-swarm --set-up-cluster --ping --registry-login --set-up-file-and-dir --set-up-root-cert"
+	cluster_prompt="--gen-inventory-files --create-remote-user --set-up-ssh-connection --set-up-basic-environment --set-up-swarm --set-up-cluster --ping --registry-login --set-up-file-and-dir --set-up-root-cert --prepare-service-images --prepare-ioc-images"
 	
 
 	# sub-commands completion.( 2nd position )
@@ -44,14 +44,14 @@ _mycommand_completion() {
 	fi
 
 	# get ioc list.
-	if [ -d "$REPOSITORY_PATH" ]; then 
-		ioc_list=$(ls $REPOSITORY_PATH)   
+	if [ -d "$IOCDOCK_REPOSITORY_PATH" ]; then 
+		ioc_list=$(ls $IOCDOCK_REPOSITORY_PATH)   
 	else
 		ioc_list="" 
 	fi	
 	
 	# get service list
-	if [ -f "/usr/bin/IocManager" ]; then
+	if [ -f "/usr/local/bin/IocManager" ]; then
 		service_list=$(IocManager swarm --list-managed-services)
 	else
 		service_list=""
