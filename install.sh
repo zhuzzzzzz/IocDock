@@ -21,7 +21,7 @@ python3 -m compileall -q -f -j 0 "$script_dir"
 home_path=$(./IocManager.py config HOME_PATH)
 project_name=$(./IocManager.py config PROJECT_NAME)
 mkdir -p "$home_path"
-cp -r "$script_dir" "$home_path"
+cp -r "$script_dir/." "$home_path/$project_name"
 repository_path=$(./IocManager.py config REPOSITORY_PATH)
 mkdir -p "$repository_path"
 chown -R "$program_user:$program_user" "$home_path"
