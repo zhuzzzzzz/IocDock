@@ -125,7 +125,7 @@ ANSIBLE_CREATE_PASSWORD = ""
 
 SOCKET_PATH = "/tmp/IocDock.sock"
 
-NODE_IP_FILE = "~/.NodeInfo"  # file to store node ip in cluster for services init
+NODE_IP_FILE = "/opt/IocDockHome/.NodeInfo"  # file to store node ip in cluster for services init
 
 ############################
 ## Global Deploy settings ##

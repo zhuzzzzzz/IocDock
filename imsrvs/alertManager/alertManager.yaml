@@ -38,7 +38,7 @@ services:
       target: /scripts
       type: bind
       read_only: true
-    - source: ~/.NodeInfo
+    - source: /opt/IocDockHome/.NodeInfo
       target: /tmp/NodeInfo
       type: bind
       read_only: true

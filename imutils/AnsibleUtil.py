@@ -164,34 +164,37 @@ def ping():
 
 
 def ansible_touch_dir(dir_name, host_pattern, become_password_file=None):
+    print(f'ansible_touch_dir: pattern "{host_pattern}", directory "{dir_name}"')
     base_path = os.path.normpath(os.path.join(IMConfig.MANAGER_PATH, ".."))
     dir_path = os.path.join(base_path, dir_name)
     if not become_password_file:
         os.system(
-            f'ansible {host_pattern} -m file -a "dest={dir_path} owner={IMConfig.ANSIBLE_FOR_USER} mode=777 state=directory" '
+            f'ansible {host_pattern} -m file -a "dest={dir_path} owner={IMConfig.ANSIBLE_FOR_USER} group={IMConfig.ANSIBLE_FOR_USER} mode=777 state=directory" '
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
         )
     else:
         os.system(
-            f'ansible {host_pattern} -b -m file -a "dest={dir_path} owner={IMConfig.ANSIBLE_FOR_USER} mode=777 state=directory" '
+            f'ansible {host_pattern} -b -m file -a "dest={dir_path} owner={IMConfig.ANSIBLE_FOR_USER} group={IMConfig.ANSIBLE_FOR_USER} mode=777 state=directory" '
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
         )
 
 
 def ansible_create_file(file_path, contents, host_pattern, become_password_file=None):
+    print(f'ansible_create_file: pattern "{host_pattern}", file "{file_path}", contents "{contents}"')
     if not become_password_file:
         os.system(
-            f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} \" "
+            f"ansible {host_pattern} -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} group={IMConfig.ANSIBLE_FOR_USER} \" "
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH}"
         )
     else:
         os.system(
-            f"ansible {host_pattern} -b -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} \" "
+            f"ansible {host_pattern} -b -m copy -a \"content='{contents}' dest={file_path} owner={IMConfig.ANSIBLE_FOR_USER} group={IMConfig.ANSIBLE_FOR_USER} \" "
             f"-i {IMConfig.CLUSTER_INVENTORY_FILE_PATH} --become-password-file={become_password_file}"
         )
 
 
 def ansible_nfs_mount(dir_name, host_pattern, become_password_file):
+    print(f'ansible_nfs_mount: pattern "{host_pattern}", directory "{dir_name}"')
     base_path = os.path.normpath(os.path.join(IMConfig.MANAGER_PATH, ".."))
     dir_path = os.path.join(base_path, dir_name)
     if dir_name == "registry-data":
