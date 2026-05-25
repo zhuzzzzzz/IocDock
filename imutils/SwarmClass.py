@@ -61,7 +61,6 @@ class SwarmManager:
                 name=name, service_type="custom", compose_file=compose_file
             )
         self.client = docker.from_env()
-        self.running_services = self.get_services_from_docker()
 
         if verbose:
             print("Managed services:")
@@ -92,7 +91,8 @@ class SwarmManager:
         return res.rstrip()
 
     def list_running_services(self):
-        temp_list = [item.name for item in self.running_services]
+        running_services = self.get_services_from_docker()
+        temp_list = [item.name for item in running_services]
         temp_list.sort()
         for item in temp_list:
             print(f"{item}", end=" ")
