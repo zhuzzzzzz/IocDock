@@ -60,14 +60,14 @@ class SwarmManager:
             self.services[name] = SwarmService(
                 name=name, service_type="custom", compose_file=compose_file
             )
-        self.client = docker.from_env()
 
         if verbose:
             print("Managed services:")
             print(self.services)
 
     def get_services_from_docker(self):
-        services = self.client.services.list(
+        docker_client = docker.from_env()
+        services = docker_client.services.list(
             filters={"label": f"com.docker.stack.namespace={PREFIX_STACK_NAME}"}
         )
         return [item for item in services]
