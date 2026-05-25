@@ -52,7 +52,7 @@ _mycommand_completion() {
 	
 	# get service list
 	if [ -f "/usr/local/bin/IocManager" ]; then
-		service_list=$(IocManager swarm --list-managed-services)
+		service_list=$(/usr/local/bin/IocManager swarm --list-managed-services)
 	else
 		service_list=""
 	fi
@@ -98,7 +98,7 @@ _mycommand_completion() {
 			"client")
 			prompt="caget caput cainfo camonitor" 
 			;;
-	    "cluster")
+	    	"cluster")
 			prompt="$cluster_prompt"
 			;;
 			*)
