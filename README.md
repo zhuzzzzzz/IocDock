@@ -56,7 +56,7 @@ sudo newgrp iocdock
 | node-exporter | `http://node_ip:9100` | 集群节点资源监控服务 |
 | iocLogServer | `http://node_ip:7004` | IOC 日志采集服务 |
 | alertAnalytics | `http://node_ip:8000` | 自定义报警分析服务 |
-| dbwr | `http://node_ip:8088` | display builder web runtime, 基于 WEB 的 PV opi 实时监控服务 |
+| dbwr | `http://node_ip:8088` | Display Builder Web Runtime, 基于 WEB 的 PV opi 实时监控服务 |
 
 ## 更新日志及功能说明
 

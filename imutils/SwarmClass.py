@@ -1,8 +1,6 @@
 import datetime
 import os
-from ruamel.yaml import YAML
 import subprocess
-import docker
 import getpass
 from tabulate import tabulate
 
@@ -66,6 +64,7 @@ class SwarmManager:
             print(self.services)
 
     def get_services_from_docker(self):
+        import docker
         docker_client = docker.from_env()
         services = docker_client.services.list(
             filters={"label": f"com.docker.stack.namespace={PREFIX_STACK_NAME}"}

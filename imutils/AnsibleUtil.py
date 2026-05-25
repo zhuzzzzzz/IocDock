@@ -1,6 +1,5 @@
 import os
 import yaml
-import docker
 import getpass
 import imutils.IMConfig as IMConfig
 from imutils.IMFunc import try_makedirs, file_remove

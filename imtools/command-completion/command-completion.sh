@@ -413,7 +413,5 @@ _mycommand_completion() {
 
 }
 
-complete -F _mycommand_completion "./IocManager.py"
-complete -F _mycommand_completion "IocManager.py"
 complete -F _mycommand_completion "IocManager"
 
