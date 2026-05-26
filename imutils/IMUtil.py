@@ -543,12 +543,12 @@ def execute_cluster(args):
     elif args.prepare_service_images:
         dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
         os.system(f"cd {dir_path}; ./prepare-images.sh")
-    elif args.prepare_ioc_images:
-        dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
-        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "dbwr")
         os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --push-image")
 
+    elif args.prepare_ioc_images:
+        dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
+        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y")
 
 if __name__ == "__main__":
 
