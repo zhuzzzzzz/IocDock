@@ -11,8 +11,8 @@
 # set variables below to change generating configureation.
 image_prefix=`IocManager config REGISTRY_COMMON_NAME`
 template_path=`IocManager config TEMPLATE_PATH`
-base_image="$image_prefix/base:1.0.0"
-ioc_image="$image_prefix/ioc-exec:1.0.0"
+base_image="$image_prefix/base:1.0.1"
+ioc_image="$image_prefix/ioc-exec:1.1.0"
 create_ioc=("worker_test_1" "worker_test_2" "worker_test_3" "worker_test_4" "worker_test_5")
 
 
