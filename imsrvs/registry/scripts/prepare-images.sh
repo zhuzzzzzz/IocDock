@@ -5,7 +5,7 @@ echo $release_prefix
 
 declare -A image_dict
 image_dict["registry:3.0.0"]="m.daocloud.io/docker.io/registry:3.0.0"
-image_dict["cadvisor:v0.52.1"]="m.daocloud.io/gcr.io/cadvisor/cadvisor:v0.52.1"
+image_dict["cadvisor:v0.57.0"]="ghcr.io/google/cadvisor:v0.57.0"
 image_dict["node-exporter:v1.9.1"]="quay.io/prometheus/node-exporter:v1.9.1"
 image_dict["alloy:v1.9.2"]="m.daocloud.io/docker.io/grafana/alloy:v1.9.2"
 image_dict["prometheus:v3.5.0"]="m.daocloud.io/docker.io/prom/prometheus:v3.5.0"

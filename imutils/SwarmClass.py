@@ -551,7 +551,7 @@ class SwarmManager:
                     ),
                 ]
                 config_data["receivers"] = list(filter(None, receiver_list))
-            with open(file_path, "w", encoding="utf-8") as f:
+            with open(config_file_path, "w", encoding="utf-8") as f:
                 yaml.dump(config_data, f)
             # set password
             file_path = os.path.join(

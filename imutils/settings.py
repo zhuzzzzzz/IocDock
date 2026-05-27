@@ -49,8 +49,8 @@ ANSIBLE_CREATE_PASSWORD = ""
 # registry数据共享目录挂载配置
 REGISTRY_NFS_MOUNT_SRC = "192.168.1.60:/NFS/registry-data"
 REGISTRY_MASTER_IP = "192.168.1.60"
-REGISTRY_LOGIN_USERNAME = ""
-REGISTRY_LOGIN_PASSWORD = ""
+REGISTRY_LOGIN_USERNAME = "admin"
+REGISTRY_LOGIN_PASSWORD = "admin"
 
 ################# AlertManager 配置 ########################
 
@@ -71,4 +71,4 @@ ALERT_MANAGER_RECEIVE_EMAIL_LIST = ["1728831951@qq.com"]
 # 用以接收AlertManager所有告警信息的webhook
 ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER = "http://192.168.20.170:8081/webhook/prometheus"
 # 用以接收AlertManager INFO程度告警信息的webhook
-ALERT_MANAGER_INFO_WEBHOOK_RECEIVER = "http://192.168.1.51:8000/alerts"
+ALERT_MANAGER_INFO_WEBHOOK_RECEIVER = "http://192.168.1.60:8000/alerts"
