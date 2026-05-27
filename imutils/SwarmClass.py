@@ -65,6 +65,7 @@ class SwarmManager:
 
     def get_services_from_docker(self):
         import docker
+
         docker_client = docker.from_env()
         services = docker_client.services.list(
             filters={"label": f"com.docker.stack.namespace={PREFIX_STACK_NAME}"}
@@ -413,8 +414,12 @@ class SwarmManager:
                     registry_passwd_path = os.path.join(
                         registry_service_path, "auth", "htpasswd"
                     )
-                    if not (os.path.isfile(registry_passwd_path)):
-                        if not (REGISTRY_LOGIN_USERNAME and REGISTRY_LOGIN_PASSWORD):
+                    write_flag = True
+                    if REGISTRY_LOGIN_USERNAME and REGISTRY_LOGIN_PASSWORD:
+                        username = REGISTRY_LOGIN_USERNAME
+                        password = REGISTRY_LOGIN_PASSWORD
+                    else:
+                        if not os.path.isfile(registry_passwd_path):
                             # ask for username and password
                             username = input(
                                 "Enter username for registry login: "
@@ -435,9 +440,8 @@ class SwarmManager:
                                 service_config_ok["registry"] = False
                                 print("Error: Passwords do not match.")
                         else:
-                            username = REGISTRY_LOGIN_USERNAME
-                            password = REGISTRY_LOGIN_PASSWORD
-
+                            write_flag = False
+                    if service_config_ok["registry"] and write_flag:
                         from passlib.apache import HtpasswdFile
 
                         ht = HtpasswdFile(default_scheme="bcrypt")
@@ -557,11 +561,11 @@ class SwarmManager:
             file_path = os.path.join(
                 SERVICES_PATH, "alertManager", "config", "smtp_password"
             )
-            if not os.path.isfile(file_path):
-                if ALERT_MANAGER_SMTP_AUTH_PASSWORD:
-                    with open(file_path, "w") as f:
-                        f.write(ALERT_MANAGER_SMTP_AUTH_PASSWORD)
-                else:
+            if ALERT_MANAGER_SMTP_AUTH_PASSWORD:
+                with open(file_path, "w") as f:
+                    f.write(ALERT_MANAGER_SMTP_AUTH_PASSWORD)
+            else:
+                if not os.path.isfile(file_path):
                     password = getpass.getpass(
                         "Enter password for alertManager sending smtp email: "
                     )
