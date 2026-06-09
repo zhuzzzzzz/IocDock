@@ -552,6 +552,64 @@ def execute_cluster(args):
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
         os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y")
 
+def execute_registry(args):
+    import json
+    import urllib.request
+    import ssl
+
+    registry_url = f"https://{IMConfig.REGISTRY_COMMON_NAME}:{IMConfig.REGISTRY_PORT}"
+    username = IMConfig.REGISTRY_LOGIN_USERNAME
+    password = IMConfig.REGISTRY_LOGIN_PASSWORD
+
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+
+    def registry_request(path):
+        url = f"{registry_url}/v2/{path}"
+        req = urllib.request.Request(url)
+        if username and password:
+            import base64
+            credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+            req.add_header("Authorization", f"Basic {credentials}")
+        if args.verbose:
+            print(f"execute_registry: Request {url}")
+        try:
+            with urllib.request.urlopen(req, context=ssl_context) as response:
+                return json.loads(response.read().decode())
+        except urllib.error.HTTPError as e:
+            print(f"execute_registry: Failed. HTTP {e.code} {e.reason}.")
+            return None
+        except urllib.error.URLError as e:
+            print(f"execute_registry: Failed. {e.reason}.")
+            return None
+
+    if args.list is None:
+        print("execute_registry: No operation specified.")
+    elif not args.list:
+        data = registry_request("_catalog")
+        if data is None:
+            return
+        repositories = data.get("repositories", [])
+        if not repositories:
+            print("execute_registry: No images found in registry.")
+            return
+        print(f"Images in registry ({len(repositories)}):")
+        for repo in sorted(repositories):
+            print(f"  {repo}")
+    else:
+        data = registry_request(f"{args.list}/tags/list")
+        if data is None:
+            return
+        tags = data.get("tags", [])
+        if not tags:
+            print(f'execute_registry: No tags found for image "{args.list}".')
+            return
+        print(f'Tags for "{args.list}" ({len(tags)}):')
+        for tag in sorted(tags):
+            print(f"  {tag}")
+
+
 if __name__ == "__main__":
 
     class TESTV:

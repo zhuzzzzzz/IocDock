@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set edit exec list rename remove config cluster swarm service client make-certs manage-certs"
+	sub_command_opts="create set edit exec list rename remove config cluster registry swarm service client make-certs manage-certs"
 	
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw"
@@ -100,6 +100,9 @@ _mycommand_completion() {
 			;;
 	    	"cluster")
 			prompt="$cluster_prompt"
+			;;
+			"registry")
+			prompt="--list"
 			;;
 			*)
 			return 1

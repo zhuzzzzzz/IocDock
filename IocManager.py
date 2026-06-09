@@ -27,6 +27,7 @@ from imutils.IMUtil import (
     edit_ioc,
     execute_config,
     execute_cluster,
+    execute_registry,
 )
 
 if __name__ == "__main__":
@@ -511,6 +512,26 @@ if __name__ == "__main__":
     parser_cluster.set_defaults(func="parse_cluster")
     # endregion
 
+    # region for subparser command "registry"
+    parser_registry = subparsers.add_parser(
+        "registry",
+        help="Functions for managing images in docker registry.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser_registry.add_argument(
+        "--list",
+        type=str,
+        nargs="?",
+        const="",
+        default=None,
+        help="list all images in registry.\nlist tags for specified image if image name is given.",
+    )
+    parser_registry.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_registry.set_defaults(func="parse_registry")
+    # endregion
+
     # region for subparser command "swarm"
     # subparser for swarm command
     parser_swarm = subparsers.add_parser(
@@ -849,6 +870,9 @@ if __name__ == "__main__":
     if args.func == "parse_cluster":
         # ./IocManager.py cluster
         execute_cluster(args)
+    if args.func == "parse_registry":
+        # ./IocManager.py registry
+        execute_registry(args)
     if args.func == "parse_make_certs":
         passthrough = args.cmds
         if passthrough and passthrough[0] == "--":
