@@ -1,5 +1,4 @@
 import os
-import yaml
 import pickle
 import tarfile
 import datetime
@@ -1582,6 +1581,7 @@ def gen_swarm_files(iocs, verbose):
         file_path = os.path.join(top_path, service_dir, IOC_SERVICE_FILE)
         if os.path.exists(file_path):
             file_remove(file_path, verbose=False)
+        import yaml
         with open(file_path, "w") as file:
             yaml.dump(yaml_data, file, default_flow_style=False)
         # set readonly permission.

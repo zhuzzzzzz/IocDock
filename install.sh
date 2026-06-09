@@ -16,8 +16,21 @@ usermod -aG docker "$program_user"
 
 set -e
 
-#
-echo installing...
+# install system-level dependencies
+echo "installing system-level dependencies..."
+if command -v apt &>/dev/null; then
+    py_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    apt install -y ansible sshpass python3-pip "python${py_version}-venv"
+elif command -v yum &>/dev/null; then
+    yum install -y ansible sshpass python3-pip
+elif command -v dnf &>/dev/null; then
+    dnf install -y ansible sshpass python3-pip
+else
+    echo "warning: unsupported package manager, please install ansible sshpass python3-pip manually."
+fi
+
+# install project files
+echo "installing..."
 python3 -m compileall -q -f -j 0 "$script_dir"
 home_path=$(./IocManager.py config HOME_PATH)
 project_name=$(./IocManager.py config PROJECT_NAME)
@@ -26,25 +39,32 @@ cp -r "$script_dir/." "$home_path/$project_name"
 repository_path=$(./IocManager.py config REPOSITORY_PATH)
 mkdir -p "$repository_path"
 top_path="$home_path/$project_name"
+
+# create virtual environment and install dependencies
+echo "creating virtual environment and installing dependencies..."
+python3 -m venv "$top_path/venv"
+"$top_path/venv/bin/pip" install --upgrade pip
+"$top_path/venv/bin/pip" install -r "$top_path/requirements.txt"
+
 chown -R "$program_user:$program_user" "$top_path"
 cd "$top_path"
 
 # install shell command completion.
-echo installing shell command completion...
+echo "installing shell command completion..."
 cd imtools/command-completion
 . install-command-completion.sh
 cd "$top_path"
 
 # add command shell wrapper
-echo add command shell wrapper...
+echo "installing command shell wrapper..."
 cat > "/usr/local/bin/IocManager" << EOF
 #!/bin/bash
-exec sudo -u "$program_user" env PYTHONDONTWRITEBYTECODE=1 SSH_CONNECTION="\$SSH_CONNECTION"  /usr/bin/python3 "$home_path/$project_name/IocManager.py" "\$@"
+exec sudo -u "$program_user" env PYTHONDONTWRITEBYTECODE=1 SSH_CONNECTION="\$SSH_CONNECTION"  "$home_path/$project_name/venv/bin/python3" "$home_path/$project_name/IocManager.py" "\$@"
 EOF
 chmod 755 "/usr/local/bin/IocManager"
 
 # set sudoers rules
-echo set sudoers.d rules...
+echo "setting sudoers.d rules..."
 sudoers_file="/etc/sudoers.d/${project_name}"
 cat > "$sudoers_file" << EOF
 %${program_user} ALL=(${program_user}) NOPASSWD: ALL
@@ -79,7 +99,7 @@ Type=simple
 User=${program_user}
 Group=${program_user}
 WorkingDirectory=${top_path}
-ExecStart=/usr/bin/python3 -u -m imutils.IocDockServer --server
+ExecStart=${top_path}/venv/bin/python3 -u -m imutils.IocDockServer --server
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal
@@ -117,7 +137,7 @@ if [ ! -f "$top_path/services.py" ]; then
 fi
 
 # finished.
-echo installation finished, you may need to re-login the shell or reboot the system.
+echo "installation finished, you may need to re-login the shell or reboot the system."
 #
 
 

@@ -1,5 +1,4 @@
 import os
-from tabulate import tabulate
 from collections.abc import Iterable
 
 import imutils.IMConfig as IMConfig
@@ -340,8 +339,10 @@ def get_filtered_ioc(
         if show_info:
             pass
         elif show_description:
+            from tabulate import tabulate
             print(tabulate(description_print, headers="firstrow", tablefmt="plain"))
         elif show_panel:
+            from tabulate import tabulate
             print(tabulate(panel_print, headers="firstrow", tablefmt="plain"))
         else:
             print(" ".join(ioc_print))

@@ -1,4 +1,5 @@
 import os.path
+import sys
 import importlib.util
 from pathlib import Path
 
@@ -230,11 +231,13 @@ if import_flag:
     else:
         if not_allowed_vars:
             print(
-                f'settings.py: Warning. Definitions not allowed: {", ".join(not_allowed_vars).strip()}.'
+                f'settings.py: Warning. Definitions not allowed: {", ".join(not_allowed_vars).strip()}.',
+                file=sys.stderr,
             )
         if unrecognized_variable:
             print(
-                f'settings.py: Warning. Definitions unrecognized: {", ".join(unrecognized_variable).strip()}.'
+                f'settings.py: Warning. Definitions unrecognized: {", ".join(unrecognized_variable).strip()}.',
+                file=sys.stderr,
             )
 
     #

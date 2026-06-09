@@ -2,7 +2,6 @@ import datetime
 import os
 import subprocess
 import getpass
-from tabulate import tabulate
 
 from imutils.IMConfig import *
 from imutils.IMFunc import (
@@ -152,6 +151,9 @@ class SwarmManager:
         global_print.sort(key=lambda x: x[0])
         local_print.sort(key=lambda x: x[0])
         custom_print.sort(key=lambda x: x[0])
+
+        from tabulate import tabulate
+
         if "all" in service_type:
             raw_print.extend(pinned_print)
             raw_print.extend(local_print)

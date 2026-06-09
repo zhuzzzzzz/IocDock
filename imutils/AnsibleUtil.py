@@ -1,5 +1,4 @@
 import os
-import yaml
 import getpass
 import imutils.IMConfig as IMConfig
 from imutils.IMFunc import try_makedirs, file_remove
@@ -33,6 +32,7 @@ def gen_inventory_files(verbose=False):
             }
             group_dict["hosts"] = hosts_dict
             yaml_data[group_name] = group_dict
+        import yaml
         with open(IMConfig.CLUSTER_INVENTORY_FILE_PATH, "w", encoding="utf-8") as f:
             yaml.dump(yaml_data, f, allow_unicode=True, sort_keys=False)
     else:

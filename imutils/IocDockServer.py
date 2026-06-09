@@ -6,7 +6,6 @@ import select
 import threading
 import time
 import json
-import docker
 from datetime import datetime
 
 from imutils.IMConfig import SOCKET_PATH
@@ -140,6 +139,7 @@ class TaskServer:
             }
 
     def get_node_info(self):
+        import docker
         docker_client = docker.from_env()
         nodes = docker_client.nodes.list()
         for node in nodes:

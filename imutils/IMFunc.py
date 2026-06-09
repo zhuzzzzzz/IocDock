@@ -5,7 +5,6 @@ import shutil
 import socket
 import logging
 from logging.handlers import RotatingFileHandler
-from ruamel.yaml import YAML
 from imutils.IMConfig import OPERATION_LOG_FILE_PATH
 
 
@@ -183,6 +182,7 @@ def format_normalize(raw_str: str):
 
 
 def get_yaml_tool():
+    from ruamel.yaml import YAML
     yaml = YAML()
     yaml.width = 4096
     yaml.preserve_quotes = True
