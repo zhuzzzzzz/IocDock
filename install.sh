@@ -1,6 +1,17 @@
 #!/bin/bash
 
+if [ "$(id -u)" -ne 0 ]; then
+    echo "error: this script must be run as root." >&2
+    exit 1
+fi
+
 export PYTHONDONTWRITEBYTECODE=1
+
+# check prerequisites
+if ! command -v python3 &>/dev/null; then
+    echo "error: python3 is required but not found." >&2
+    exit 1
+fi
 
 #
 current_user="${SUDO_USER:-$USER}"
@@ -32,11 +43,12 @@ fi
 # install project files
 echo "installing..."
 python3 -m compileall -q -f -j 0 "$script_dir"
-home_path=$(./IocManager.py config HOME_PATH)
-project_name=$(./IocManager.py config PROJECT_NAME)
+home_path=$("$script_dir/IocManager.py" config HOME_PATH)
+project_name=$("$script_dir/IocManager.py" config PROJECT_NAME)
 mkdir -p "$home_path"
 cp -r "$script_dir/." "$home_path/$project_name"
-repository_path=$(./IocManager.py config REPOSITORY_PATH)
+rm -rf "$home_path/$project_name/.git" "$home_path/$project_name/.gitea" "$home_path/$project_name/.github" "$home_path/$project_name/.gitignore" "$home_path/$project_name/.claude"
+repository_path=$("$script_dir/IocManager.py" config REPOSITORY_PATH)
 mkdir -p "$repository_path"
 top_path="$home_path/$project_name"
 
@@ -75,7 +87,7 @@ visudo -cf "$sudoers_file"
 # set environment variables.
 echo setting environment variables...
 file_path=/etc/profile.d/IocDockSetup.sh
-mount_path=$(./IocManager.py config MOUNT_PATH)
+mount_path=$("$script_dir/IocManager.py" config MOUNT_PATH)
 echo "export IOCDOCK_MANAGER_PATH=$top_path" > "$file_path"
 echo "export IOCDOCK_REPOSITORY_PATH=$repository_path" >> "$file_path"
 echo "export IOCDOCK_MOUNT_PATH=$mount_path" >> "$file_path"
