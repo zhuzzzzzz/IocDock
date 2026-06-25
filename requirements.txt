@@ -2,3 +2,4 @@ docker~=7.0
 tabulate~=0.9
 PyYAML~=6.0
 ruamel.yaml~=0.18
+passlib~=1.7

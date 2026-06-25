@@ -21,7 +21,7 @@
         mode: '0644'
       register: cert_copy
     - name: Update CA certificates database
-      command: update-ca-certificates
+      command: flock /var/lock/ca-cert.lock update-ca-certificates
       when: cert_copy.changed    
       changed_when: cert_copy.changed     
     - name: Verify certificate installation
@@ -40,7 +40,7 @@
         mode: '0644'
       register: cert_copy
     - name: Update CA trust store
-      command: update-ca-trust extract
+      command: flock /var/lock/ca-trust.lock update-ca-trust extract
       when: cert_copy.changed
       changed_when: cert_copy.changed
     - name: Verify certificate installation

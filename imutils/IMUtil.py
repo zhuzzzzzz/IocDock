@@ -542,7 +542,7 @@ def execute_cluster(args):
     elif args.set_up_root_cert:
         set_up_root_cert()
     elif args.prepare_service_images:
-        dir_path = os.path.join(IMConfig.SERVICES_PATH, "regcistry", "scripts")
+        dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
         os.system(f"cd {dir_path}; ./prepare-images.sh")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "alertAnalytics")
         os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --push-image")

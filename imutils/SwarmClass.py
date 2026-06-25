@@ -363,6 +363,7 @@ class SwarmManager:
         service_config_ok = {}
 
         # setup registry
+        service_config_ok["registry"] = True
         print('Setting up serivce "registry"...')
         temp_service = SwarmService("registry", service_type="local")
         if not temp_service.is_deployed:
@@ -618,6 +619,29 @@ class SwarmManager:
             ] = f"http://{PREFIX_STACK_NAME}_srv-prometheus:9090"
             with open(file_path, "w", encoding="utf-8") as f:
                 yaml.dump(data, f)
+
+        # setup alertAnalytics
+        print('Setting up serivce "alertAnalytics"...')
+        temp_service = SwarmService("alertAnalytics", service_type="local")
+        if not temp_service.is_deployed:
+            # set password
+            file_path = os.path.join(
+                SERVICES_PATH, "alertAnalytics", "config", "smtp_password"
+            )
+            if ALERT_ANALYTICS_SENDER_PASSWORD:
+                with open(file_path, "w") as f:
+                    f.write(ALERT_ANALYTICS_SENDER_PASSWORD)
+            else:
+                if not os.path.isfile(file_path):
+                    password = getpass.getpass(
+                        "Enter password for alertAnalytics sending smtp email: "
+                    )
+                    if not password:
+                        service_config_ok["alertAnalytics"] = False
+                        print("Error: Invalid password.")
+                    else:
+                        with open(file_path, "w") as f:
+                            f.write(password)
 
         # copy directory of all local services defined.
         for item in LocalServicesList:

@@ -4,7 +4,7 @@
 PREFIX_STACK_NAME = "iasf"
 
 # 系统共享目录NFS挂载配置
-MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.60:/NFS/IocDock-data"
+MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.50:/NFS/IocDock-data"
 
 ################# 部署配置 ##################################
 
@@ -21,24 +21,24 @@ RESOURCE_IOC_MEMORY_LIMIT = "1G"
 # swarm集群管理节点
 CLUSTER_MANAGER_NODES = {
     # "hostname": "ip address",
+    "ubuntu-server": "192.168.1.50",
     "managerA": "192.168.1.60",
     "managerB": "192.168.1.61",
-    "managerC": "192.168.1.62",
 }
 # swarm集群工作节点
 CLUSTER_WORKER_NODES = {
     # "hostname": "ip address",
-    "workerA": "192.168.1.63",
-    "workerB": "192.168.1.64",
+    "workerA": "192.168.1.62",
+    "workerB": "192.168.1.63",
 }
 # 其余服务器节点
 DEFAULT_NODES = {
     # "hostname": "ip address",
-    "nfs": "192.168.1.60"
+    "nfs": "192.168.1.50"
 }
 # swarm集群adververtiser IP(SWARM_ADDVERTISER_IP或SWARM_ADDVERTISER_INTERFACE填写一个即可)
 SWARM_ADDVERTISER_IP = ""
-SWARM_ADDVERTISER_INTERFACE = "eth1"
+SWARM_ADDVERTISER_INTERFACE = "enp3s0"
 # Ansible远程登录用户(需要具有root权限)
 ANSIBLE_SSH_USER = "ubuntu"
 # Ansible创建的iocdock用户密码
@@ -47,15 +47,15 @@ ANSIBLE_CREATE_PASSWORD = ""
 ################# Registry 配置 ############################
 
 # registry数据共享目录挂载配置
-REGISTRY_NFS_MOUNT_SRC = "192.168.1.60:/NFS/registry-data"
-REGISTRY_MASTER_IP = "192.168.1.60"
+REGISTRY_NFS_MOUNT_SRC = "192.168.1.50:/NFS/registry-data"
+REGISTRY_MASTER_IP = "192.168.1.50"
 REGISTRY_LOGIN_USERNAME = "admin"
 REGISTRY_LOGIN_PASSWORD = "admin"
 
 ################# AlertManager 配置 ########################
 
 # AlertManager集群master节点IP
-ALERT_MANAGER_MASTER_IP = "192.168.1.60"
+ALERT_MANAGER_MASTER_IP = "192.168.1.50"
 
 # AlertManager邮箱服务器地址
 ALERT_MANAGER_SMTP_SMART_HOST = "smtp.qiye.aliyun.com:465"
@@ -71,4 +71,8 @@ ALERT_MANAGER_RECEIVE_EMAIL_LIST = ["1728831951@qq.com"]
 # 用以接收AlertManager所有告警信息的webhook
 ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER = "http://192.168.20.170:8081/webhook/prometheus"
 # 用以接收AlertManager INFO程度告警信息的webhook
-ALERT_MANAGER_INFO_WEBHOOK_RECEIVER = "http://192.168.1.60:8000/alerts"
+ALERT_MANAGER_INFO_WEBHOOK_RECEIVER = "http://192.168.1.50:8000/alerts"
+
+################# AlertAnalytics 配置 ########################
+# AlertAnalytics发件人密钥
+ALERT_ANALYTICS_SENDER_PASSWORD = None

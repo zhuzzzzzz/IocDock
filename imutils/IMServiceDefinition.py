@@ -9,7 +9,7 @@ GlobalServicesList = [
     # ("name", "image")
     ("client", "base:1.0.1"),
     ("iocLogServer", "base:1.0.1"),
-    ("cAdvisor", "cadvisor:v0.52.1"),
+    ("cAdvisor", "cadvisor:v0.57.0"),
     ("nodeExporter", "node-exporter:v1.9.1"),
     ("alloy", "alloy:v1.9.2"),
 ]

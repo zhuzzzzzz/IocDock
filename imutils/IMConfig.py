@@ -183,6 +183,9 @@ ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER: str = (
 )
 ALERT_MANAGER_INFO_WEBHOOK_RECEIVER: str = "http://192.168.1.51:8000/alerts"
 
+## alertAnalytics ##
+ALERT_ANALYTICS_SENDER_PASSWORD = None
+
 ####################
 ## do not modify. ##
 #######################################################################################################################
@@ -213,6 +216,7 @@ ALLOWED_VARS = [
     "ALERT_MANAGER_RECEIVE_EMAIL_LIST",
     "ALERT_MANAGER_DEFAULT_WEBHOOK_RECEIVER",
     "ALERT_MANAGER_INFO_WEBHOOK_RECEIVER",
+    "ALERT_ANALYTICS_SENDER_PASSWORD",
 ]
 ## override from custom definition.
 if import_flag:

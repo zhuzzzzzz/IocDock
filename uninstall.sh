@@ -14,6 +14,7 @@ set -x
 systemctl stop IocDockServer.service
 systemctl disable IocDockServer.service
 rm -f /etc/systemd/system/IocDockServer.service
+rm -f /tmp/IocDock.sock
 systemctl daemon-reload
 
 rm -f /etc/bash_completion.d/IocManagerCompletion
