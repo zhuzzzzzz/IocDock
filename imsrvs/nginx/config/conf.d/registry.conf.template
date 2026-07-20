@@ -1,0 +1,25 @@
+upstream registry_backend {
+    ip_hash;
+    <REGISTRY_SERVERS>
+}
+
+server {
+    listen 443 ssl;
+    server_name registry.<PREFIX_STACK_NAME>;
+
+    ssl_certificate     /etc/nginx/certs/nginx.crt;
+    ssl_certificate_key /etc/nginx/certs/nginx.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    client_max_body_size 0;
+    chunked_transfer_encoding on;
+
+    location / {
+        proxy_pass https://registry_backend;
+        proxy_ssl_verify off;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
