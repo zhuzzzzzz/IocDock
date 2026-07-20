@@ -1,1 +1,1 @@
-1. 基于 nginx 实现 registry push 时的 session 粘性（sticky session）
+1. 继承 ansible shell 命令

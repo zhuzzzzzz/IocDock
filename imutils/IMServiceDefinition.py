@@ -19,6 +19,7 @@ LocalServicesList = [
     # ("name",),  # omit "image" to use original image setting of the compose file
     # ("name", "image")
     ("registry", "registry:3.0.0"),
+    ("nginx", "nginx:1.28"),
     ("prometheus", "prometheus:v3.5.0"),
     ("alertManager", "alertmanager:v0.28.1"),
     ("loki", "loki:3.5.2"),

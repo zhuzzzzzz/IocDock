@@ -1,3 +1,27 @@
+- name: Refresh SSH host keys
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: Refresh host key on control node
+    delegate_to: localhost
+    throttle: 1 
+    shell: |
+      echo "Running as user: $(whoami)"
+      echo "HOME is: $HOME"
+      echo "known_hosts path: $HOME/.ssh/known_hosts"
+
+      mkdir -p "$HOME/.ssh"
+      touch "$HOME/.ssh/known_hosts"
+      ssh-keygen -f "$HOME/.ssh/known_hosts" -R "{{ ansible_ssh_host }}"
+      ssh-keyscan -H {{ ansible_ssh_host }} >> "$HOME/.ssh/known_hosts"
+    changed_when: false
+    register: refresh_result
+
+  - name: Show refresh result
+    delegate_to: localhost
+    debug:
+      msg: "{{ refresh_result.stdout_lines }}"
+
 - name: Install custom CA on Ubuntu
   hosts: all
   become: true

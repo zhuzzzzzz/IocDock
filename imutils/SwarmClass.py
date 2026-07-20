@@ -579,6 +579,127 @@ class SwarmManager:
                         with open(file_path, "w") as f:
                             f.write(password)
 
+        # setup nginx
+        service_config_ok["nginx"] = True
+        print('Setting up service "nginx"...')
+        temp_service = SwarmService("nginx", service_type="local")
+        if not temp_service.is_deployed:
+            nginx_service_path = os.path.join(SERVICES_PATH, "nginx")
+            # check and copy certificate
+            nginx_crt_path = os.path.join(SERVER_CERT_PATH, "nginx", "nginx.crt")
+            nginx_key_path = os.path.join(SERVER_CERT_PATH, "nginx", "nginx.key")
+            if not (
+                os.path.isfile(nginx_crt_path) and os.path.isfile(nginx_key_path)
+            ):
+                service_config_ok["nginx"] = False
+                print(
+                    'SwarmManager: Error! No certificate files for service "nginx".'
+                )
+            else:
+                certificate_flag_ok = True
+                if os.system(
+                    f'cd "{SCRIPTS_CERT_PATH}" && ./manage-certs.sh verify nginx'
+                ):
+                    certificate_flag_ok = False
+                    service_config_ok["nginx"] = False
+                    print(
+                        'SwarmManager: Error! Invalid certificate for service "nginx".'
+                    )
+                if certificate_flag_ok:
+                    nginx_crt_dest = os.path.join(
+                        nginx_service_path, "certs", "nginx.crt"
+                    )
+                    nginx_key_dest = os.path.join(
+                        nginx_service_path, "certs", "nginx.key"
+                    )
+                    file_copy(
+                        nginx_crt_path, nginx_crt_dest, mode="r", verbose=verbose
+                    )
+                    file_copy(
+                        nginx_key_path, nginx_key_dest, mode="r", verbose=verbose
+                    )
+            # generate nginx conf from templates
+            if service_config_ok["nginx"]:
+                import docker
+                all_nodes = {**CLUSTER_MANAGER_NODES, **CLUSTER_WORKER_NODES}
+                docker_client = docker.from_env()
+                nodes = docker_client.nodes.list()
+                registry_nodes = []
+                alertmanager_nodes = []
+                dbwr_nodes = []
+                for node in nodes:
+                    hostname = node.attrs["Description"]["Hostname"]
+                    if hostname not in all_nodes:
+                        continue
+                    labels = node.attrs["Spec"].get("Labels", {})
+                    if labels.get("registry") == "true":
+                        registry_nodes.append(all_nodes[hostname])
+                    if labels.get("alertmanager") == "true":
+                        alertmanager_nodes.append(all_nodes[hostname])
+                    if labels.get("dbwr") == "true":
+                        dbwr_nodes.append(all_nodes[hostname])
+                # check upstream node lists
+                missing_labels = []
+                if not registry_nodes:
+                    missing_labels.append("registry")
+                if not alertmanager_nodes:
+                    missing_labels.append("alertmanager")
+                if not dbwr_nodes:
+                    missing_labels.append("dbwr")
+                if missing_labels:
+                    service_config_ok["nginx"] = False
+                    print(
+                        f'SwarmManager: Error! No nodes with label(s) '
+                        f'{", ".join(missing_labels)} found for nginx upstream.'
+                    )
+            if service_config_ok["nginx"]:
+                # generate registry.conf
+                conf_d_path = os.path.join(
+                    nginx_service_path, "config", "conf.d"
+                )
+                template_path = os.path.join(
+                    conf_d_path, "registry.conf.template"
+                )
+                with open(template_path, "r") as f:
+                    registry_conf = f.read()
+                registry_servers = "\n    ".join(
+                    f"server {ip}:5000;"
+                    for ip in registry_nodes
+                )
+                registry_conf = registry_conf.replace(
+                    "<REGISTRY_SERVERS>", registry_servers
+                )
+                registry_conf = registry_conf.replace(
+                    "<PREFIX_STACK_NAME>", PREFIX_STACK_NAME
+                )
+                with open(os.path.join(conf_d_path, "registry.conf"), "w") as f:
+                    f.write(registry_conf)
+                # generate default.conf
+                template_path = os.path.join(
+                    conf_d_path, "default.conf.template"
+                )
+                with open(template_path, "r") as f:
+                    default_conf = f.read()
+                alertmanager_servers = "\n    ".join(
+                    f"server {ip}:9093;"
+                    for ip in alertmanager_nodes
+                )
+                dbwr_servers = "\n    ".join(
+                    f"server {ip}:8088;"
+                    for ip in dbwr_nodes
+                )
+                default_conf = default_conf.replace(
+                    "<ALERTMANAGER_SERVERS>", alertmanager_servers
+                )
+                default_conf = default_conf.replace(
+                    "<DBWR_SERVERS>", dbwr_servers
+                )
+                default_conf = default_conf.replace(
+                    "<PREFIX_STACK_NAME>", PREFIX_STACK_NAME
+                )
+                with open(os.path.join(conf_d_path, "default.conf"), "w") as f:
+                    f.write(default_conf)
+
         # setup loki
         print('Setting up serivce "loki"...')
         temp_service = SwarmService("loki", service_type="local")

@@ -13,6 +13,7 @@ image_dict["alertmanager:v0.28.1"]="m.daocloud.io/docker.io/prom/alertmanager:v0
 image_dict["grafana:12.0.2-ubuntu"]="m.daocloud.io/docker.io/grafana/grafana:12.0.2-ubuntu"
 image_dict["loki:3.5.2"]="m.daocloud.io/docker.io/grafana/loki:3.5.2"
 image_dict["busybox:1.37.0"]="m.daocloud.io/docker.io/busybox:1.37.0"
+image_dict["nginx:1.28"]="m.daocloud.io/docker.io/nginx:1.28"
 
 
 set -x

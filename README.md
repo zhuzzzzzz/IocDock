@@ -17,12 +17,9 @@
 # 拉取代码
 git clone https://github.com/zhuzzzzzz/IocDock.git
 
-# 安装依赖
-cd IocDock
-pip install -r requirments.txt
-
 # 安装工具
-# 注意 安装将创建 用户id=9981 组id=9981 的系统用户, 请确保集群内其他主机均未占用相关编号!
+# 注意: 安装将创建 用户id=9981 组id=9981 的系统用户, 请确保集群内其他主机均未占用相关编号!
+cd IocDock
 sudo ./install.sh
 
 # 多用户配置(为本机其他用户配置工具的执行权限)

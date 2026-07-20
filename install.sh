@@ -262,7 +262,13 @@ systemctl daemon-reload
 systemctl enable IocDockServer.service
 set +e
 echo "trying to start systemd service..."
-systemctl start IocDockServer.service
+if ! systemctl restart IocDockServer.service; then
+    echo "warning: IocDockServer.service failed to start."
+    echo "         You may need to start the service manually after setting up the cluster by running the following command:"
+    echo ""
+    echo "         sudo systemctl start IocDockServer.service"
+    echo ""
+fi
 set -e
 
 # copy settings.py and services.py if not exists in base directory.
