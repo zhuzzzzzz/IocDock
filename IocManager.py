@@ -542,10 +542,10 @@ if __name__ == "__main__":
         "All arguments after '--' are passed directly to the ansible command.\n"
         "The cluster inventory file is used automatically.\n\n"
         "Examples:\n"
-        "  %(prog)s -- all -m ping\n"
-        "  %(prog)s -- webservers -m shell -a 'uptime'\n"
-        "  %(prog)s -- all -m copy -a 'src=/tmp/a dest=/tmp/b'\n"
-        "  %(prog)s -v -- all -m setup",
+        "  IocManager ansible -- all -m ping\n"
+        "  IocManager ansible -- webservers -m shell -a 'uptime'\n"
+        "  IocManager ansible -- all -m copy -a 'src=/tmp/a dest=/tmp/b'\n"
+        "  IocManager ansible -v -- all -m setup",
     )
     parser_ansible.add_argument(
         "cmds",
