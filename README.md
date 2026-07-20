@@ -43,18 +43,18 @@ sudo newgrp iocdock
 
 | 系统服务 | 访问地址 | 说明 |
 | ------- | ------- | ------- |
-| registry | `https://node_ip:443` | 集群镜像仓库 |
-| prometheus | `http://node_ip:9090` | prometheus 服务 |
-| alertManager | `http://node_ip:9093` | prometheus 组件 |
-| loki | `http://node_ip:3100` | 集群日志采集后端 |
-| grafana | `http://node_ip:3000` | 集群数据可视化服务 |
+| registry | `https://node_ip:443` 或 `registry.iasf` | 集群镜像仓库 |
+| prometheus | `http://node_ip:9090` 或 `prometheus.iasf` | prometheus 服务 |
+| alertManager | `http://node_ip:9093` 或 `alertmanager.iasf` | prometheus 组件 |
+| loki | `http://node_ip:3100` 或 `loki.iasf` | 集群日志采集后端 |
+| grafana | `http://node_ip:3000` 或 `grafana.iasf` | 集群数据可视化服务 |
 | alloy | `http://node_ip:12345` | 集群日志采集前端 |
 | cAdvisor | `http://node_ip:8080` | 集群容器资源监控服务 |
 | node-exporter | `http://node_ip:9100` | 集群节点资源监控服务 |
 | iocLogServer | `http://node_ip:7004` | IOC 日志采集服务 |
-| alertAnalytics | `http://node_ip:8000` | 自定义报警分析服务 |
-| dbwr | `http://node_ip:8088` | Display Builder Web Runtime, 基于 WEB 的 PV opi 实时监控服务 |
+| alertAnalytics | `http://node_ip:8000` 或 `alertanalytics.iasf` | 自定义报警分析服务 |
+| dbwr | `http://node_ip:8088` 或 `dbwr.iasf` | Display Builder Web Runtime, 基于 WEB 的 PV opi 实时监控服务 |
 
 ## 更新日志及功能说明
 
-======= 2026/05/20 =======
+======= 2026/07/20 =======

@@ -1,1 +1,1 @@
-1. 继承 ansible shell 命令
+1. 添加 IocManager ansible ad-hoc 命令（done）

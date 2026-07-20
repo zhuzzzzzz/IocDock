@@ -15,7 +15,7 @@ _mycommand_completion() {
 	option_set_last=""
 	
 	# 
-	sub_command_opts="create set edit exec list rename remove config cluster registry swarm service client make-certs manage-certs"
+	sub_command_opts="create set edit exec list rename remove config cluster registry ansible swarm service client make-certs manage-certs"
 	
 	#
 	create_prompt="--options --section --ini-file --caputlog --status-ioc --status-os --autosave --add-asyn --add-stream --add-raw"
@@ -96,7 +96,10 @@ _mycommand_completion() {
 			prompt="$ioc_list $prompt"
 			;;
 			"client")
-			prompt="caget caput cainfo camonitor" 
+			prompt="caget caput cainfo camonitor"
+			;;
+			"ansible")
+			return 0
 			;;
 	    	"cluster")
 			prompt="$cluster_prompt"
@@ -389,12 +392,12 @@ _mycommand_completion() {
 			return 0
 		fi	
 		# options completion for "service".
-		if [ ${COMP_WORDS[1]} == "service" ]; then 
+		if [ ${COMP_WORDS[1]} == "service" ]; then
 			case "$3" in
 				"--deploy")
 				;;
 				"--remove")
-				;;				
+				;;
 				"--show-config")
 				;;
 				"--show-info")
@@ -409,8 +412,8 @@ _mycommand_completion() {
 			prompt=$service_prompt_temp
 			prompt="$prompt $service_list_temp"
 			COMPREPLY=( $(compgen -W "${prompt}" -- $2) )
-			
-		fi		
+
+		fi
 
 	fi
 

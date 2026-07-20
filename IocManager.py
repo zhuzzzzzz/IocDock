@@ -12,6 +12,7 @@ from imutils.IMConfig import (
     IOC_BACKUP_DIR,
     PREFIX_STACK_NAME,
     SCRIPTS_CERT_PATH,
+    CLUSTER_INVENTORY_FILE_PATH,
 )
 from imutils.IMFunc import operation_log, condition_parse
 from imutils.IMUtil import (
@@ -532,6 +533,31 @@ if __name__ == "__main__":
     parser_registry.set_defaults(func="parse_registry")
     # endregion
 
+    # region for subparser command "ansible"
+    parser_ansible = subparsers.add_parser(
+        "ansible",
+        help="Execute ansible ad-hoc commands on cluster hosts.",
+        formatter_class=argparse.RawTextHelpFormatter,
+        description="Execute ansible ad-hoc commands on cluster hosts.\n"
+        "All arguments after '--' are passed directly to the ansible command.\n"
+        "The cluster inventory file is used automatically.\n\n"
+        "Examples:\n"
+        "  %(prog)s -- all -m ping\n"
+        "  %(prog)s -- webservers -m shell -a 'uptime'\n"
+        "  %(prog)s -- all -m copy -a 'src=/tmp/a dest=/tmp/b'\n"
+        "  %(prog)s -v -- all -m setup",
+    )
+    parser_ansible.add_argument(
+        "cmds",
+        nargs=argparse.REMAINDER,
+        help="arguments passed to ansible (use '--' separator before them).",
+    )
+    parser_ansible.add_argument(
+        "-v", "--verbose", action="store_true", help="show processing details."
+    )
+    parser_ansible.set_defaults(func="parse_ansible")
+    # endregion
+
     # region for subparser command "swarm"
     # subparser for swarm command
     parser_swarm = subparsers.add_parser(
@@ -682,40 +708,40 @@ if __name__ == "__main__":
 
     # region for subparser command "client"
     # subparser for client command
-    parser_config = subparsers.add_parser(
+    parser_client = subparsers.add_parser(
         "client",
         help="Call EPICS client libraries to connect PV in swarm cluster.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser_config.add_argument("cmd", type=str, help="command.")
-    parser_config.add_argument("arguments", type=str, nargs="*", help="arguments.")
-    parser_config.set_defaults(func="parse_client")
+    parser_client.add_argument("cmd", type=str, help="command.")
+    parser_client.add_argument("arguments", type=str, nargs="*", help="arguments.")
+    parser_client.set_defaults(func="parse_client")
     # endregion
 
     # region for subparser command "make-certs"
     # subparser for make-certs command
-    parser_config = subparsers.add_parser(
+    parser_make_certs = subparsers.add_parser(
         "make-certs",
         help="Execute ./make-certs.sh script.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser_config.add_argument(
+    parser_make_certs.add_argument(
         "cmds", nargs=argparse.REMAINDER, help="arguments for make-certs.sh script."
     )
-    parser_config.set_defaults(func="parse_make_certs")
+    parser_make_certs.set_defaults(func="parse_make_certs")
     # endregion
 
     # region for subparser command "manage-certs"
     # subparser for manage-certs command
-    parser_config = subparsers.add_parser(
+    parser_manage_certs = subparsers.add_parser(
         "manage-certs",
         help="Execute ./manage-certs.sh script.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser_config.add_argument(
+    parser_manage_certs.add_argument(
         "cmds", nargs=argparse.REMAINDER, help="arguments for manage-certs.sh script."
     )
-    parser_config.set_defaults(func="parse_manage_certs")
+    parser_manage_certs.set_defaults(func="parse_manage_certs")
     # endregion
 
     args = parser.parse_args()
@@ -873,6 +899,15 @@ if __name__ == "__main__":
     if args.func == "parse_registry":
         # ./IocManager.py registry
         execute_registry(args)
+    if args.func == "parse_ansible":
+        # ./IocManager.py ansible -- <host-pattern> -m <module> -a <args> ...
+        passthrough = args.cmds
+        if passthrough and passthrough[0] == "--":
+            passthrough = passthrough[1:]
+        cmd = ["ansible"] + passthrough + ["-i", CLUSTER_INVENTORY_FILE_PATH]
+        if args.verbose:
+            cmd.append("-v")
+        subprocess.run(cmd, check=True)
     if args.func == "parse_make_certs":
         passthrough = args.cmds
         if passthrough and passthrough[0] == "--":
