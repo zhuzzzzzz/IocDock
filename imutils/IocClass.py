@@ -1150,9 +1150,18 @@ class IOC:
         items_to_restore = []
         unsupported_items = []
         files_to_restore = {"config": "", "src": []}
-        if "all" in restore_files:
-            files_to_restore = files_provided
-            items_to_restore = supported_items
+        restore_all = "all" in restore_files
+        if restore_all:
+            restore_files.remove("all")
+            files_to_restore = {
+                "config": files_provided["config"],
+                "src": list(files_provided["src"]),
+            }
+            items_to_restore = list(supported_items)
+            # "all" covers everything, remaining items only get validated.
+            for item in restore_files:
+                if item not in supported_items:
+                    unsupported_items.append(item)
         else:
             if "ioc.ini" in restore_files:
                 restore_files.remove("ioc.ini")
@@ -1167,7 +1176,7 @@ class IOC:
                     items_to_restore.append("ioc.ini")
             for item in restore_files:
                 item_path = os.path.join(self.src_snapshot_path, item)
-                if item_path in files_provided:
+                if item_path in files_provided["src"]:
                     files_to_restore["src"].append(item_path)
                     items_to_restore.append(item)
                 else:
@@ -1187,7 +1196,7 @@ class IOC:
             unsupported_file_string = unsupported_file_string.rstrip(",")
 
         if not supported_file_string:
-            if "all" in restore_files:
+            if restore_all:
                 print(
                     f'IOC("{self.name}").restore_from_snapshot_file: '
                     f"Can't restore any snapshot files, as there exists no snapshot files."

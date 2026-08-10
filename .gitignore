@@ -10,3 +10,6 @@ ioc-snapshot/
 # custom settings files
 /settings.py
 /services.py
+
+# 
+.claude/

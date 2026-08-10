@@ -9,6 +9,7 @@ from imutils.IMFunc import (
     try_makedirs,
     file_copy,
     dir_copy,
+    dir_remove,
     get_yaml_tool,
 )
 from imutils.IMServiceDefinition import (
@@ -890,43 +891,93 @@ class SwarmManager:
         os.system("docker swarm join-token worker")
 
     @staticmethod
+    def _docker_daemon(action):
+        """stop/start docker daemon. Return True on success.
+
+        IocDockServer.service is bound to docker.service by "Requires=", which
+        propagates stop but not start, so it has to be brought back explicitly.
+        """
+        print(f'Executing command: "sudo systemctl {action} docker"...')
+        if subprocess.run(["sudo", "systemctl", action, "docker"]).returncode != 0:
+            return False
+        if action == "start":
+            print(f'Executing command: "sudo systemctl start IocDockServer.service"...')
+            if (
+                subprocess.run(
+                    ["sudo", "systemctl", "start", "IocDockServer.service"]
+                ).returncode
+                != 0
+            ):
+                print(
+                    f"Warning. Failed to restart IocDockServer.service, run "
+                    f'"sudo systemctl start IocDockServer.service" manually.'
+                )
+        return True
+
+    @staticmethod
     def backup_swarm():
         print(f"Starting swarm backup...")
 
-        command_string = f"sudo systemctl stop docker"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
-
-        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        command_string = f"sudo tar -czvf {now_time}.swarm.tar.gz /var/lib/docker/swarm"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
-
-        repository_path = os.environ.get("MANAGER_PATH", default="")
-        if repository_path:
-            if not os.path.isdir(repository_path):
-                print(
-                    f"backup_swarm: $MANAGER_PATH is not a valid directory, "
-                    f"backup file created at current work path."
-                )
-                return
-        else:
-            print(
-                f"backup_swarm: $MANAGER_PATH is not defined, backup file created at current work path."
-            )
+        # check node identity before touching anything.
+        result = subprocess.run(
+            [
+                "docker",
+                "info",
+                "--format",
+                "{{.Swarm.LocalNodeState}} {{.Swarm.ControlAvailable}}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        state, _, control = result.stdout.strip().partition(" ")
+        if result.returncode != 0 or state != "active":
+            print(f"backup_swarm: Failed. This node is not part of an active swarm.")
             return
+        if control != "true":
+            print(f"backup_swarm: Failed. Swarm backup must be run on a manager node.")
+            return
+
         backup_path = os.path.normpath(
-            os.path.join(repository_path, "..", SWARM_BACKUP_DIR)
+            os.path.join(MANAGER_PATH, "..", SWARM_BACKUP_DIR)
         )
         try_makedirs(backup_path)
+        if not os.path.isdir(backup_path):
+            print(
+                f'backup_swarm: Failed. Can\'t create backup directory "{backup_path}".'
+            )
+            return
 
-        command_string = f"sudo mv ./{now_time}.swarm.tar.gz {backup_path}"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
+        now_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        backup_file = os.path.join(backup_path, f"{now_time}.swarm.tar.gz")
 
-        command_string = f"sudo systemctl start docker"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
+        print(
+            f"The docker daemon will be stopped during the backup, all running "
+            f"containers on this node will be interrupted."
+        )
+        ans = input(f"Confirm to execute the above operation[y|n]?")
+        if ans.lower() not in ("y", "yes"):
+            print(f"Operation exit.")
+            return
+
+        if not SwarmManager._docker_daemon("stop"):
+            print(f"backup_swarm: Failed to stop the docker daemon, nothing changed.")
+            return
+        try:
+            command_string = f"sudo tar -czf {backup_file} /var/lib/docker/swarm"
+            print(f'Executing command: "{command_string}"...')
+            if os.system(f"{command_string}") != 0:
+                print(f"backup_swarm: Failed to create the backup archive.")
+                os.system(f"sudo rm -f {backup_file}")
+            else:
+                os.system(f"sudo chown {os.getuid()}:{os.getgid()} {backup_file}")
+                print(f'Backup file created at "{backup_file}".')
+        finally:
+            if not SwarmManager._docker_daemon("start"):
+                print(
+                    f"\n!! CRITICAL: Failed to restart the docker daemon. "
+                    f'Run "sudo systemctl start docker" manually to recover '
+                    f"this node. !!\n"
+                )
 
         print(f"Finished swarm backup.")
 
@@ -944,43 +995,74 @@ class SwarmManager:
             print(f'restore_swarm: Failed. File "{extract_path}" is not exists.')
             return
 
-        print(f"unpack tar.gz file into swarm directory.")
-        command_string = f"tar -zxvf {extract_path} -C /tmp/"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
+        try:
+            print(f"unpack tar.gz file into temp directory.")
+            command_string = f"tar -zxf {extract_path} -C /tmp/"
+            print(f'Executing command: "{command_string}"...')
+            if os.system(f"{command_string}") != 0:
+                print(f"restore_swarm: Failed to unpack the backup file.")
+                return
 
-        if not os.path.isdir(f"/tmp/var/lib/docker/swarm"):
+            if not os.path.isdir(f"/tmp/var/lib/docker/swarm"):
+                print(
+                    f"restore_swarm: Failed. Backup file used for restoring is not a valid swarm backup."
+                )
+                return
+
             print(
-                f"restore_swarm: Failed. Backup file used for restoring is not a valid swarm backup."
+                f"The docker daemon will be stopped and the swarm state at "
+                f'"/var/lib/docker/swarm" will be replaced by the backup, all '
+                f"running containers on this node will be interrupted."
             )
-            return
+            ans = input(f"Confirm to execute the above operation[y|n]?")
+            if ans.lower() not in ("y", "yes"):
+                print(f"Operation exit.")
+                return
 
-        command_string = f"sudo systemctl stop docker"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
+            if not SwarmManager._docker_daemon("stop"):
+                print(
+                    f"restore_swarm: Failed to stop the docker daemon, nothing changed."
+                )
+                return
+            restored = False
+            try:
+                command_string = f"sudo rm -rf /var/lib/docker/swarm"
+                print(f'Executing command: "{command_string}"...')
+                if os.system(f"{command_string}") != 0:
+                    print(f"restore_swarm: Failed to remove the current swarm state.")
+                else:
+                    command_string = (
+                        f"sudo mv -f /tmp/var/lib/docker/swarm /var/lib/docker/swarm"
+                    )
+                    print(f'Executing command: "{command_string}"...')
+                    if os.system(f"{command_string}") != 0:
+                        print(
+                            f"\n!! CRITICAL: Failed to restore the swarm state, the "
+                            f"current swarm state has already been removed. Restore "
+                            f'"/var/lib/docker/swarm" from a backup manually. !!\n'
+                        )
+                    else:
+                        restored = True
+            finally:
+                if not SwarmManager._docker_daemon("start"):
+                    print(
+                        f"\n!! CRITICAL: Failed to restart the docker daemon. "
+                        f'Run "sudo systemctl start docker" manually to recover '
+                        f"this node. !!\n"
+                    )
+                    return
 
-        command_string = f"sudo rm -rf /var/lib/docker/swarm"
-        print(f'Executing command: "{command_string}"...')
-        ans = input(f"Confirm to execute the above operation[y|n]?")
-        if ans.lower() == "y" or ans.lower() == "yes":
+            if not restored:
+                return
+
+            command_string = f"docker swarm init --force-new-cluster"
+            print(f'Executing command: "{command_string}"...')
             os.system(f"{command_string}")
-        else:
-            print(f"Operation exit.")
-            return
 
-        command_string = f"sudo mv -f /tmp/var/lib/docker/swarm /var/lib/docker/swarm"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
-
-        command_string = f"sudo systemctl start docker"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
-
-        command_string = f"docker swarm init --force-new-cluster"
-        print(f'Executing command: "{command_string}"...')
-        os.system(f"{command_string}")
-
-        print(f"Restoring finished.")
+            print(f"Restoring finished.")
+        finally:
+            if os.path.isdir("/tmp/var"):
+                dir_remove("/tmp/var")
 
 
 class SwarmService:

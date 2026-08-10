@@ -61,8 +61,7 @@ DB_TEMPLATE_PATH = os.path.join(TEMPLATE_PATH, "db")
 
 # MOUNT_DIR = 'ioc-for-docker'
 MOUNT_DIR = "IocDock-data"  # top directory for nfs mounting
-MOUNT_PATH = os.getenv("MOUNT_PATH", os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
-MOUNT_PATH = os.path.normpath(MOUNT_PATH)
+MOUNT_PATH = os.path.normpath(os.path.join(MANAGER_PATH, "..", MOUNT_DIR))
 MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.50:/home/zhu/NFS/IocDock-data"
 SWARM_DIR = "swarm"  # top directory for swarm deploying
 LOG_FILE_DIR = "iocLog"  # directory for running iocLogServer in docker
