@@ -194,6 +194,10 @@ class IOC:
         # self.logs_path_in_docker
         # self.startup_path_in_docker
 
+        # self.valid: whether the initialization was finished, check it before
+        # using an IOC object initialized from an untrusted path.
+        self.valid = False
+
         if verbose:
             if read_mode:
                 print(
@@ -274,6 +278,7 @@ class IOC:
                     print(f'IOC.__init__: Try repairing IOC "{self.name}".')
                 self.try_repair()
 
+        self.valid = True
         if self.verbose:
             print(f'IOC.__init__: Finished initializing for IOC "{self.name}".')
 
@@ -506,7 +511,7 @@ class IOC:
 
         if init_mode:
             db_list = self.get_config("db_file", "SRC")
-            proto_list = self.get_config("proto_file", "SRC")
+            proto_list = self.get_config("protocol_file", "SRC")
             others_list = self.get_config("others_file", "SRC")
             file_list = (
                 [item.strip() for item in filter(None, db_list.split(","))]
@@ -1806,7 +1811,7 @@ def restore_backup(backup_path, force_overwrite, verbose):
                 )
                 # set status for restored IOC.
                 temp_ioc.state_manager.set_config("status", "restored")
-                temp_ioc.write_config()
+                temp_ioc.state_manager.write_config()
     except Exception as e:
         # remove temporary directory finally.
         print(f"\nrestore_backup: Falided. Exception raised: {e}.")

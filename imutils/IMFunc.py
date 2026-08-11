@@ -16,12 +16,14 @@ def try_makedirs(d, verbose=False):
     :param verbose: verbosity.
     :return: Boolean value about whether the directory was successfully created.
     """
-    verbose = False
     try:
         os.makedirs(d)
-    except Exception as e:
+    except FileExistsError:
         if verbose:
-            print(f'try_makedirs("{d}"): Failed, {e}.')
+            print(f'try_makedirs("{d}"): Skipped, already exists.')
+        return False
+    except Exception as e:
+        print(f'try_makedirs("{d}"): Failed, {e}.')
         return False
     else:
         if verbose:
