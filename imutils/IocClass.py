@@ -16,6 +16,7 @@ from imutils.IMFunc import (
     multi_line_parse,
     format_normalize,
     relative_path_to_abs,
+    check_ioc_name,
 )
 
 
@@ -1747,7 +1748,9 @@ def restore_backup(backup_path, force_overwrite, verbose):
     # extract tgz files into temporary directory.
     try:
         with tarfile.open(extract_path, "r:gz") as tar:
-            tar.extractall(temp_dir)
+            # "data" filter rejects members that would be written outside the
+            # destination directory, as the backup file may not be trusted.
+            tar.extractall(temp_dir, filter="data")
     except Exception as e:
         print(f'restore_backup: Failed. Failed to extract "{extract_path}", {e}.')
         dir_remove(temp_dir, verbose=verbose)
@@ -1755,7 +1758,12 @@ def restore_backup(backup_path, force_overwrite, verbose):
     else:
         if verbose:
             print(f"restore_backup: File extracted at {temp_dir}.")
-        temp_in_dir = os.path.join(temp_dir, os.listdir(temp_dir)[0])
+        extracted_items = os.listdir(temp_dir)
+        if not extracted_items:
+            print(f'restore_backup: Failed. No content extracted from "{extract_path}".')
+            dir_remove(temp_dir, verbose=verbose)
+            return
+        temp_in_dir = os.path.join(temp_dir, extracted_items[0])
         print(
             f'restore_backup: Start restoring from backup file "{os.path.basename(temp_in_dir)}".'
         )
@@ -1764,6 +1772,9 @@ def restore_backup(backup_path, force_overwrite, verbose):
         # restore IOC projects. if IOC conflicts, skip or overwrite according to force_overwrite.
         ioc_existed = [ioc_item.name for ioc_item in get_all_ioc(read_mode=True)]
         for ioc_item in os.listdir(temp_in_dir):
+            # directory names from the backup file are used as IOC names.
+            if not check_ioc_name(ioc_item):
+                continue
             backup_ioc_dir = os.path.join(temp_in_dir, ioc_item)
             current_ioc_dir = os.path.join(REPOSITORY_PATH, ioc_item)
             restore_flag = False

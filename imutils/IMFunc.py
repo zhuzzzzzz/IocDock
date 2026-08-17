@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import datetime
 import shutil
@@ -6,6 +7,29 @@ import socket
 import logging
 from logging.handlers import RotatingFileHandler
 from imutils.IMConfig import OPERATION_LOG_FILE_PATH
+
+
+def check_ioc_name(name):
+    """
+    Check whether the given IOC name is safe to be used as a path component.
+
+    An IOC name is used as a directory name and is also passed to shell commands,
+    so characters that are special to the shell or to path resolution have to be
+    rejected here.
+
+    :param name: IOC name to be checked.
+    :return: Boolean value about whether the name is valid.
+    """
+    if not isinstance(name, str) or not re.fullmatch(
+        r"[A-Za-z0-9_][A-Za-z0-9_.-]*", name
+    ):
+        print(
+            f'check_ioc_name: Failed. Invalid IOC name "{name}", a name should start '
+            f'with a letter, a digit or "_", and can only contain letters, digits, '
+            f'and the characters "_.-".'
+        )
+        return False
+    return True
 
 
 def try_makedirs(d, verbose=False):
