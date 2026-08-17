@@ -123,7 +123,7 @@ ANSIBLE_CREATE_PASSWORD = ""
 ## Ansible Server Settings ##
 #######################################################################################################################
 
-SOCKET_PATH = "/tmp/IocDock.sock"
+SOCKET_PATH = "/run/IocDock/IocDock.sock"
 
 NODE_IP_FILE = "/opt/IocDockHome/.NodeInfo"  # file to store node ip in cluster for services init
 

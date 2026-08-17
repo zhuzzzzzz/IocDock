@@ -225,7 +225,7 @@ class SocketServer:
             display_message("Initializing server socket...")
             self.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.server_socket.bind(self.socket_path)
-            os.chmod(self.socket_path, 0o777)
+            os.chmod(self.socket_path, 0o660)
             self.server_socket.listen(8)
             self.listen_sockets.append(self.server_socket)
             self.serving = True
