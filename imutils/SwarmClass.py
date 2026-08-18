@@ -63,6 +63,19 @@ class SwarmManager:
             print("Managed services:")
             print(self.services)
 
+    def refresh_service_state(self):
+        """
+        Query the deployed service list once and share it among all managed services,
+        so that reading the state of N services costs one "docker service ls" instead of N.
+
+        The shared list is a snapshot, it is only meant to be used within the round that
+        calls this method. Do not call it on a manager object that outlives one round,
+        or the state read from its services will be stale.
+        """
+        deployed_services = self.get_deployed_swarm_services()
+        for service in self.services.values():
+            service._deployed_services = deployed_services
+
     def get_services_from_docker(self):
         import docker
 
@@ -1112,6 +1125,11 @@ class SwarmService:
                 self.src_dir_path = os.path.dirname(compose_file_path)
                 self.service_file = os.path.basename(compose_file_path)
 
+        # a deployed service list may be passed in so that a batch of services can share
+        # one "docker service ls" query, see SwarmManager.refresh_service_state().
+        # None means not provided, then is_deployed queries docker by itself.
+        self._deployed_services = kwargs.get("deployed_services")
+
     def __repr__(self):
         return f'SwarmService("{self.name}", service_type="{self.service_type}")'
 
@@ -1124,10 +1142,14 @@ class SwarmService:
 
     @property
     def is_deployed(self):
-        if self.service_name in SwarmManager.get_deployed_swarm_services():
-            return True
-        else:
-            return False
+        # an empty list is a valid answer("nothing deployed"), so check against None
+        # instead of testing truthiness here.
+        deployed_services = (
+            self._deployed_services
+            if self._deployed_services is not None
+            else SwarmManager.get_deployed_swarm_services()
+        )
+        return self.service_name in deployed_services
 
     @property
     def current_state(self):
@@ -1181,6 +1203,8 @@ class SwarmService:
             return "-/-"
 
     def deploy(self):
+        # this method changes the deployment state, stop trusting the shared snapshot.
+        self._deployed_services = None
         print(self)
         if self.is_available:
             if self.is_deployed:
@@ -1203,6 +1227,8 @@ class SwarmService:
             )
 
     def remove(self, remove_file=False):
+        # this method changes the deployment state, stop trusting the shared snapshot.
+        self._deployed_services = None
         if self.is_deployed:
             print(f'SwarmService("{self.name}").remove_service: Removing this service.')
             os.system(f"docker service rm {self.service_name}")

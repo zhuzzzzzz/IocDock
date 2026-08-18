@@ -58,8 +58,9 @@ class RepeatingTimer:
                 if sleep_time > 0:
                     self._stop_event.wait(sleep_time)
                 else:
-                    pass
-                    # self._stop_event.wait(self.interval)
+                    # a round took longer than the interval, back off for a full interval
+                    # instead of starting the next round immediately.
+                    self._stop_event.wait(self.interval)
             else:
                 self._stop_event.wait(0.1)
         # time.sleep(3)
@@ -130,7 +131,11 @@ class TaskServer:
             }
 
     def get_service_info(self):
-        self.service_list = SwarmManager().services
+        swarm_manager = SwarmManager()
+        # query the deployed service list once for the whole polling round, otherwise
+        # every current_state/replicas access below queries "docker service ls" again.
+        swarm_manager.refresh_service_state()
+        self.service_list = swarm_manager.services
         for item in self.service_list.values():
             self.service_info[item.name] = {
                 "status": item.current_state,
