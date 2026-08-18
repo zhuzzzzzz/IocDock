@@ -17,6 +17,7 @@ from imutils.IMFunc import (
     format_normalize,
     relative_path_to_abs,
     check_ioc_name,
+    path_compare,
 )
 
 
@@ -1349,30 +1350,22 @@ class IOC:
                 )
             return False, f"no snapshot"
 
-        if print_info:
-            execute_config_str = f"git diff --no-index {self.config_snapshot_file} {self.config_file_path}"
-            if self.verbose:
-                print(execute_config_str)
-            res_config_file = os.system(execute_config_str)
-            execute_src_str = (
-                f"git diff --no-index {self.src_snapshot_path} {self.src_path}"
-            )
-            if self.verbose:
-                print(execute_src_str)
-            res_src_dir = os.system(execute_src_str)
-        else:
-            execute_config_str = f"git diff --no-index --quiet {self.config_snapshot_file} {self.config_file_path} > /dev/null 2>&1"
-            if self.verbose:
-                print(execute_config_str)
-            res_config_file = os.system(execute_config_str)
-            execute_src_str = f"git diff --no-index --quiet {self.src_snapshot_path} {self.src_path} > /dev/null 2>&1"
-            if self.verbose:
-                print(execute_src_str)
-            res_src_dir = os.system(execute_src_str)
+        res_config_file = path_compare(
+            self.config_snapshot_file,
+            self.config_file_path,
+            print_diff=print_info,
+            verbose=self.verbose,
+        )
+        res_src_dir = path_compare(
+            self.src_snapshot_path,
+            self.src_path,
+            print_diff=print_info,
+            verbose=self.verbose,
+        )
 
         return (
             (True, "consistent")
-            if (res_config_file == 0 and res_src_dir == 0)
+            if (res_config_file and res_src_dir)
             else (False, "inconsistent")
         )
 
@@ -1384,30 +1377,22 @@ class IOC:
                 )
             return False, f"not deployed"
 
-        if print_info:
-            execute_config_str = f"git diff --no-index {self.config_file_path_for_mount} {self.config_file_path}"
-            if self.verbose:
-                print(execute_config_str)
-            res_config_file = os.system(execute_config_str)
-            execute_dir_str = (
-                f"git diff --no-index {self.startup_path_for_mount} {self.startup_path}"
-            )
-            if self.verbose:
-                print(execute_dir_str)
-            res_startup_dir = os.system(execute_dir_str)
-        else:
-            execute_config_str = f"git diff --no-index --quiet {self.config_file_path_for_mount} {self.config_file_path} > /dev/null 2>&1"
-            if self.verbose:
-                print(execute_config_str)
-            res_config_file = os.system(execute_config_str)
-            execute_startup_str = f"git diff --no-index --quiet {self.startup_path_for_mount} {self.startup_path} > /dev/null 2>&1"
-            if self.verbose:
-                print(execute_startup_str)
-            res_startup_dir = os.system(execute_startup_str)
+        res_config_file = path_compare(
+            self.config_file_path_for_mount,
+            self.config_file_path,
+            print_diff=print_info,
+            verbose=self.verbose,
+        )
+        res_startup_dir = path_compare(
+            self.startup_path_for_mount,
+            self.startup_path,
+            print_diff=print_info,
+            verbose=self.verbose,
+        )
 
         return (
             (True, "consistent")
-            if (res_config_file == 0 and res_startup_dir == 0)
+            if (res_config_file and res_startup_dir)
             else (False, "inconsistent")
         )
 

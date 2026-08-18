@@ -1,12 +1,15 @@
 import os
 import re
 import sys
+import filecmp
 import datetime
 import shutil
 import socket
 import logging
+import subprocess
 from logging.handlers import RotatingFileHandler
 from imutils.IMConfig import OPERATION_LOG_FILE_PATH
+from imutils.IMError import IMFileTypeError
 
 
 def check_ioc_name(name):
@@ -142,6 +145,143 @@ def dir_copy(source_folder, destination_folder, verbose=False):
                 f'dir_copy: Success, copy dir from "{source_folder}" to "{destination_folder}".'
             )
         return True
+
+
+def _scan_tree(root):
+    """
+    Collect all files and symbolic links under the given directory recursively.
+
+    Directories themselves are not collected, so that an empty directory existing
+    only on one side is not a difference, which is how git behaves.
+
+    :param root: path to the directory to be scanned.
+    :return: a dict mapping relative path to a comparable feature tuple.
+    :raise IMFileTypeError: an entry whose content can not be compared was found.
+    :raise OSError: the tree could not be read. This also happens when another
+                    process removes an entry while the tree is being scanned, as
+                    an entry is stat'ed after it was listed.
+    """
+    entries = {}
+    stack = [("", root)]
+    while stack:
+        rel_dir, abs_dir = stack.pop()
+        with os.scandir(abs_dir) as it:
+            for entry in it:
+                rel_path = os.path.join(rel_dir, entry.name)
+                # a symbolic link has to be tested first. It is a blob to git no
+                # matter what it points to, and neither is_dir() nor is_file()
+                # below answers True for it while links are not followed, so a
+                # link tested later would end up in the unsupported branch.
+                if entry.is_symlink():
+                    # git stores a symbolic link as its target string, so the
+                    # target is the whole content there is to compare for a link.
+                    entries[rel_path] = ("link", os.readlink(entry.path))
+                elif entry.is_dir(follow_symlinks=False):
+                    stack.append((rel_path, entry.path))
+                elif entry.is_file(follow_symlinks=False):
+                    # git only tracks the executable bit of the owner in a file mode,
+                    # the other permission bits are not a difference to git.
+                    entries[rel_path] = (
+                        "file",
+                        bool(entry.stat(follow_symlinks=False).st_mode & 0o100),
+                    )
+                else:
+                    raise IMFileTypeError(
+                        f'"{entry.path}" is neither a regular file, a directory nor '
+                        f"a symbolic link, its content can not be compared"
+                    )
+    return entries
+
+
+def path_compare(path_a, path_b, print_diff=False, verbose=False):
+    """
+    Compare two files or two directories by content and tell whether they are
+    identical, as a replacement of the command "git diff --no-index --quiet".
+
+    What counts as a difference follows what git reports: file content, the
+    executable bit of the owner, the target of a symbolic link, and the set of
+    existing files. Other permission bits, ownership, timestamps and directories
+    holding no file are not differences. Unlike git, the result does not depend on
+    any git configuration such as "core.fileMode".
+
+    A path that can not be read is reported as a difference rather than raised,
+    just as the git command did by returning a non-zero exit code. This covers the
+    case that another process rewrites one of the given directories while the
+    comparison is running, which happens whenever dir_copy() replaces a directory
+    being polled.
+
+    :param path_a: path to the first file or directory.
+    :param path_b: path to the second file or directory.
+    :param print_diff: whether to show a readable diff of the two paths, which is
+                       done by running git, as reproducing its output here is not
+                       the purpose of this function.
+    :param verbose: verbosity.
+    :return: Boolean value about whether the two paths hold identical content,
+             True when there is no difference between them.
+    """
+    if print_diff:
+        # the list form is used instead of os.system(), otherwise the paths are
+        # pasted into a shell command line unquoted. "--no-index" implies
+        # "--exit-code", so the return code tells whether a difference was found.
+        command = ["git", "diff", "--no-index", path_a, path_b]
+        if verbose:
+            print(" ".join(command))
+        try:
+            return subprocess.run(command).returncode == 0
+        except OSError as e:
+            print(f'path_compare("{path_a}", "{path_b}"): Failed to run git, {e}.')
+            return False
+    try:
+        if os.path.isdir(path_a) and os.path.isdir(path_b):
+            entries_a = _scan_tree(path_a)
+            entries_b = _scan_tree(path_b)
+            if entries_a != entries_b:
+                # this single comparison already covers the set of paths, the type
+                # of every entry, the executable bit of every file and the target
+                # of every symbolic link, as a link's target string is its whole
+                # content to git.
+                result = False
+            else:
+                # only regular files are left to be read, their content is the one
+                # thing the feature tuples above do not hold. Symbolic links must
+                # stay out of here, filecmp.cmp() would follow them and compare the
+                # content of what they point to, which git does not do.
+                result = all(
+                    filecmp.cmp(
+                        os.path.join(path_a, rel),
+                        os.path.join(path_b, rel),
+                        shallow=False,
+                    )
+                    for rel, feature in entries_a.items()
+                    if feature[0] == "file"
+                )
+        elif os.path.isfile(path_a) and os.path.isfile(path_b):
+            result = os.stat(path_a).st_mode & 0o100 == os.stat(
+                path_b
+            ).st_mode & 0o100 and filecmp.cmp(path_a, path_b, shallow=False)
+        else:
+            # one of them does not exist, or one is a file while another is a directory.
+            result = False
+    except IMFileTypeError as e:
+        # a file that can not be compared is a problem of the project itself and
+        # will not go away by itself, always report it.
+        print(f'path_compare("{path_a}", "{path_b}"): Failed, {e.message}.')
+        return False
+    except OSError as e:
+        # not readable, or removed by another process during the comparison. The
+        # git command reported this as a difference and printed nothing, keep both:
+        # a directory being rewritten by another process would otherwise make the
+        # polling server write to the log every round.
+        if verbose:
+            print(f'path_compare("{path_a}", "{path_b}"): Failed, {e}.')
+        return False
+    else:
+        if verbose:
+            print(
+                f'path_compare("{path_a}", "{path_b}"): '
+                f'{"identical" if result else "different"}.'
+            )
+        return result
 
 
 def relative_path_to_abs(input_path):
