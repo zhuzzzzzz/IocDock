@@ -124,7 +124,7 @@ usage() {
      --organizational-unit "Security Team" \
      --force
 EOF
-    exit 1
+    exit "${1:-1}"
 }
 
 # -----------------------------------------------------------------------------
@@ -207,7 +207,7 @@ parse_args() {
                 shift 2
                 ;;
             --help|-h)
-                usage
+                usage 0
                 ;;
             *)
                 log_error "未知参数：$1"

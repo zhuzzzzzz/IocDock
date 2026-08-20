@@ -355,6 +355,44 @@ def get_yaml_tool():
     return yaml
 
 
+def run_passthrough(cmd, cwd=None):
+    """
+    Run an external command whose arguments are passed through from the CLI.
+
+    The command is given as a list so that the arguments are not pasted into a
+    shell command line unquoted. A failure of the child process is reported as a
+    message instead of a traceback, and its exit code is passed through as our
+    own. Note that this function does not return in that case.
+
+    :param cmd: Command to be run, given as a list of arguments.
+    :param cwd: Directory to run the command in, None to use the current one.
+    :return: CompletedProcess instance of the finished command.
+    """
+    try:
+        return subprocess.run(cmd, cwd=cwd, check=True)
+    except subprocess.CalledProcessError as e:
+        return_code = e.returncode
+        if return_code < 0:
+            # the child was killed by a signal, report it the way a shell does.
+            return_code = 128 - return_code
+        print(f'Failed. Command "{cmd[0]}" exited with code "{return_code}".')
+        sys.exit(return_code)
+    except FileNotFoundError as e:
+        # the missing path is the command itself, or the working directory. this
+        # clause has to stay in front of the one below, as it catches a subclass.
+        print(f'Failed. Could not run command "{cmd[0]}", {e}.')
+        sys.exit(127)
+    except OSError as e:
+        # the command was found but could not be run, for example a file without
+        # the executable bit (EACCES), a working directory that is not a
+        # directory (ENOTDIR), or a file that is no valid executable (ENOEXEC).
+        print(f'Failed. Could not run command "{cmd[0]}", {e}.')
+        sys.exit(126)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt.")
+        sys.exit(130)
+
+
 #########################################################
 def operation_log():
     # 生成日志内容

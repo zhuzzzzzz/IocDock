@@ -211,7 +211,7 @@ def get_filtered_ioc(
     if verbose and from_list is not None:
         print(f'List IOC projects from "{from_list}".')
 
-    index_to_remove = []
+    index_to_remove = set()
     if not condition:
         # Return all IOC projects when no condition specified.
         if verbose:
@@ -228,15 +228,15 @@ def get_filtered_ioc(
                 if key.lower() == "name":
                     for i in range(0, len(ioc_list)):
                         if value not in ioc_list[i].name:
-                            index_to_remove.append(i)
+                            index_to_remove.add(i)
                 elif key.lower() in ("state", "status", "snapshot", "is_exported"):
                     for i in range(0, len(ioc_list)):
                         if not ioc_list[i].state_manager.check_config(key, value):
-                            index_to_remove.append(i)
+                            index_to_remove.add(i)
                 else:
                     for i in range(0, len(ioc_list)):
                         if not ioc_list[i].check_config(key, value, section):
-                            index_to_remove.append(i)
+                            index_to_remove.add(i)
             else:
                 if verbose:
                     print(f'Skip invalid condition "{c}".')
@@ -247,19 +247,14 @@ def get_filtered_ioc(
                 )
         else:
             # Do not return any result if no valid condition given.
-            index_to_remove = [i for i in range(0, len(ioc_list))]
+            index_to_remove = set(range(len(ioc_list)))
             if verbose:
                 print(f"No result. No valid condition given.")
     else:
         raise IMValueError(f'Invalid filter parameter: condition="{condition}".')
 
     # get index to print.
-    index_reserved = []
-    for i in range(0, len(ioc_list)):
-        if i in index_to_remove:
-            continue
-        else:
-            index_reserved.append(i)
+    index_reserved = [i for i in range(len(ioc_list)) if i not in index_to_remove]
 
     if show_panel:
         if not client_check_connection(verbose=verbose):

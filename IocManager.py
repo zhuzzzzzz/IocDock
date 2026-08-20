@@ -14,7 +14,7 @@ from imutils.IMConfig import (
     SCRIPTS_CERT_PATH,
     CLUSTER_INVENTORY_FILE_PATH,
 )
-from imutils.IMFunc import operation_log, condition_parse
+from imutils.IMFunc import operation_log, condition_parse, run_passthrough
 from imutils.IMUtil import (
     create_ioc,
     set_ioc,
@@ -907,24 +907,16 @@ if __name__ == "__main__":
         cmd = ["ansible"] + passthrough + ["-i", CLUSTER_INVENTORY_FILE_PATH]
         if args.verbose:
             cmd.append("-v")
-        subprocess.run(cmd, check=True)
+        run_passthrough(cmd)
     if args.func == "parse_make_certs":
         passthrough = args.cmds
         if passthrough and passthrough[0] == "--":
             passthrough = passthrough[1:]
-        subprocess.run(
-            ["./make-certs.sh"] + passthrough,
-            cwd=SCRIPTS_CERT_PATH,
-            check=True,
-        )
+        run_passthrough(["./make-certs.sh"] + passthrough, cwd=SCRIPTS_CERT_PATH)
     if args.func == "parse_manage_certs":
         passthrough = args.cmds
         if passthrough and passthrough[0] == "--":
             passthrough = passthrough[1:]
-        subprocess.run(
-            ["./manage-certs.sh"] + passthrough,
-            cwd=SCRIPTS_CERT_PATH,
-            check=True,
-        )
+        run_passthrough(["./manage-certs.sh"] + passthrough, cwd=SCRIPTS_CERT_PATH)
     if args.verbose:
         print()

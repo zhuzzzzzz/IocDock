@@ -7,6 +7,8 @@ from imutils.SocketClient import socket_client, client_check_connection
 
 
 def gen_inventory_files(verbose=False):
+    import yaml
+
     try_makedirs(IMConfig.ANSIBLE_INVENTORY_PATH, verbose=verbose)
 
     # for cluster
@@ -32,7 +34,6 @@ def gen_inventory_files(verbose=False):
             }
             group_dict["hosts"] = hosts_dict
             yaml_data[group_name] = group_dict
-        import yaml
         with open(IMConfig.CLUSTER_INVENTORY_FILE_PATH, "w", encoding="utf-8") as f:
             yaml.dump(yaml_data, f, allow_unicode=True, sort_keys=False)
     else:
