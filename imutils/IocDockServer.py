@@ -119,8 +119,9 @@ class TaskServer:
 
     def get_ioc_info(self):
         self.ioc_list = get_all_ioc()
+        new_ioc_info = {}
         for item in self.ioc_list:
-            self.ioc_info[item.name] = {
+            new_ioc_info[item.name] = {
                 "name": item.name,
                 "host": item.get_config("host"),
                 "state": item.state_manager.get_config("state"),
@@ -129,6 +130,7 @@ class TaskServer:
                 "deploy_consistency": item.check_deploy_consistency()[1],
                 "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
+        self.ioc_info = new_ioc_info
 
     def get_service_info(self):
         swarm_manager = SwarmManager()
@@ -136,19 +138,22 @@ class TaskServer:
         # every current_state/replicas access below queries "docker service ls" again.
         swarm_manager.refresh_service_state()
         self.service_list = swarm_manager.services
+        new_service_info = {}
         for item in self.service_list.values():
-            self.service_info[item.name] = {
+            new_service_info[item.name] = {
                 "status": item.current_state,
                 "replicas": item.replicas,
                 "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
+        self.service_info = new_service_info
 
     def get_node_info(self):
         import docker
         docker_client = docker.from_env()
         nodes = docker_client.nodes.list()
+        new_node_info = {}
         for node in nodes:
-            self.node_info[node.attrs["Description"]["Hostname"]] = {
+            new_node_info[node.attrs["Description"]["Hostname"]] = {
                 "ip": node.attrs["Status"]["Addr"],
                 "state": node.attrs["Status"]["State"],
                 "role": node.attrs["Spec"]["Role"],
@@ -156,6 +161,7 @@ class TaskServer:
                 "labels": node.attrs["Spec"]["Labels"],
                 "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
+        self.node_info = new_node_info
 
     def start_task(self, name):
         if name in self.timer_tasks.keys():

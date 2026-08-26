@@ -175,7 +175,6 @@ fi
 
 # install project files
 echo "installing..."
-python3 -m compileall -q -f -j 0 "$script_dir"
 home_path=$("$script_dir/IocManager.py" config HOME_PATH)
 project_name=$("$script_dir/IocManager.py" config PROJECT_NAME)
 mkdir -p "$home_path"
@@ -193,6 +192,9 @@ python3 -m venv "$top_path/venv"
 
 chown -R "$program_user:$program_user" "$top_path"
 cd "$top_path"
+
+echo "precompiling bytecode..."
+sudo -u "$program_user" "$top_path/venv/bin/python3" -m compileall -q -f -j 0 "$top_path"
 
 # install shell command completion.
 echo "installing shell command completion..."

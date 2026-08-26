@@ -83,6 +83,8 @@ def create_ioc(name, args, config=None, verbose=False):
 # accept iterable for input
 def set_ioc(name, args, config=None, verbose=False):
     if isinstance(name, str):
+        if not check_ioc_name(name):
+            return
         dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
         if not os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
             print(f'set_ioc: Failed. IOC "{name}" is not exist.')
@@ -135,6 +137,8 @@ def set_ioc(name, args, config=None, verbose=False):
 # do not accept iterable for input
 # Remove IOC projects. just remove generated files or remove all files.
 def remove_ioc(name, remove_all=False, force_removal=False, verbose=False):
+    if not check_ioc_name(name):
+        return
     dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
     if os.path.exists(os.path.join(dir_path, IMConfig.IOC_CONFIG_FILE)):
         if not force_removal:
@@ -360,6 +364,8 @@ def execute_ioc(args):
             print(f"execute_ioc: No IOC project specified.")
         else:
             for name in args.name:
+                if not check_ioc_name(name):
+                    continue
                 dir_path = os.path.join(IMConfig.REPOSITORY_PATH, name)
                 if os.path.isdir(dir_path):
                     ioc_temp = IOC(dir_path=dir_path, verbose=args.verbose)
@@ -486,6 +492,8 @@ def update_ioc(args):
 
 # Edit configuration file of an IOC project using vi.
 def edit_ioc(args):
+    if not check_ioc_name(args.name):
+        return
     file_path = os.path.join(
         IMConfig.REPOSITORY_PATH, args.name, IMConfig.IOC_CONFIG_FILE
     )
