@@ -4,6 +4,7 @@ image_name="dbwr"
 release_version=0.0.1
 print_log=false
 push_image=false
+no_build=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -20,37 +21,50 @@ while [[ $# -gt 0 ]]; do
             push_image=true
             shift
             ;;
+        --no-build)
+            no_build=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--release=VERSION] [--print-log] [--push-image]"
+            echo "Usage: $0 [--release=VERSION] [--print-log] [--push-image] [--no-build]"
             exit 1
             ;;
     esac
 done
 
-echo Building image \"$image_name:$release_version\"...
-# build image for dbwr
-if [ "$print_log" = true ]; then
-    set -x
-    docker build --progress=plain \
-    -t $image_name:$release_version . 2>&1 | tee BuildLog.$image_name:$release_version
-    return_code=${PIPESTATUS[0]}
-    { set +x; } 2>/dev/null
+if [ "$no_build" = true ]; then
+    # skip building, use the existing local image
+    if ! docker image inspect $image_name:$release_version >/dev/null 2>&1; then
+        echo Local image \"$image_name:$release_version\" not found, build it before pushing.
+        exit 1
+    fi
+    echo Skip building, use local image \"$image_name:$release_version\".
 else
-    set -x
-    docker build -t $image_name:$release_version .
-    return_code=$?
-    { set +x; } 2>/dev/null
+    echo Building image \"$image_name:$release_version\"...
+    # build image for dbwr
+    if [ "$print_log" = true ]; then
+        set -x
+        docker build --progress=plain \
+        -t $image_name:$release_version . 2>&1 | tee BuildLog.$image_name:$release_version
+        return_code=${PIPESTATUS[0]}
+        { set +x; } 2>/dev/null
+    else
+        set -x
+        docker build -t $image_name:$release_version .
+        return_code=$?
+        { set +x; } 2>/dev/null
+    fi
+
+    if [ $return_code -ne 0 ]; then
+        echo Build image \"$image_name:$release_version\" failed.
+        exit 1
+    else
+        echo Build image \"$image_name:$release_version\" succeeded.
+    fi
 fi
 
-if [ $return_code -ne 0 ]; then 
-	echo Build image \"$image_name:$release_version\" failed.
-	exit 1
-else
-	echo Build image \"$image_name:$release_version\" succeeded.
-fi
-
-if [ "$push_image" = true ]; then 
+if [ "$push_image" = true ]; then
     # push image if $push_image is true and $release_prefix is defined
     release_prefix=`IocManager config REGISTRY_COMMON_NAME`
     # tag and push image to registry

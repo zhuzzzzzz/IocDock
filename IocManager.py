@@ -483,9 +483,14 @@ if __name__ == "__main__":
         help="set up cluster environment for machines in the inventory files.",
     )
     parser_cluster.add_argument(
-        "--prepare-service-images",
+        "--pull-service-images",
         action="store_true",
-        help="prepare service images.",
+        help="pull third-party service images and build local service images, without pushing into registry.",
+    )
+    parser_cluster.add_argument(
+        "--push-service-images",
+        action="store_true",
+        help="push prepared service images into registry, without pulling or building.",
     )
     parser_cluster.add_argument(
         "--prepare-ioc-images",

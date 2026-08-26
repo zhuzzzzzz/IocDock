@@ -34,7 +34,7 @@ _mycommand_completion() {
 	#
 	service_prompt="--deploy --remove --show-config --show-info --show-logs --update"
 	#
-	cluster_prompt="--gen-inventory-files --create-remote-user --set-up-ssh-connection --set-up-basic-environment --set-up-swarm --set-up-cluster --ping --registry-login --set-up-file-and-dir --set-up-root-cert --prepare-service-images --prepare-ioc-images"
+	cluster_prompt="--gen-inventory-files --create-remote-user --set-up-ssh-connection --set-up-basic-environment --set-up-swarm --set-up-cluster --ping --registry-login --set-up-file-and-dir --set-up-root-cert --pull-service-images --push-service-images --prepare-ioc-images"
 	
 
 	# sub-commands completion.( 2nd position )

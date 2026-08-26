@@ -531,13 +531,21 @@ def execute_cluster(args):
         set_up_file_and_dir()
     elif args.set_up_root_cert:
         set_up_root_cert()
-    elif args.prepare_service_images:
+    elif args.pull_service_images:
         dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
-        os.system(f"cd {dir_path}; ./prepare-images.sh")
+        os.system(f"cd {dir_path}; ./prepare-images.sh --pull")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "alertAnalytics")
-        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --push-image")
+        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "dbwr")
-        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --push-image")
+        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log")
+
+    elif args.push_service_images:
+        dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
+        os.system(f"cd {dir_path}; ./prepare-images.sh --push")
+        dir_path = os.path.join(IMConfig.TOOLS_PATH, "alertAnalytics")
+        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --no-build --push-image")
+        dir_path = os.path.join(IMConfig.TOOLS_PATH, "dbwr")
+        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --no-build --push-image")
 
     elif args.prepare_ioc_images:
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")

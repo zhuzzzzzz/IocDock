@@ -1,13 +1,13 @@
 #### 部署 registry 运行环境
 
 0. 切换至 `srcipts/` 目录
-1. 执行 `./prepare-images.sh` 在本地拉取镜像并为镜像重命名
+1. 执行 `./prepare-images.sh --pull` 在本地拉取镜像并为镜像重命名
 2. 执行 `IocManager swarm --gen-builtin-services` 为 registry 项目生成部署文件
 3. 执行 `docker node update <node_name> --lable-add registry=true` 为主机指定 registry 部署标签
 4. 确保要部署 registry 服务的节点都挂载了相应的 NFS 目录
 5. 执行 `IocManager service registry --deploy` 部署 registry 服务
 6. 执行 `IocManager cluster --registry-login` 为集群节点登录镜像仓库
-7. 再次执行 `./prepare-images.sh` 上传镜像
+7. 执行 `./prepare-images.sh --push` 上传镜像(仅上传, 不重新拉取)
 
 ### 镜像操作
 

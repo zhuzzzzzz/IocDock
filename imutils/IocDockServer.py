@@ -52,7 +52,7 @@ class RepeatingTimer:
                 try:
                     self.function(*self.args, **self.kwargs)
                 except Exception as e:
-                    print(f"Error in RepeatingTimer._run: {e}")
+                    print(f"Error in RepeatingTimer task {self.function.__name__}: {e}")
                 elapsed_time = time.monotonic() - start_time
                 sleep_time = self.interval - elapsed_time
                 if sleep_time > 0:
