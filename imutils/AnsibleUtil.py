@@ -258,40 +258,32 @@ def set_up_file_and_dir_for_every_host(become_password_file):
 
 def set_up_dir_according_to_labels(become_password_file):
     node_info = socket_client("node info", receive_type="json")
-    alertmanager_node_list = []
-    grafana_node_list = []
-    loki_node_list = []
-    prometheus_node_list = []
-    registry_node_list = []
-    for node_name, node_info in node_info.items():
-        if node_info.get("labels", None):
-            for key, value in node_info.get("labels").items():
-                if key == "alertmanager" and value == "true":
-                    alertmanager_node_list.append(node_name)
-                elif key == "grafana" and value == "true":
-                    grafana_node_list.append(node_name)
-                elif key == "loki" and value == "true":
-                    loki_node_list.append(node_name)
-                elif key == "prometheus" and value == "true":
-                    prometheus_node_list.append(node_name)
-                elif key == "registry" and value == "true":
-                    registry_node_list.append(node_name)
-    if registry_node_list:
-        pattern_str = ":".join(registry_node_list)
-        ansible_touch_dir("registry-data", pattern_str, become_password_file)
-        ansible_nfs_mount("registry-data", pattern_str, become_password_file)
-    if prometheus_node_list:
-        pattern_str = ":".join(prometheus_node_list)
-        ansible_touch_dir("prometheus-data", pattern_str, become_password_file)
-    if alertmanager_node_list:
-        pattern_str = ":".join(alertmanager_node_list)
-        ansible_touch_dir("alertManager-data", pattern_str, become_password_file)
-    if grafana_node_list:
-        pattern_str = ":".join(grafana_node_list)
-        ansible_touch_dir("grafana-data", pattern_str, become_password_file)
-    if loki_node_list:
-        pattern_str = ":".join(loki_node_list)
-        ansible_touch_dir("loki-data", pattern_str, become_password_file)
+    label_node_lists = {
+        "alertmanager": [],
+        "grafana": [],
+        "loki": [],
+        "prometheus": [],
+        "registry": [],
+    }
+    for node_name, info in node_info.items():
+        for key, value in (info.get("labels") or {}).items():
+            if value == "true" and key in label_node_lists:
+                label_node_lists[key].append(node_name)
+
+    label_to_dir = {
+        "registry": "registry-data",
+        "prometheus": "prometheus-data",
+        "alertmanager": "alertManager-data",
+        "grafana": "grafana-data",
+        "loki": "loki-data",
+    }
+    for label, dir_name in label_to_dir.items():
+        node_list = label_node_lists[label]
+        if node_list:
+            pattern_str = ":".join(node_list)
+            ansible_touch_dir(dir_name, pattern_str, become_password_file)
+            if label == "registry":
+                ansible_nfs_mount(dir_name, pattern_str, become_password_file)
 
 
 def set_up_file_and_dir():

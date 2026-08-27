@@ -1,4 +1,5 @@
 import os
+import sys
 from collections.abc import Iterable
 
 import imutils.IMConfig as IMConfig
@@ -515,6 +516,10 @@ def execute_config(args):
         if hasattr(IMConfig, args.name):
             print(getattr(IMConfig, args.name))
         else:
+            print(
+                f'execute_config: Failed. Config item "{args.name}" not found.',
+                file=sys.stderr,
+            )
             exit(10)
 
 

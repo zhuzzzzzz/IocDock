@@ -1303,20 +1303,6 @@ class IOC:
                 )
                 check_flag = False
 
-        # Check whether protocol_file definitions are set correctly.
-        if self.conf.has_section("STREAM"):
-            sc = "STREAM"
-            ps = self.get_config(option="protocol_file", section=sc).split(",")
-            for item in ps:
-                item = item.strip()
-                if item not in os.listdir(self.src_path):
-                    state_info = f'option "protocol_file" in section "{sc}" invalid.'
-                    prompt = f'protocol file "{item}" not found.'
-                    self.state_manager.set_state_info(
-                        state=STATE_WARNING, state_info=state_info, prompt=prompt
-                    )
-                    check_flag = False
-
         # Check whether file_copy definitions are set correctly.
         if self.conf.has_section("RAW"):
             sc = "RAW"
