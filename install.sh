@@ -164,11 +164,11 @@ set -e
 echo "installing system-level dependencies..."
 if command -v apt &>/dev/null; then
     py_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    apt install -y ansible sshpass python3-pip "python${py_version}-venv" python3-passlib
+    apt install -y ansible sshpass python3-pip "python${py_version}-venv" python3-passlib rsync
 elif command -v yum &>/dev/null; then
-    yum install -y ansible sshpass python3-pip python3-passlib
+    yum install -y ansible sshpass python3-pip python3-passlib rsync
 elif command -v dnf &>/dev/null; then
-    dnf install -y ansible sshpass python3-pip python3-passlib
+    dnf install -y ansible sshpass python3-pip python3-passlib rsync
 else
     echo "warning: unsupported package manager, please install ansible sshpass python3-pip python3-passlib manually."
 fi
@@ -177,9 +177,13 @@ fi
 echo "installing..."
 home_path=$("$script_dir/IocManager.py" config HOME_PATH)
 project_name=$("$script_dir/IocManager.py" config PROJECT_NAME)
-mkdir -p "$home_path"
-cp -r "$script_dir/." "$home_path/$project_name"
-rm -rf "$home_path/$project_name/.git" "$home_path/$project_name/.gitea" "$home_path/$project_name/.github" "$home_path/$project_name/.gitignore" "$home_path/$project_name/.claude"
+mkdir -p "$home_path/$project_name"
+rsync -a --delete \
+    --exclude=.git --exclude=.gitea --exclude=.github --exclude=.gitignore --exclude=.claude \
+    --exclude=venv --exclude=__pycache__ \
+    --exclude=ioc-repository --exclude=ioc-snapshot \
+    --exclude=settings.py --exclude=services.py \
+    "$script_dir/" "$home_path/$project_name/"
 repository_path=$("$script_dir/IocManager.py" config REPOSITORY_PATH)
 mkdir -p "$repository_path"
 top_path="$home_path/$project_name"
