@@ -143,6 +143,7 @@ class TaskServer:
             new_service_info[item.name] = {
                 "status": item.current_state,
                 "replicas": item.replicas,
+                "host": item.hosts,
                 "update_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
         self.service_info = new_service_info

@@ -121,7 +121,7 @@ class SwarmManager:
                 "service info", receive_type="json", verbose=False
             )
         raw_print = [
-            ["Name", "ServiceName", "Type", "Replicas", "Status"],
+            ["Name", "ServiceName", "Type", "Replicas", "Status", "Host"],
         ]
         pinned_print = []
         local_print = []
@@ -143,6 +143,11 @@ class SwarmManager:
                     socket_info_service.get("status")
                     if socket_info_service
                     else item.current_state
+                ),
+                (
+                    socket_info_service.get("host")
+                    if socket_info_service
+                    else item.hosts
                 ),
             ]
             status_string = t_l[4]
@@ -882,21 +887,82 @@ class SwarmManager:
 
     @staticmethod
     def show_deployed_machines(show_detail=False):
-        os.system(
-            'docker node ls --format "table {{if .Self}}*{{end}}{{.Hostname}}{{if .Self}}*{{end}}\t'
-            '{{.Status}}\t{{.Availability}}\t{{.ManagerStatus}}\t{{.TLSStatus}}\t{{.EngineVersion}}"'
-        )
+        import docker
+        from tabulate import tabulate
+
+        docker_client = docker.from_env()
+        nodes = docker_client.nodes.list()
+
+        # Sort nodes: Leader first, then other managers, then workers, each group sorted by hostname
+        def get_node_sort_key(node):
+            attrs = node.attrs
+            hostname = attrs["Description"]["Hostname"]
+            is_leader = "ManagerStatus" in attrs and attrs["ManagerStatus"].get("Leader", False)
+            is_manager = "ManagerStatus" in attrs
+
+            if is_leader:
+                priority = 0
+            elif is_manager:
+                priority = 1
+            else:
+                priority = 2
+
+            return (priority, hostname)
+
+        nodes = sorted(nodes, key=get_node_sort_key)
+
+        # Build main table
+        main_table = [["HOSTNAME", "IP", "STATUS", "AVAILABILITY", "MANAGER STATUS", "TLS STATUS", "ENGINE VERSION"]]
+        for node in nodes:
+            attrs = node.attrs
+            hostname = attrs["Description"]["Hostname"]
+            ip = attrs["Status"]["Addr"]
+            status = attrs["Status"]["State"]
+            availability = attrs["Spec"]["Availability"]
+
+            # Manager status
+            manager_status = ""
+            if "ManagerStatus" in attrs:
+                if attrs["ManagerStatus"].get("Leader"):
+                    manager_status = "Leader"
+                else:
+                    manager_status = attrs["ManagerStatus"].get("Reachability", "")
+
+            # TLS status
+            tls_status = attrs["Description"].get("TLSInfo", {}).get("TrustRoot", "")
+            tls_status = "Ready" if tls_status else ""
+
+            # Engine version
+            engine_version = attrs["Description"]["Engine"]["EngineVersion"]
+
+            # Mark leader with asterisks
+            if manager_status == "Leader":
+                hostname = f"*{hostname}*"
+
+            main_table.append([hostname, ip, status, availability, manager_status, tls_status, engine_version])
+
+        print(tabulate(main_table, headers="firstrow", tablefmt="plain"))
+
         if show_detail:
-            os.system(
-                "echo ;"
-                "echo '------------';"
-                "echo 'Node Details:';"
-                "echo '------------';"
-                "docker node inspect --format "
-                "'{{.Description.Hostname}}({{.Status.Addr}}):\t{{range $k, $v := .Spec.Labels}}{{$k}}={{$v}} {{else}}{{end}}'"
-                " $(docker node ls -q) ;"
-                "echo ;"
-            )
+            print()
+            print("------------")
+            print("Node Labels:")
+            print("------------")
+
+            labels_table = [["HOSTNAME", "LABELS"]]
+            for node in nodes:
+                hostname = node.attrs["Description"]["Hostname"]
+                labels = node.attrs["Spec"]["Labels"]
+
+                if labels:
+                    labels_str = " ".join(f"{k}={v}" for k, v in sorted(labels.items()))
+                else:
+                    labels_str = "-"
+
+                labels_table.append([hostname, labels_str])
+
+            print(tabulate(labels_table, headers="firstrow", tablefmt="plain"))
+            print()
 
     @staticmethod
     def show_join_tokens():
@@ -1201,6 +1267,34 @@ class SwarmService:
             return f"{result.stdout}{result.stderr}"
         else:
             return "-/-"
+
+    @property
+    def hosts(self):
+        if not self.is_deployed:
+            return "-"
+        result = subprocess.run(
+            [
+                "docker",
+                "service",
+                "ps",
+                "-f",
+                f"desired-state=Running",
+                "-f",
+                f"desired-state=Ready",
+                "--format",
+                "{{.Node}}",
+                self.service_name,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        node_list = sorted(set(line for line in result.stdout.splitlines() if line))
+        if not node_list:
+            return "-"
+        if self.service_type == "global":
+            return f"{len(node_list)} hosts"
+        return ",".join(node_list)
 
     def deploy(self):
         # this method changes the deployment state, stop trusting the shared snapshot.
