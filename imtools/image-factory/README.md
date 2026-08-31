@@ -7,8 +7,15 @@
 #### 如何构建并上传镜像
 
 ```shell
-# 执行脚本构建和上传预先定义的默认镜像
-./build-and-push-default-images.sh
+# 方式1: 仅构建镜像,不上传至 registry
+./build-and-release-default-images.sh --print-log -y --no-push
+
+# 方式2: 构建镜像并上传至 registry
+./build-and-release-default-images.sh --print-log -y
+
+# 通过 IocManager 调用(推荐)
+IocManager cluster --prepare-ioc-images  # 仅构建镜像
+IocManager cluster --push-ioc-images     # 构建并上传镜像
 ```
 
 ### 镜像版本说明

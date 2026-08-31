@@ -160,7 +160,7 @@ if [ "${no_push}" = false ]; then
     echo
     set -ex
     cd $script_dir/base
-    { set +x; } 2>/dev/null    
+    { set +x; } 2>/dev/null
     # 遍历版本数组进行缓存构建，并推送到镜像仓库
     for arg_list in "${versions_to_build_for_base[@]}"; do
         # 分割字符串获取 base 版本和 release 版本
@@ -170,7 +170,7 @@ if [ "${no_push}" = false ]; then
         { set +x; } 2>/dev/null
         echo
     done
-    
+
     echo
     echo "Start releasing images for ioc-exec..."
     echo

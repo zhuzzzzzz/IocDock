@@ -71,7 +71,7 @@ else
     { set +x; } 2>/dev/null
 fi
 
-if [ $return_code -ne 0 ]; then 
+if [ $return_code -ne 0 ]; then
 	echo Build image \"base:$release_version\" failed.
 	exit 1
 else

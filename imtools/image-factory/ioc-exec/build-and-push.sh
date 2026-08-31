@@ -83,12 +83,12 @@ else
     docker build  \
     --build-arg BASE_RELEASE_VERSION=$base_release_version \
     --build-arg INSTALL_MODULES="$install_modules" \
-    -t ioc-exec:$release_version . 
+    -t ioc-exec:$release_version .
     return_code=$?
     { set +x; } 2>/dev/null
 fi
 
-if [ $return_code -ne 0 ]; then 
+if [ $return_code -ne 0 ]; then
 	echo Build image \"ioc-exec:$release_version\" failed.
 	exit 1
 else

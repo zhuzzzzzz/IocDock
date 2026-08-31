@@ -495,7 +495,12 @@ if __name__ == "__main__":
     parser_cluster.add_argument(
         "--prepare-ioc-images",
         action="store_true",
-        help="prepare IOC images.",
+        help="build EPICS related images without pushing into registry.",
+    )
+    parser_cluster.add_argument(
+        "--push-ioc-images",
+        action="store_true",
+        help="build EPICS related images and push them into registry.",
     )
     parser_cluster.add_argument(
         "--registry-login",
