@@ -71,7 +71,7 @@ if [ "$1" == "uninstall" ]; then
 	do
 		if test -d $item-* -a -d $item-*/lib; then
 			cd $item-*
-			make distclean &> /dev/null
+			make distclean > /dev/null
 			if [ $? -eq 0 ]; then 
 				echo "$item" are unistalled.
 			else
@@ -94,7 +94,7 @@ else
 	for mod in "${modules_to_install[@]}"; do
     zip_file="${mod}.zip"
     if [ -f "$zip_file" ]; then
-        if unzip -o "$zip_file" &> /dev/null; then
+        if unzip -o "$zip_file" > /dev/null; then
             echo "$zip_file unpacked successfully."
         else
             echo "Failed to unpack $zip_file."

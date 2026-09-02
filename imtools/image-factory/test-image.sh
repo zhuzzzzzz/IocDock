@@ -48,7 +48,7 @@ fi
 container_id=$(docker create $image_type:$image_tag sleep infinity)
 docker start $container_id > /dev/null
 
-if [ "$image_type" = "base" ]; then
+if [ "$image_type" = "base" ] || [ "$image_type" = "base-pcas" ]; then
     # Tests specific to base image
     echo "Running tests for base image..."
     

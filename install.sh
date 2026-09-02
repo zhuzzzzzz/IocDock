@@ -182,7 +182,7 @@ rsync -a --delete \
     --exclude=.git --exclude=.gitea --exclude=.github --exclude=.gitignore --exclude=.claude \
     --exclude=venv --exclude=__pycache__ \
     --exclude=ioc-repository --exclude=ioc-snapshot \
-    --exclude=settings.py --exclude=services.py \
+    --exclude=/settings.py --exclude=/services.py \
     "$script_dir/" "$home_path/$project_name/"
 repository_path=$("$script_dir/IocManager.py" config REPOSITORY_PATH)
 mkdir -p "$repository_path"

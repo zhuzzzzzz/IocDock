@@ -36,10 +36,17 @@ IOC 镜像的版本号格式为: "ioc-exec:<大版本号>-<小版本号>-<EPICS�
 - 容器内安装路径 /opt/EPICS/base-*/
 - 各发布版本的说明见 base/ 目录内 READAME.md 文档
 
+#### base-pcas 镜像说明
+
+- 基于 base 镜像安装 pcas 支持
+- 适用于 ca-gateway 部署
+
 #### IOC 镜像说明
 
+- 基于 base 镜像
 - 镜像内安装可执行 IOC : "ST-IOC"
 - 容器内安装路径 /opt/EPICS/IOC/
+- 各发布版本的说明见 ioc-exec/ 目录内 READAME.md 文档
 
 ##### 关于 seq 插件
 

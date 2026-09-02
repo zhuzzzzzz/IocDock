@@ -6,6 +6,11 @@ PREFIX_STACK_NAME = "iasf"
 # 系统共享目录NFS挂载配置
 MOUNT_DIR_NFS_MOUNT_SRC = "192.168.1.50:/NFS/IocDock-data"
 
+# 编译镜像时是否输出并保存日志
+IMAGE_BUILD_PRINT_LOG = False
+# 编译镜像结束后是否进行测试
+IMAGE_BUILD_TEST = False
+
 ################# 部署配置 ##################################
 
 # IOC默认安装的模块("autosave" "caputlog" "status-ioc" "status-os")

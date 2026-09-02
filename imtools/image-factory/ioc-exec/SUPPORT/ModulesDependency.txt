@@ -2,6 +2,11 @@
 dependency sequence for installation of each module.
 ====================================
 
+pcas(4.13.3)
+=====
+	<-	EPICS_BASE
+
+
 seq(2.2.9)
 ======
 	<-	EPICS_BASE

@@ -548,22 +548,22 @@ def execute_cluster(args):
         dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
         os.system(f"cd {dir_path}; ./prepare-images.sh --pull")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "alertAnalytics")
-        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log")
+        os.system(f"cd {dir_path}; ./build-and-push.sh {'--print-log' if IMConfig.IMAGE_BUILD_PRINT_LOG else ''}")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "dbwr")
-        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log")
+        os.system(f"cd {dir_path}; ./build-and-push.sh {'--print-log' if IMConfig.IMAGE_BUILD_PRINT_LOG else ''}")
     elif args.push_service_images:
         dir_path = os.path.join(IMConfig.SERVICES_PATH, "registry", "scripts")
         os.system(f"cd {dir_path}; ./prepare-images.sh --push")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "alertAnalytics")
-        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --no-build --push-image")
+        os.system(f"cd {dir_path}; ./build-and-push.sh {'--print-log' if IMConfig.IMAGE_BUILD_PRINT_LOG else ''} --no-build --push-image")
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "dbwr")
-        os.system(f"cd {dir_path}; ./build-and-push.sh --print-log --no-build --push-image")
+        os.system(f"cd {dir_path}; ./build-and-push.sh {'--print-log' if IMConfig.IMAGE_BUILD_PRINT_LOG else ''} --no-build --push-image")
     elif args.prepare_ioc_images:
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
-        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y --no-push")
+        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh {'--print-log' if IMConfig.IMAGE_BUILD_PRINT_LOG else ''} {'--test' if IMConfig.IMAGE_BUILD_TEST else ''} -y --no-push")
     elif args.push_ioc_images:
         dir_path = os.path.join(IMConfig.TOOLS_PATH, "image-factory")
-        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh --print-log -y")
+        os.system(f"cd {dir_path}; ./build-and-release-default-images.sh {'--print-log' if IMConfig.IMAGE_BUILD_PRINT_LOG else ''} {'--test' if IMConfig.IMAGE_BUILD_TEST else ''} -y")
 
 def execute_registry(args):
     import json

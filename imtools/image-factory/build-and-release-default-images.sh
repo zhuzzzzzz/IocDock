@@ -17,7 +17,6 @@ versions_to_build_for_ioc_exec=(
     "7.0.8.1;1.0.1;1.1.A;seq asyn autosave caPutLog iocStats StreamDevice modbus s7nodave BACnet" 
 )
 
-print_log=""
 skip_confirm=false
 run_tests=false
 no_push=false
@@ -60,6 +59,13 @@ for version in "${versions_to_build_for_base[@]}"; do
 done
 echo ""
 echo "----------------------------------------------"
+echo "Versions to Build and Release for base-pcas:"
+for version in "${versions_to_build_for_base[@]}"; do
+    IFS=';' read -r base_ver base_rel <<< "$version"
+    echo "  - Base: $base_ver, Release: $base_rel"
+done
+echo ""
+echo "----------------------------------------------"
 echo "Versions to Build and Release for ioc-exec:"
 for version in "${versions_to_build_for_ioc_exec[@]}"; do
     IFS=';' read -r base_ver base_rel rel modules <<< "$version"
@@ -88,6 +94,20 @@ for arg_list in "${versions_to_build_for_base[@]}"; do
     IFS=';' read -r base_version base_release_version <<< "$arg_list"
     set -x
     ./build-and-push.sh --base=$base_version --release=$base_release_version ${print_log_option:+--print-log}
+    { set +x; } 2>/dev/null
+    echo
+done
+
+echo
+echo "Start building images for base-pcas..."
+echo
+set -x
+cd $script_dir/base-pcas
+{ set +x; } 2>/dev/null
+for arg_list in "${versions_to_build_for_base[@]}"; do
+    IFS=';' read -r base_version base_release_version <<< "$arg_list"
+    set -x
+    ./build-and-push.sh --base-version=$base_version --base-release=$base_release_version ${print_log_option:+--print-log}
     { set +x; } 2>/dev/null
     echo
 done
@@ -133,6 +153,18 @@ if [ "$run_tests" = true ]; then
         fi
     done
     
+    echo "Testing base-pcas images..."
+    for version_entry in "${versions_to_build_for_base[@]}"; do
+        IFS=';' read -r base_version release_version <<< "$version_entry"
+        image_tag="$release_version"
+        echo "Testing base-pcas:$image_tag..."
+        ./test-image.sh base-pcas "$image_tag"
+        if [ $? -ne 0 ]; then
+            echo "Tests failed for base-pcas:$image_tag"
+            exit 1
+        fi
+    done
+
     # 测试所有的 ioc-exec 镜像
     echo "Testing ioc-exec images..."
     for version_entry in "${versions_to_build_for_ioc_exec[@]}"; do
@@ -167,6 +199,20 @@ if [ "${no_push}" = false ]; then
         IFS=';' read -r base_version base_release_version <<< "$arg_list"
         set -x
         ./build-and-push.sh --base=$base_version --release=$base_release_version --push-image
+        { set +x; } 2>/dev/null
+        echo
+    done
+
+    echo
+    echo "Start releasing images for base-pcas..."
+    echo
+    set -x
+    cd $script_dir/base-pcas
+    { set +x; } 2>/dev/null
+    for arg_list in "${versions_to_build_for_base[@]}"; do
+        IFS=';' read -r base_version base_release_version <<< "$arg_list"
+        set -x
+        ./build-and-push.sh --base-version=$base_version --base-release=$base_release_version --push-image
         { set +x; } 2>/dev/null
         echo
     done

@@ -9,9 +9,10 @@ test/
 base/*
 !base/.gitignore
 
+#
+base-pcas/*
+!base-pcas/.gitignore
+
 # ignore uncollected EPICS modules
 ioc-exec/SUPPORT/*
 !ioc-exec/SUPPORT/.gitignore
-
-# docker build logs
-build.log

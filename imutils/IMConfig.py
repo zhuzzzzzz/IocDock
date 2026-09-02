@@ -70,6 +70,13 @@ IOC_BACKUP_DIR = "ioc-backup"  # backup directory for IOC project files
 
 SWARM_BACKUP_DIR = "swarm-backup"  # backup directory for swarm
 
+##############################
+## System Managing settings ##
+#######################################################################################################################
+
+IMAGE_BUILD_PRINT_LOG = False
+IMAGE_BUILD_TEST = False
+
 ###########################
 ## IOC Managing Settings ##
 #######################################################################################################################
@@ -191,6 +198,8 @@ ALERT_ANALYTICS_SENDER_PASSWORD = None
 #######################################################################################################################
 ##
 ALLOWED_VARS = [
+    "IMAGE_BUILD_PRINT_LOG",
+    "IMAGE_BUILD_TEST",
     "PREFIX_STACK_NAME",
     "MOUNT_DIR_NFS_MOUNT_SRC",
     "REGISTRY_MASTER_IP",

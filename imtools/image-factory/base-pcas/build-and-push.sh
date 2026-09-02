@@ -1,0 +1,109 @@
+#!/bin/bash
+
+script_abs=$(readlink -f "$0")
+script_dir=$(dirname $script_abs)
+
+base_version=7.0.8.1 # If base image is not exist, this variable will be used to set the base tarball version.
+base_release_version=1.0.1 # From which release version of base image this image will be built.
+print_log=false
+push_image=false
+
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --base-version=*)
+            base_version="${1#*=}"
+            shift
+            ;;
+        --base-release=*)
+            base_release_version="${1#*=}"
+            shift
+            ;;
+        --print-log)
+            print_log=true
+            shift
+            ;;
+        --push-image)
+            push_image=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--base-version=VERSION] [--base-release=VERSION] [--release=VERSION] [--modules=MODULES] [--print-log] [--push-image]"
+            exit 1
+            ;;
+    esac
+done
+
+release_version=$base_release_version # Default release version.
+echo Building image \"base-pcas:$release_version\"...
+
+# prepare base image
+IMAGE_NAME=base:$base_release_version
+if [ "$print_log" = true ]; then
+    print_log_temp="true"
+else
+    print_log_temp=""
+fi
+if [ "$push_image" = true ]; then
+    push_image_temp="true"
+else
+    push_image_temp=""
+fi
+if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${IMAGE_NAME}$"; then
+    echo "Find EPICS base image \"$IMAGE_NAME\"."
+else
+    echo "EPICS base image \"$IMAGE_NAME\" does not exist. Try to build it..."
+    set -ex
+    cd ../base
+    ./build-and-push.sh --base=$base_version --release=$base_release_version ${print_log_temp:+--print-log} ${push_image_temp:+--push-image}
+    cd $script_dir
+    { set +ex; } 2>/dev/null
+fi
+
+# build base-pcas image
+if [ "$print_log" = true ]; then
+    set -x
+    docker build --progress=plain \
+    --build-arg BASE_RELEASE_VERSION=$base_release_version \
+    -t base-pcas:$release_version . 2>&1 | tee BuildLog.base-pcas:$release_version
+    return_code=${PIPESTATUS[0]}
+    { set +x; } 2>/dev/null
+else
+    set -x
+    docker build  \
+    --build-arg BASE_RELEASE_VERSION=$base_release_version \
+    -t base-pcas:$release_version .
+    return_code=$?
+    { set +x; } 2>/dev/null
+fi
+
+if [ $return_code -ne 0 ]; then
+	echo Build image \"base-pcas:$release_version\" failed.
+	exit 1
+else
+	echo Build image \"base-pcas:$release_version\" succeeded.
+fi
+
+if [ "$push_image" = true ]; then
+    release_prefix=`IocManager config REGISTRY_COMMON_NAME`
+    if [ -n "$release_prefix" ]; then
+        echo Try to tag and push image to registry...
+        set -x
+        docker image tag base-pcas:$release_version $release_prefix/base-pcas:$release_version
+        return_code=$?
+        { set +x; } 2>/dev/null
+        if [ $return_code -ne 0 ]; then
+            echo Tag image \"base-pcas:$release_version\" failed.
+            exit 1
+        fi
+        set -x
+        docker image push $release_prefix/base-pcas:$release_version
+        return_code=$?
+        { set +x; } 2>/dev/null
+        if [ $return_code -ne 0 ]; then
+            echo Push image \"$release_prefix/base-pcas:$release_version\" failed.
+            exit 1
+        fi
+    fi
+fi
