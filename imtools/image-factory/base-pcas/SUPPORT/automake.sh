@@ -147,13 +147,13 @@ do
 		pkg=`ls | grep -i $item-`
 		if test -z $pkg
 		then
-			echo $item was set to install, but not found!
+			echo $item was set to install, but not found! install failed.
 			exit 1
 		else
 			check_install $pkg
 		fi
 	else
-		echo "dependency check failed for $item, execute automake.sh stopped."
+		echo "dependency check failed for $item, install failed."
 	fi
 done
 

@@ -23,11 +23,11 @@ done
 
 echo "executing automake.sh ..."
 if [ -n "$modules_arg" ]; then
-	./automake.sh "$modules_arg" install |& grep -i -e "check_install" -e "move to path" -e "successfully installed" -e "install failed" -e "already installed" -e "set to install, but not found" -e "dependency check failed" \
+	./automake.sh "$modules_arg" install |& grep -i -e "check_install" -e "move to path" -e "successfully installed" -e "install failed" -e "already installed" \
 	 -e "EPICS_BASE not defined" -e "needed by" -e "needs no other package" -e "not found." -e "found but not an epics module" \
 	 -e "failed to unpack" -e "unpacked successfully"
 else
-	./automake.sh install |& grep -i -e "check_install" -e "move to path" -e "successfully installed" -e "install failed" -e "already installed" -e "set to install, but not found" -e "dependency check failed" \
+	./automake.sh install |& grep -i -e "check_install" -e "move to path" -e "successfully installed" -e "install failed" -e "already installed" \
 	 -e "EPICS_BASE not defined" -e "needed by" -e "needs no other package" -e "not found." -e "found but not an epics module" \
 	 -e "failed to unpack" -e "unpacked successfully"
 fi
