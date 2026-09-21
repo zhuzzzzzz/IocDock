@@ -26,6 +26,7 @@ LocalServicesList = [
     ("grafana", "grafana:12.0.2-ubuntu"),
     ("alertAnalytics", "alert-analytics:0.1.1"),
     ("dbwr", "dbwr:0.0.1"),
+    ("caGateway", "ca-gateway:0.0.1"),
     # ("portainerServer",)
     # ("portainerAgent",)
 ]

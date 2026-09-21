@@ -1,0 +1,1 @@
+1. IocDockerServer.service 报错后应通知 cli 客户端。当前情况下 swarm 集群异常导致的管理节点下线会导致 IocDockerServer.service 日志中持续抛出异常吗，但不会体现在 cli 的最新界面。

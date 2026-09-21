@@ -246,6 +246,7 @@ def set_up_file_and_dir_for_every_host(become_password_file):
     ansible_touch_dir("IocDock-data", node_pattern_str, become_password_file)
     ansible_nfs_mount("IocDock-data", node_pattern_str, become_password_file)
     ansible_touch_dir("alloy-data", node_pattern_str, become_password_file)
+    ansible_touch_dir("default-data", node_pattern_str, become_password_file)
     print("set_up_file_and_dir_for_every_host: Setting up node ip file...")
     for node_name, node_ip in node_ip.items():
         ansible_create_file(

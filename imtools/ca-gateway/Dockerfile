@@ -32,4 +32,4 @@ EOF
 
 WORKDIR $WORK_PATH/ca-gateway-${APP_VERSION}/bin/${EPICS_HOST_ARCH}
 
-ENTRYPOINT ./gateway -log gateway.log -archive -no_cache
+ENTRYPOINT ["./gateway"]
