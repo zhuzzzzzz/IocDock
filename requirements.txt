@@ -3,3 +3,4 @@ tabulate~=0.9
 PyYAML~=6.0
 ruamel.yaml~=0.18
 passlib~=1.7
+pydantic~=2.0
