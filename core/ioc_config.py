@@ -28,7 +28,7 @@ build:
   db_load:
     - file: example.db
       macros:
-        P: "xxx:"
+        ABC: "xxx:"
   raw_cmd:
     cmd_before_dbload: ""
     cmd_at_dbload: ""
@@ -53,3 +53,4 @@ deploy:
     constraints:
       - node.role==worker
 """
+
