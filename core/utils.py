@@ -1,12 +1,23 @@
 import os
 import tempfile
+from datetime import datetime
+
+
+def get_dir_name(path):
+    return os.path.basename(os.path.dirname(os.path.abspath(path)))
+
+
+def get_now_str():
+    return datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
 
 def get_yaml_tool():
     from ruamel.yaml import YAML
-    yaml = YAML()
+
+    yaml = YAML(typ="safe")
+    yaml.default_flow_style = False
+    yaml.representer.sort_base_mapping_type_on_output = False
     yaml.width = 4096
-    yaml.preserve_quotes = True
     yaml.indent(mapping=2, sequence=4, offset=2)
     return yaml
 
@@ -28,23 +39,3 @@ def atomic_write(path: str, text: str) -> None:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
         raise
-
-
-def get_dir_name(path):
-    return os.path.basename(os.path.dirname(os.path.abspath(path)))
-
-
-def to_plain(obj):
-    if isinstance(obj, dict):
-        return {to_plain(k): to_plain(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [to_plain(i) for i in obj]
-    if isinstance(obj, bool):
-        return bool(obj)
-    if isinstance(obj, int):
-        return int(obj)
-    if isinstance(obj, float):
-        return float(obj)
-    if isinstance(obj, str):
-        return str(obj)
-    return obj

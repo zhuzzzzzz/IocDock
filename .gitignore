@@ -13,3 +13,6 @@ ioc-snapshot/
 
 # 
 .claude/
+
+#
+.venv
