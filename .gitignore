@@ -15,4 +15,7 @@ ioc-snapshot/
 .claude/
 
 #
+.vscode/
+
+#
 .venv
