@@ -1,4 +1,3 @@
-import json
 import os
 import sqlite3
 import sys
@@ -36,11 +35,13 @@ class IocConfig:
         return os.path.isfile(self.path)
 
     @staticmethod
-    def create_template(path, template_type):
+    def create_template(path, build_type):
         if os.path.isfile(path):
             raise FileExistsError(path)
         buf = StringIO()
-        get_yaml_tool().dump(new_config(get_dir_name(path)).model_dump(), buf)
+        get_yaml_tool().dump(
+            new_config(get_dir_name(path), build_type=build_type).model_dump(), buf
+        )
         atomic_write(path, buf.getvalue())
 
     def load(self):
@@ -100,8 +101,6 @@ class IocConfig:
                         time=now,
                     )
                 )
-        # passed only if nothing is wrong: a config can be usable (data is not None)
-        # and still not pass, e.g. when basic.name does not match the directory.
         self.is_valid = self.data is not None and not any(
             i.level in (IssueLevel.WARNING, IssueLevel.ERROR) for i in self.issues
         )
@@ -174,7 +173,6 @@ COMMIT;
         self._ident = None
 
     def connect(self):
-        """Open the connection to the database. Does nothing when already connected."""
         with self._lock:
             if self._conn is None:
                 self._conn, self._ident = self._open()
@@ -214,9 +212,10 @@ COMMIT;
                 raise sqlite3.DatabaseError(f"integrity check failed: {result}")
         except sqlite3.DatabaseError as e:
             conn.close()
-            busy = self._busy(e)
-            if busy is not e:
-                raise busy from e
+            if self._is_database_busy(e):
+                raise TimeoutError(
+                    f"state database is busy for more than {self.timeout}s: {self.db_path}"
+                ) from e
             raise sqlite3.DatabaseError(f"{path}: {e}") from e
         except BaseException:
             conn.close()
@@ -224,11 +223,9 @@ COMMIT;
         return conn, (st.st_dev, st.st_ino)
 
     def _ensure_open(self):
-        """Called before every operation. A database that was deleted is an error,
-        not a reason to start a new empty one; one that was replaced is reopened."""
         if self._conn is None:
-            raise RuntimeError("IocState is not connected")
-        st = os.stat(self.db_path)  # a database that vanished raises FileNotFoundError
+            raise RuntimeError(f"state database is not connected: {self.db_path}")
+        st = os.stat(self.db_path)
         if (st.st_dev, st.st_ino) != self._ident:
             conn, ident = self._open()
             self._conn.close()
@@ -240,15 +237,14 @@ COMMIT;
                 self._conn.close()
                 self._conn = None
 
-    def _busy(self, error):
-        """TimeoutError for a database another process kept locked, else the error itself."""
-        if isinstance(error, sqlite3.OperationalError) and (
+    @staticmethod
+    def _is_database_busy(error):
+        """SQLite reports "the database stayed locked by another process for the
+        whole `timeout`" as a sqlite3.OperationalError, the same class as any other
+        operational error, so only its message tells them apart."""
+        return isinstance(error, sqlite3.OperationalError) and (
             "locked" in str(error) or "busy" in str(error)
-        ):
-            return TimeoutError(
-                f"state database is busy for more than {self.timeout}s: {self.db_path}"
-            )
-        return error
+        )
 
     @contextmanager
     def _txn(self, write):
@@ -263,7 +259,11 @@ COMMIT;
             try:
                 conn.execute("BEGIN IMMEDIATE" if write else "BEGIN")
             except sqlite3.OperationalError as e:
-                raise self._busy(e) from e
+                if self._is_database_busy(e):
+                    raise TimeoutError(
+                        f"state database is busy for more than {self.timeout}s: {self.db_path}"
+                    ) from e
+                raise
             try:
                 yield conn
                 conn.execute("COMMIT")
@@ -272,9 +272,10 @@ COMMIT;
                     conn.execute("ROLLBACK")
                 except sqlite3.Error:
                     pass
-                busy = self._busy(e)
-                if busy is not e:
-                    raise busy from e
+                if self._is_database_busy(e):
+                    raise TimeoutError(
+                        f"state database is busy for more than {self.timeout}s: {self.db_path}"
+                    ) from e
                 raise
 
     @contextmanager
@@ -292,74 +293,20 @@ COMMIT;
                 finally:
                     self._in_tx = False
 
-    @staticmethod
-    def _require(conn, name):
-        if conn.execute("SELECT 1 FROM ioc WHERE name = ?", (name,)).fetchone() is None:
-            raise KeyError(name)
+    # the columns of the ioc table besides its name, with the schema's type for each.
+    # A column keeps the JSON text of its value; issues have a table of their own.
+    ADAPTERS = {
+        f: TypeAdapter(m.annotation)
+        for f, m in IocStateSchema.model_fields.items()
+        if f != "issues"
+    }
 
-    @staticmethod
-    def _field(field, value):
-        """Validate one value against the schema's type for that field."""
-        return TypeAdapter(
-            IocStateSchema.model_fields[field].annotation
-        ).validate_python(value)
-
-    @staticmethod
-    def _exported_text(value):
-        return {True: "true", False: "false"}.get(value, value)
-
-    @staticmethod
-    def _exported_value(text):
-        return {"true": True, "false": False}.get(text, text)
-
-    @staticmethod
-    def _entries(issues):
-        return [IssueEntry.model_validate(issue) for issue in issues]
-
-    @staticmethod
-    def _insert_issues(conn, name, entries):
-        conn.executemany(
-            "INSERT INTO issue (ioc_name, level, reason, message, prompt, time)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                (name, d["level"], d["reason"], d["message"], d["prompt"], d["time"])
-                for d in (e.model_dump(mode="json") for e in entries)
-            ],
-        )
-
-    def create(self, name, data=None):
-        """Add an IOC, with the initial state unless data is given. An IOC that is
-        already there raises FileExistsError: it is never overwritten."""
-        if not isinstance(name, str) or not name:
-            raise ValueError("the name of an IOC is a non-empty string")
-        data = new_state() if data is None else data
-        data = IocStateSchema.model_validate(data.model_dump(warnings=False))
-        with self._txn(True) as conn:
-            try:
-                conn.execute(
-                    "INSERT INTO ioc (name, state, status, snapshot, is_exported, src_files)"
-                    " VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        name,
-                        data.state,
-                        data.status,
-                        data.snapshot,
-                        self._exported_text(data.is_exported),
-                        data.src_files.model_dump_json(),
-                    ),
-                )
-            except sqlite3.IntegrityError:
-                raise FileExistsError(name) from None
-            self._insert_issues(conn, name, data.issues)
-
-    def get(self, name):
-        """Return the state of an IOC. An IOC that is not there raises KeyError;
-        content that does not fit the schema raises ValidationError. The caller
-        decides what then."""
+    def read_ioc(self, name):
+        """The whole state of an IOC, its issues too, as an IocStateSchema. An IOC
+        that is not there raises KeyError."""
         with self._txn(False) as conn:
             row = conn.execute(
-                "SELECT state, status, snapshot, is_exported, src_files FROM ioc WHERE name = ?",
-                (name,),
+                f"SELECT {', '.join(self.ADAPTERS)} FROM ioc WHERE name = ?", (name,)
             ).fetchone()
             if row is None:
                 raise KeyError(name)
@@ -368,75 +315,78 @@ COMMIT;
                 " WHERE ioc_name = ? ORDER BY id",
                 (name,),
             ).fetchall()
-        return IocStateSchema.model_validate(
-            {
-                "state": row[0],
-                "status": row[1],
-                "snapshot": row[2],
-                "is_exported": self._exported_value(row[3]),
-                "src_files": json.loads(row[4]),
-                "issues": [
-                    dict(zip(("level", "reason", "message", "prompt", "time"), issue))
-                    for issue in issues
-                ],
-            }
+        return IocStateSchema(
+            **{f: a.validate_json(t) for (f, a), t in zip(self.ADAPTERS.items(), row)},
+            issues=[
+                IssueEntry(**dict(zip(IssueEntry.model_fields, i))) for i in issues
+            ],
         )
 
-    def names(self):
-        """The names of all IOCs, sorted."""
-        with self._txn(False) as conn:
-            return [
-                row[0] for row in conn.execute("SELECT name FROM ioc ORDER BY name")
-            ]
+    def write_ioc(self, name, values):
+        """Write the columns in `values` (a dict) of an IOC. An IOC that is not
+        there is added, and then values must have every column. Values are
+        validated first; if one is invalid nothing is written."""
+        if not isinstance(name, str) or not name:
+            raise ValueError("the name of an IOC is a non-empty string")
+        unknown = set(values) - set(self.ADAPTERS)
+        if unknown or not values:
+            raise ValueError(
+                f"write_ioc() takes one or more of {list(self.ADAPTERS)}, got {sorted(unknown) or 'none'}"
+            )
+        encoded = {}
+        for field, value in values.items():
+            adapter = self.ADAPTERS[field]
+            encoded[field] = adapter.dump_json(adapter.validate_python(value)).decode()
+        with self._txn(True) as conn:
+            changed = conn.execute(
+                f"UPDATE ioc SET {', '.join(f'{f} = ?' for f in encoded)} WHERE name = ?",
+                (*encoded.values(), name),
+            ).rowcount
+            if changed == 0:
+                conn.execute(
+                    f"INSERT INTO ioc (name, {', '.join(encoded)})"
+                    f" VALUES (?{', ?' * len(encoded)})",
+                    (name, *encoded.values()),
+                )
 
-    def delete(self, name):
+    def delete_ioc(self, name):
         """Remove an IOC with its issues."""
         with self._txn(True) as conn:
             if conn.execute("DELETE FROM ioc WHERE name = ?", (name,)).rowcount == 0:
                 raise KeyError(name)
 
-    def _update(self, name, column, value):
+    def names(self):
+        """The names of all IOCs, sorted."""
+        with self._txn(False) as conn:
+            return [r[0] for r in conn.execute("SELECT name FROM ioc ORDER BY name")]
+
+    def read_issues(self, name):
+        """Only the issues of an IOC, oldest first, as IssueEntry. An IOC that is
+        not there has none."""
+        with self._txn(False) as conn:
+            rows = conn.execute(
+                "SELECT level, reason, message, prompt, time FROM issue"
+                " WHERE ioc_name = ? ORDER BY id",
+                (name,),
+            ).fetchall()
+        return [IssueEntry(**dict(zip(IssueEntry.model_fields, row))) for row in rows]
+
+    def write_issues(self, name, issues, append=False):
+        """Replace the issues of an IOC with `issues`, or with append=True add them
+        after the ones there. Issues are never de-duplicated. Issues of an IOC that
+        is not there raise sqlite3.IntegrityError."""
+        entries = [IssueEntry.model_validate(i) for i in issues]
         with self._txn(True) as conn:
-            if (
-                conn.execute(
-                    f"UPDATE ioc SET {column} = ? WHERE name = ?", (value, name)
-                ).rowcount
-                == 0
-            ):
-                raise KeyError(name)
-
-    def set_state(self, name, state):
-        self._update(name, "state", self._field("state", state))
-
-    def set_status(self, name, status):
-        self._update(name, "status", self._field("status", status))
-
-    def set_snapshot(self, name, snapshot):
-        self._update(name, "snapshot", self._field("snapshot", snapshot))
-
-    def set_exported(self, name, is_exported):
-        value = self._field("is_exported", is_exported)
-        self._update(name, "is_exported", self._exported_text(value))
-
-    def set_src_files(self, name, src_files):
-        """src_files is a dict with db_files, protocol_files and other_files."""
-        value = self._field("src_files", src_files)
-        self._update(name, "src_files", value.model_dump_json())
-
-    def add_issues(self, name, issues):
-        """Append issues to the log. They are never de-duplicated."""
-        entries = self._entries(issues)
-        with self._txn(True) as conn:
-            self._require(conn, name)
-            self._insert_issues(conn, name, entries)
-
-    def replace_issues(self, name, issues):
-        """Empty the log and write issues in it, as one change."""
-        entries = self._entries(issues)
-        with self._txn(True) as conn:
-            self._require(conn, name)
-            conn.execute("DELETE FROM issue WHERE ioc_name = ?", (name,))
-            self._insert_issues(conn, name, entries)
+            if not append:
+                conn.execute("DELETE FROM issue WHERE ioc_name = ?", (name,))
+            conn.executemany(
+                "INSERT INTO issue (ioc_name, level, reason, message, prompt, time)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (name, *(d[f] for f in IssueEntry.model_fields))
+                    for d in (e.model_dump(mode="json") for e in entries)
+                ],
+            )
 
 
 class IOC:
@@ -833,6 +783,11 @@ if __name__ == "__main__":
             return True
         raise AssertionError(f"{exc.__name__} not raised by {func.__name__}{args}")
 
+    def add_ioc(state, name, data=None):
+        data = new_state() if data is None else data
+        state.write_ioc(name, {f: getattr(data, f) for f in IocState.ADAPTERS})
+        state.write_issues(name, data.issues, append=True)
+
     missing = IocState(db)  # building the instance does not touch the database
     assert not os.path.exists(db)
     raises(RuntimeError, missing.names)  # not connected yet
@@ -858,16 +813,19 @@ if __name__ == "__main__":
     raises(RuntimeError, opened, db)  # a version this code does not read
     os.remove(db)
     IocState.initialize(db)
-    assert sqlite3.connect(db).execute("PRAGMA user_version").fetchone()[0] == 1
+    assert (
+        sqlite3.connect(db).execute("PRAGMA user_version").fetchone()[0]
+        == IocState.SCHEMA_VERSION
+    )
     print("13. database is created only by initialize() ok")
 
-    # 14. create, get, names, delete.
+    # 14. write_ioc, read_ioc, names, delete_ioc.
     st = opened(db)
     assert st.names() == []  # initialize() leaves the tables empty
-    st.create("ioc-b")
-    st.create("ioc-a")
+    add_ioc(st, "ioc-b")
+    add_ioc(st, "ioc-a")
     assert st.names() == ["ioc-a", "ioc-b"]
-    data = st.get("ioc-a")
+    data = st.read_ioc("ioc-a")
     assert data == new_state()
     assert (data.state, data.status, data.snapshot, data.is_exported) == (
         "normal",
@@ -876,35 +834,69 @@ if __name__ == "__main__":
         False,
     )
     assert data.issues == [] and data.src_files.db_files == []
-    raises(FileExistsError, st.create, "ioc-a")  # never overwritten
-    raises(KeyError, st.get, "ioc-none")
-    raises(ValueError, st.create, "")
-    # create() can take a whole state, and an invalid one is not written.
+    # every column keeps the JSON text of its value; read_ioc gives the values back.
+    raw = (
+        sqlite3.connect(db)
+        .execute("SELECT state, is_exported, src_files FROM ioc WHERE name = 'ioc-a'")
+        .fetchone()
+    )
+    assert raw == (
+        '"normal"',
+        "false",
+        '{"db_files":[],"protocol_files":[],"other_files":[]}',
+    )
+    # the columns of the table are the schema's fields (but issues), so none is left out.
+    columns = [r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(ioc)")]
+    assert columns == ["name", *IocState.ADAPTERS]
+    assert "issues" not in IocState.ADAPTERS
+    raises(KeyError, st.read_ioc, "ioc-none")
+    raises(ValueError, add_ioc, st, "")
+    # any name is just a value: quotes, spaces and non-ASCII are not special.
+    odd = 'ioc "测试" \'1\'; DROP TABLE ioc; --'
+    add_ioc(st, odd)
+    assert odd in st.names() and st.read_ioc(odd) == new_state()
+    st.delete_ioc(odd)
+    # a whole state can be written, and an invalid one is not written.
     custom = new_state()
     custom.status = "generated"
     custom.is_exported = "unknown"
     custom.issues = [make_issue("kept")]
-    st.create("ioc-c", custom)
-    assert st.get("ioc-c") == custom
+    add_ioc(st, "ioc-c", custom)
+    assert st.read_ioc("ioc-c") == custom
     custom.status = 5
-    raises(ValidationError, st.create, "ioc-d", custom)
-    raises(KeyError, st.get, "ioc-d")
-    st.delete("ioc-c")
-    raises(KeyError, st.get, "ioc-c")
-    raises(KeyError, st.delete, "ioc-c")
+    raises(ValidationError, add_ioc, st, "ioc-d", custom)
+    raises(KeyError, st.read_ioc, "ioc-d")
+    st.delete_ioc("ioc-c")
+    raises(KeyError, st.read_ioc, "ioc-c")
+    raises(KeyError, st.delete_ioc, "ioc-c")
     assert sqlite3.connect(db).execute("SELECT COUNT(*) FROM issue").fetchone()[0] == 0
-    print("14. create, get, names, delete ok")
+    # content in the database that does not fit the schema is an error, not a guess.
+    add_ioc(st, "ioc-bad")
+    for column, text in (("status", "5"), ("status", "not json"), ("src_files", "{}")):
+        damage = sqlite3.connect(db)
+        damage.execute(f"UPDATE ioc SET {column} = ? WHERE name = 'ioc-bad'", (text,))
+        damage.commit()
+        damage.close()
+        raises(ValidationError, st.read_ioc, "ioc-bad")
+    st.delete_ioc("ioc-bad")
+    print("14. write_ioc, read_ioc, names, delete_ioc ok")
 
-    # 15. setters: each changes one field and leaves the rest alone.
-    st.set_state("ioc-a", "warning")
-    st.set_status("ioc-a", "generated")
-    st.set_snapshot("ioc-a", "tracked")
-    st.set_exported("ioc-a", True)
-    st.set_src_files(
+    # 15. write_ioc on an IOC that is there: changes the given columns, leaves the rest alone.
+    st.write_ioc("ioc-a", {"state": "warning"})
+    st.write_ioc(
         "ioc-a",
-        {"db_files": ["a.db"], "protocol_files": ["a.proto"], "other_files": []},
+        {
+            "status": "generated",
+            "snapshot": "tracked",
+            "is_exported": True,
+            "src_files": {
+                "db_files": ["a.db"],
+                "protocol_files": ["a.proto"],
+                "other_files": [],
+            },
+        },
     )
-    data = st.get("ioc-a")
+    data = st.read_ioc("ioc-a")
     assert (data.state, data.status, data.snapshot, data.is_exported) == (
         "warning",
         "generated",
@@ -916,61 +908,77 @@ if __name__ == "__main__":
         data.src_files.protocol_files == ["a.proto"]
         and data.src_files.other_files == []
     )
-    st.set_exported("ioc-a", "unknown")
-    assert st.get("ioc-a").is_exported == "unknown"
-    assert st.get("ioc-b") == new_state()  # another IOC is untouched
-    # an invalid value is not written; an IOC that is not there raises KeyError.
-    raises(ValidationError, st.set_status, "ioc-a", 5)
-    raises(ValidationError, st.set_src_files, "ioc-a", {"db_files": "a.db"})
-    assert st.get("ioc-a").status == "generated"
-    raises(KeyError, st.set_status, "ioc-none", "x")
-    print("15. setters ok")
+    st.write_ioc("ioc-a", {"is_exported": "unknown"})
+    assert st.read_ioc("ioc-a").is_exported == "unknown"
+    assert st.read_ioc("ioc-b") == new_state()  # another IOC is untouched
+    # an invalid value is not written, and one invalid value stops the whole change.
+    raises(ValidationError, st.write_ioc, "ioc-a", {"status": 5})
+    raises(ValidationError, st.write_ioc, "ioc-a", {"src_files": {"db_files": "a.db"}})
+    raises(ValidationError, st.write_ioc, "ioc-a", {"state": "error", "status": 5})
+    data = st.read_ioc("ioc-a")
+    assert data.status == "generated" and data.state == "warning"
+    raises(ValueError, st.write_ioc, "ioc-a", {})  # nothing to write
+    raises(ValueError, st.write_ioc, "ioc-a", {"issues": []})  # not a column of ioc
+    # an IOC that is not there needs every column, or nothing is added.
+    raises(sqlite3.IntegrityError, st.write_ioc, "ioc-none", {"status": "x"})
+    raises(KeyError, st.read_ioc, "ioc-none")
+    assert "ioc-none" not in st.names()
+    print("15. write_ioc on an existing IOC ok")
 
-    # 16. issues: appended in order, never de-duplicated; clearing leaves the state field alone.
+    # 16. issues: appended in order, never de-duplicated; replacing leaves the state alone.
     issue = make_issue("first")
-    st.add_issues("ioc-a", [issue])
-    st.add_issues("ioc-a", [issue, make_issue("second", IssueLevel.ERROR)])
-    data = st.get("ioc-a")
+    st.write_issues("ioc-a", [issue], append=True)
+    st.write_issues(
+        "ioc-a", [issue, make_issue("second", IssueLevel.ERROR)], append=True
+    )
+    data = st.read_ioc("ioc-a")
     assert [i.message for i in data.issues] == ["first", "first", "second"]
     assert data.issues[2].level == IssueLevel.ERROR
-    assert st.get("ioc-b").issues == []
-    st.replace_issues("ioc-a", [make_issue("only")])
-    assert [i.message for i in st.get("ioc-a").issues] == ["only"]
-    st.replace_issues("ioc-a", [])
-    data = st.get("ioc-a")
+    assert st.read_issues("ioc-b") == []
+    st.write_issues("ioc-a", [make_issue("only")])  # replaces
+    assert [i.message for i in st.read_issues("ioc-a")] == ["only"]
+    st.write_issues("ioc-a", [])
+    data = st.read_ioc("ioc-a")
     assert data.issues == [] and data.state == "warning"
-    raises(ValidationError, st.add_issues, "ioc-a", [{"level": "nope"}])
-    raises(KeyError, st.add_issues, "ioc-none", [issue])
-    raises(KeyError, st.replace_issues, "ioc-none", [])
-    st.add_issues("ioc-a", [issue])
-    st.delete("ioc-a")  # the issues go with it
+    # an invalid entry stops a replace before the old log is touched.
+    st.write_issues("ioc-a", [make_issue("kept")])
+    raises(ValidationError, st.write_issues, "ioc-a", [{"level": "nope"}])
+    raises(ValidationError, st.write_issues, "ioc-a", [issue, {"level": "nope"}])
+    assert [i.message for i in st.read_issues("ioc-a")] == ["kept"]
+    raises(sqlite3.IntegrityError, st.write_issues, "ioc-none", [issue])  # no such IOC
+    assert st.read_issues("ioc-none") == []
+    st.write_issues("ioc-none", [])  # nothing to write for an IOC that is not there
+    assert "ioc-none" not in st.names()
+    st.write_issues("ioc-a", [issue], append=True)
+    st.delete_ioc("ioc-a")  # the issues go with it
     assert sqlite3.connect(db).execute("SELECT COUNT(*) FROM issue").fetchone()[0] == 0
-    st.create("ioc-a")
+    add_ioc(st, "ioc-a")
     print("16. issues ok")
 
     # 17. transaction: several changes as one; undone together when the block raises.
     with st.transaction():
-        st.set_status("ioc-a", "exported")
-        st.add_issues("ioc-a", [make_issue("in tx")])
-        st.create("ioc-e")
-    assert st.get("ioc-a").status == "exported" and len(st.get("ioc-a").issues) == 1
+        st.write_ioc("ioc-a", {"status": "exported"})
+        st.write_issues("ioc-a", [make_issue("in tx")], append=True)
+        add_ioc(st, "ioc-e")
+    assert st.read_ioc("ioc-a").status == "exported"
+    assert len(st.read_issues("ioc-a")) == 1
     assert "ioc-e" in st.names()
     try:
         with st.transaction():
-            st.set_status("ioc-a", "lost")
-            st.delete("ioc-e")
+            st.write_ioc("ioc-a", {"status": "lost"})
+            st.delete_ioc("ioc-e")
             raise RuntimeError("boom")
     except RuntimeError:
         pass
-    assert st.get("ioc-a").status == "exported" and "ioc-e" in st.names()
+    assert st.read_ioc("ioc-a").status == "exported" and "ioc-e" in st.names()
     # a failing call inside the block undoes the calls before it.
     try:
         with st.transaction():
-            st.set_status("ioc-a", "lost")
-            st.set_status("ioc-none", "x")
+            st.write_ioc("ioc-a", {"status": "lost"})
+            st.delete_ioc("ioc-none")
     except KeyError:
         pass
-    assert st.get("ioc-a").status == "exported"
+    assert st.read_ioc("ioc-a").status == "exported"
     try:
         with st.transaction():
             with st.transaction():
@@ -979,37 +987,44 @@ if __name__ == "__main__":
         pass
     else:
         raise AssertionError("a transaction must not be nested")
-    st.set_status("ioc-a", "exported")  # the failed nesting left nothing open
+    # the failed nesting left nothing open
+    st.write_ioc("ioc-a", {"status": "exported"})
     print("17. transaction ok")
 
     # 18. another connection writing: an operation waits, then gives up with TimeoutError.
     #     Readers are not blocked by a writer.
     st2 = opened(db, timeout=0.3)
     with st.transaction():
-        st.set_status("ioc-a", "held")
-        assert st2.get("ioc-a").status == "exported"  # not yet committed
-        raises(TimeoutError, st2.set_status, "ioc-a", "blocked")
-    assert st2.get("ioc-a").status == "held"
-    st2.set_status("ioc-a", "exported")  # free again
+        st.write_ioc("ioc-a", {"status": "held"})
+        assert st2.read_ioc("ioc-a").status == "exported"  # not yet committed
+        raises(TimeoutError, st2.write_ioc, "ioc-a", {"status": "blocked"})
+    assert st2.read_ioc("ioc-a").status == "held"
+    st2.write_ioc("ioc-a", {"status": "exported"})  # free again
     st2.close()
     hold = sqlite3.connect(db, isolation_level=None)
     hold.execute("BEGIN EXCLUSIVE")  # nothing can even read now
     raises(TimeoutError, opened, db, timeout=0.3)
     hold.execute("ROLLBACK")
     hold.close()
+    # only "locked by another process" becomes a TimeoutError; other errors are left alone.
+    busy = IocState._is_database_busy
+    assert busy(sqlite3.OperationalError("database is locked"))
+    assert busy(sqlite3.OperationalError("database table is locked"))
+    assert not busy(sqlite3.OperationalError("no such table: ioc"))
+    assert not busy(ValueError("database is locked"))
     print("18. busy database times out ok")
 
     # 19. threads sharing one instance, and processes each with their own: nothing is lost.
     #     The processes are started fresh: an instance cannot be carried across fork().
     import subprocess
 
-    st.create("ioc-load")
+    add_ioc(st, "ioc-load")
     errors = []
 
     def thread_work():
         try:
             for _ in range(25):
-                st.add_issues("ioc-load", [make_issue("thread")])
+                st.write_issues("ioc-load", [make_issue("thread")], append=True)
         except BaseException as e:
             errors.append(e)
 
@@ -1020,8 +1035,8 @@ if __name__ == "__main__":
         "own = IocState(sys.argv[2])\n"
         "own.connect()\n"
         "for _ in range(25):\n"
-        "    own.add_issues('ioc-load', [IssueEntry(level='info', reason='file_error',"
-        " message='process', prompt='', time='t')])\n"
+        "    own.write_issues('ioc-load', [IssueEntry(level='info', reason='file_error',"
+        " message='process', prompt='', time='t')], append=True)\n"
         "own.close()\n"
     )
     root = os.path.dirname(test_root)
@@ -1038,7 +1053,7 @@ if __name__ == "__main__":
         t.join()
     assert [p.wait() for p in procs] == [0, 0, 0, 0]
     assert errors == []
-    messages = [i.message for i in st.get("ioc-load").issues]
+    messages = [i.message for i in st.read_issues("ioc-load")]
     assert messages.count("thread") == 200 and messages.count("process") == 100
     print("19. threads and processes writing together ok")
 
@@ -1048,7 +1063,7 @@ if __name__ == "__main__":
     assert not os.path.exists(db)  # nothing was created in its place
     IocState.initialize(db)  # a new database: the open instance moves to it
     assert st.names() == []
-    st.create("ioc-new")
+    add_ioc(st, "ioc-new")
     assert opened(db).names() == ["ioc-new"]
     # close() ends it.
     st.close()

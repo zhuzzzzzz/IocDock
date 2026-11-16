@@ -105,46 +105,105 @@ class IocStateSchema(BaseModel):
     issues: list[IssueEntry]
 
 
-def new_config(name):
-    """A new project's config. Every field of every model is passed explicitly:
-    the models have no defaults, so a field added to the schema but not listed
-    here makes this function fail."""
-    return IocConfigSchema(
-        basic=_Basic(
-            name=name,
-            host="swarm",
-            image="",
-            bin="ST-IOC",
-            description="",
+def _default_basic(name):
+    return _Basic(
+        name=name,
+        host="swarm",
+        image="",
+        bin="ST-IOC",
+        description="",
+    )
+
+
+def _defualt_build():
+    return _Build(
+        modules=["autosave", "caputlog"],
+        db_load=[_DbLoadItem(file="example.db", macros={"ABC": "xxx:"})],
+        raw_cmd=_RawCmd(
+            cmd_before_dbload="",
+            cmd_at_dbload="",
+            cmd_after_iocinit="",
         ),
-        build=_Build(
-            modules=["autosave", "caputlog"],
-            db_load=[_DbLoadItem(file="example.db", macros={"ABC": "xxx:"})],
-            raw_cmd=_RawCmd(
-                cmd_before_dbload="",
-                cmd_at_dbload="",
-                cmd_after_iocinit="",
-            ),
-            file_copy=[],
-            epics_env={},
-            settings=_Settings(
-                report_info=True,
-                caputlog_json=False,
-            ),
-        ),
-        deploy=_Deploy(
-            labels={},
-            resources=_Resources(
-                limits=_ResourceValues(cpus="1", memory="1G"),
-                reservations=_ResourceValues(cpus="", memory=""),
-            ),
-            placement=_Placement(constraints=["node.role==worker"]),
+        file_copy=[],
+        epics_env={},
+        settings=_Settings(
+            report_info=True,
+            caputlog_json=False,
         ),
     )
 
 
+def _stream_device_build():
+    return _Build(
+        modules=["autosave", "caputlog"],
+        db_load=[_DbLoadItem(file="example.db", macros={"ABC": "xxx:"})],
+        raw_cmd=_RawCmd(
+            cmd_before_dbload="",
+            cmd_at_dbload="",
+            cmd_after_iocinit="",
+        ),
+        file_copy=[],
+        epics_env={},
+        settings=_Settings(
+            report_info=True,
+            caputlog_json=False,
+        ),
+    )
+
+
+def _modbus_build():
+    return _Build(
+        modules=["autosave", "caputlog"],
+        db_load=[_DbLoadItem(file="example.db", macros={"ABC": "xxx:"})],
+        raw_cmd=_RawCmd(
+            cmd_before_dbload="",
+            cmd_at_dbload="",
+            cmd_after_iocinit="",
+        ),
+        file_copy=[],
+        epics_env={},
+        settings=_Settings(
+            report_info=True,
+            caputlog_json=False,
+        ),
+    )
+
+
+def _default_deploy():
+    return _Deploy(
+        labels={},
+        resources=_Resources(
+            limits=_ResourceValues(cpus="1", memory="1G"),
+            reservations=_ResourceValues(cpus="", memory=""),
+        ),
+        placement=_Placement(constraints=["node.role==worker"]),
+    )
+
+
+def new_config(name, build_type=None):
+    if not isinstance(build_type, str):
+        build_type = ""
+    if build_type.strip().lower() == "modbus":
+        return IocConfigSchema(
+            basic=_default_basic(name=name),
+            build=_modbus_build(),
+            deploy=_default_deploy(),
+        )
+    elif build_type.strip().lower() == "stream_device":
+        return IocConfigSchema(
+            basic=_default_basic(name=name),
+            build=_stream_device_build(),
+            deploy=_default_deploy(),
+        )
+    else:
+        return IocConfigSchema(
+            basic=_default_basic(name=name),
+            build=_defualt_build(),
+            deploy=_default_deploy(),
+        )
+
+
 def new_state():
-    """The state of a new project. Every field is passed explicitly, as in new_config."""
     return IocStateSchema(
         state="normal",
         status="created",
