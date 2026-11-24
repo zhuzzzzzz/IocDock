@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from pydantic import TypeAdapter
 
-from core import ioc_config
+from core import settings
 from core.ioc_schema import IocStateSchema, IssueEntry
 
 
@@ -50,7 +50,7 @@ COMMIT;
 """
 
     def __init__(self, db_path=None, timeout=10):
-        self.db_path = os.path.abspath(db_path or ioc_config.DEFAULT_DB_PATH)
+        self.db_path = os.path.abspath(db_path or settings.DEFAULT_DB_PATH)
         self.timeout = timeout
         self._lock = threading.RLock()
         self._in_tx = False
@@ -64,7 +64,7 @@ COMMIT;
 
     @classmethod
     def initialize(cls, db_path=None):
-        path = os.path.abspath(db_path or ioc_config.DEFAULT_DB_PATH)
+        path = os.path.abspath(db_path or settings.DEFAULT_DB_PATH)
         if os.path.exists(path):
             raise FileExistsError(path)
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -249,6 +249,12 @@ COMMIT;
             if conn.execute("DELETE FROM ioc WHERE name = ?", (name,)).rowcount == 0:
                 raise KeyError(name)
 
+    def exists(self, name):
+        """Whether there is a record of the IOC `name`. Only that is looked at, not
+        its state."""
+        with self._txn(False) as conn:
+            return conn.execute("SELECT 1 FROM ioc WHERE name = ?", (name,)).fetchone() is not None
+
     def list_iocs(self):
         """The names of all IOCs, sorted."""
         with self._txn(False) as conn:
@@ -281,3 +287,25 @@ COMMIT;
                     for d in (e.model_dump(mode="json") for e in entries)
                 ],
             )
+
+
+# The IocStateManager shared by everything in this process. It is connected the first
+# time get_state_manager() is called, not when this module is imported, so importing
+# it needs no database (scripts/init_state_db.py relies on that), and a process that
+# forks gets its own connection instead of the parent's.
+_shared = None
+_shared_pid = None
+_shared_lock = threading.Lock()
+
+
+def get_state_manager():
+    """The process-wide IocStateManager, connected on first use. A missing or broken
+    database raises here, with the errors of IocStateManager.connect()."""
+    global _shared, _shared_pid
+    with _shared_lock:
+        if _shared is None or _shared_pid != os.getpid():
+            manager = IocStateManager()
+            manager.connect()
+            _shared, _shared_pid = manager, os.getpid()
+        return _shared
+

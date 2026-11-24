@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from core import ioc_config
-from core.ioc_state import IocStateManager
+from core import settings
+from core.ioc_config import IocConfig
+from core.ioc_state import IocStateManager, get_state_manager
 from tests.logutil import log
 
 # The tests never touch /opt/IocDockHome. Everything they keep on disk for core.ioc
@@ -18,19 +19,16 @@ TEST_TMP = Path(__file__).resolve().parents[1] / ".test-tmp"
 TEST_TMP.mkdir(exist_ok=True)
 _RUN_DIR = tempfile.mkdtemp(prefix="run-", dir=TEST_TMP)
 
-# core.ioc opens the state database when it is imported, so a database has to be
-# there first.
-ioc_config.DEFAULT_DB_PATH = os.path.join(_RUN_DIR, "ioc-state.db")
+# the first IOC opens the state database, so a database has to be there first.
+settings.DEFAULT_DB_PATH = os.path.join(_RUN_DIR, "ioc-state.db")
 IocStateManager.initialize()
 
-from core.ioc import IocConfig, state_manager  # noqa: E402
-
-ioc_config.IOCS_DIR = os.path.join(_RUN_DIR, "iocs")
+settings.IOCS_DIR = os.path.join(_RUN_DIR, "iocs")
 
 
 def pytest_unconfigure(config):
     """Close the shared state and delete the temporary files."""
-    state_manager.close()
+    get_state_manager().close()
     shutil.rmtree(_RUN_DIR, ignore_errors=True)
     try:
         TEST_TMP.rmdir()  # only when no other run is using it
@@ -55,6 +53,15 @@ def pytest_runtest_call(item):
         log.info("  ✔ passed")
     else:
         log.error("  ✘ FAILED: %s", outcome.excinfo[1])
+
+
+@pytest.fixture
+def shared():
+    """The shared state manager, with no IOC left in it after the test."""
+    manager = get_state_manager()
+    yield manager
+    for name in manager.list_iocs():
+        manager.delete_ioc(name)
 
 
 @pytest.fixture

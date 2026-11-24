@@ -1,16 +1,114 @@
-"""Where IocDock keeps its files. To move something, change it here.
+import os
+import sys
+from io import StringIO
 
-Read these as `ioc_config.NAME`, not `from core.ioc_config import NAME`: the code
-looks a path up when it uses it, so a test can point one somewhere else."""
+from pydantic import ValidationError
 
-IOC_HOME = "/opt/IocDockHome/IocDock"
+from core.ioc_schema import (
+    IocConfigSchema,
+    IssueEntry,
+    IssueLevel,
+    IssueReason,
+    new_config,
+)
+from core.utils import atomic_write, get_dir_name, get_now_str, get_yaml_tool
 
-# the directory that holds one directory per IOC
-IOCS_DIR = IOC_HOME + "/iocs"
 
-# the name of the config file in the directory of an IOC
-CONFIG_FILE_NAME = "ioc-config.yaml"
+class IocConfig:
 
-# the SQLite database with the state of the IOCs, see core/ioc_state.py
-STATE_DB_FILE_NAME = "ioc-state.db"
-DEFAULT_DB_PATH = IOC_HOME + "/" + STATE_DB_FILE_NAME
+    def __init__(self, path):
+        self._yaml = get_yaml_tool()
+        self.path = path
+        self.data = None
+        self.issues = []
+        self.is_valid = False
+
+    def file_exists(self):
+        return os.path.isfile(self.path)
+
+    @staticmethod
+    def create_template(path, build_type, name=None):
+        """Write a config file made from a template to `path`, for the IOC `name`
+        (default: the name of the directory of `path`). A file already there raises
+        FileExistsError and is left alone."""
+        if os.path.isfile(path):
+            raise FileExistsError(path)
+        buf = StringIO()
+        get_yaml_tool().dump(
+            new_config(name or get_dir_name(path), build_type=build_type).model_dump(), buf
+        )
+        atomic_write(path, buf.getvalue())
+
+    def load(self):
+        now = get_now_str()
+        self.data = None
+        self.issues = []
+        self.is_valid = False
+        if not self.file_exists():
+            raise FileNotFoundError("config file not found")
+        error = None
+        try:
+            with open(self.path, "r", encoding="utf-8") as f:
+                data = self._yaml.load(f)
+        except Exception as e:
+            error = f"{self.path}: {e}"
+        else:
+            if data is None:
+                error = f"{self.path}: config file is empty"
+        if error is not None:
+            self.issues.append(
+                IssueEntry(
+                    level=IssueLevel.ERROR,
+                    reason=IssueReason.FILE_ERROR,
+                    message=error,
+                    prompt="",
+                    time=now,
+                )
+            )
+            return
+        self._validate(data)
+
+    def _validate(self, data):
+        now = get_now_str()
+        try:
+            self.data = IocConfigSchema.model_validate(data)
+        except ValidationError as e:
+            for err in e.errors():
+                path = ".".join(str(p) for p in err["loc"]) or "<root>"
+                self.issues.append(
+                    IssueEntry(
+                        level=IssueLevel.ERROR,
+                        reason=IssueReason.VALIDATION_ERROR,
+                        message=f"{path}: {err['msg']}",
+                        prompt="",
+                        time=now,
+                    )
+                )
+        if self.data is not None:
+            name, dir_name = self.data.basic.name, get_dir_name(self.path)
+            if name != dir_name:
+                self.issues.append(
+                    IssueEntry(
+                        level=IssueLevel.WARNING,
+                        reason=IssueReason.VALIDATION_ERROR,
+                        message=f"basic.name: {name!r} does not match directory name {dir_name!r}",
+                        prompt="",
+                        time=now,
+                    )
+                )
+        self.is_valid = self.data is not None and not any(
+            i.level in (IssueLevel.WARNING, IssueLevel.ERROR) for i in self.issues
+        )
+
+    def to_string(self):
+        if self.data is None:
+            raise RuntimeError("config is not loaded")
+        buf = StringIO()
+        self._yaml.dump(self.data.model_dump(), buf)
+        return buf.getvalue()
+
+    def show(self):
+        sys.stdout.write(self.to_string())
+
+    def save(self, path):
+        atomic_write(path, self.to_string())

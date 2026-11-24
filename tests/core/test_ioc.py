@@ -1,1166 +1,33 @@
 import os
-import re
-import sqlite3
+import shutil
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
-from core import ioc_config
-from core.exceptions import IocNotFoundError
-from core.ioc import IOC, IocConfig, state_manager
-from core.ioc_state import IocStateManager
-from core.ioc_schema import (
-    IocStateSchema,
-    IssueEntry,
-    IssueLevel,
-    IssueReason,
-    new_state,
-)
-from core.utils import get_now_str, get_yaml_tool
+from core import settings
+from core.exceptions import IocExistsError, IocInitError, IocNotFoundError
+from core.ioc import IOC, check_name
+from core.ioc_config import IocConfig
+from core.ioc_repository import IocRepository
+from core.ioc_schema import IssueEntry, IssueLevel, IssueReason, new_state
+from tests.helpers import REPO_ROOT, add_ioc, make_issue
 from tests.logutil import check, check_true, expect_error, note, step
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 
-
-def read(path):
-    return Path(path).read_text(encoding="utf-8")
-
-
-def write(path, text):
-    Path(path).write_text(text, encoding="utf-8")
-
-
-def messages(conf):
-    return [i.message for i in conf.issues]
-
-
-# ---------------------------------------------------------------- IocConfig
-# A change a person would make in an editor is written as a variant of the
-# generated text (base), so there is nothing to undo between steps.
-
-
-def test_create_template_names_config_after_directory(make_conf):
-    """create_template: 生成的配置文件以目录名命名,能直接加载,没有 .tmp 残留"""
-    conf = make_conf("ioc-demo")
-    check("文件存在", conf.file_exists(), True)
-    conf.load()
-    check("issues", conf.issues, [])
-    check("is_valid", conf.is_valid, True)
-    check("basic.name", conf.data.basic.name, "ioc-demo")
-    check_true("配置里没有 src 段", "src" not in conf.data.model_dump())
-    check(
-        ".tmp 残留",
-        [p for p in Path(conf.path).parent.iterdir() if p.suffix == ".tmp"],
-        [],
-    )
-
-
-def test_create_template_never_overwrites(make_conf):
-    """create_template: 已有文件时拒绝覆盖"""
-    conf = make_conf()
-    with expect_error(FileExistsError, "文件已存在"):
-        IocConfig.create_template(conf.path, None)
-
-
-def test_create_template_with_awkward_directory_name(make_conf):
-    """create_template: 目录名含引号、中文、反斜杠时也能正确生成并加载"""
-    conf = make_conf('ioc "测试" #1\\x')
-    conf.load()
-    check("basic.name", conf.data.basic.name, 'ioc "测试" #1\\x')
-
-
-@pytest.mark.parametrize("build_type", ["modbus", "stream_device", " Modbus "], ids=repr)
-def test_create_template_for_each_build_type(tmp_path, build_type):
-    """create_template: 各种 build_type 都能生成可直接加载的配置"""
-    path = tmp_path / "ioc-typed" / "ioc.yaml"
-    path.parent.mkdir()
-    step(f"create_template(build_type={build_type!r})")
-    IocConfig.create_template(str(path), build_type)
-    conf = IocConfig(str(path))
-    conf.load()
-    check("issues", conf.issues, [])
-    check("basic.name", conf.data.basic.name, "ioc-typed")
-
-
-def test_file_exists_is_false_before_create(tmp_path):
-    """file_exists: 文件还没建时为 False"""
-    check("file_exists", IocConfig(str(tmp_path / "ioc.yaml")).file_exists(), False)
-
-
-def test_typed_access(make_conf):
-    """data: 配置按类型访问,字段不存在时报 AttributeError"""
-    conf = make_conf("t-get")
-    conf.load()
-    check("basic.host", conf.data.basic.host, "swarm")
-    check("modules[0]", conf.data.build.modules[0], "autosave")
-    check_true("默认不装 status-os", "status-os" not in conf.data.build.modules)
-    check("macros['ABC']", conf.data.build.db_load[0].macros["ABC"], "xxx:")
-    check("settings.report_info", conf.data.build.settings.report_info, True)
-    with expect_error(AttributeError, "访问不存在的字段"):
-        conf.data.build.no_such_field
-
-
-def test_load_reads_hand_written_file_and_never_touches_it(make_conf):
-    """load: 读取手写修改过的文件,并且绝不改动该文件"""
-    conf = make_conf("t-load")
-    base = read(conf.path)
-    conf.load()
-    check_true("load 之后文件没变", read(conf.path) == base)
-    text = base + "# my own note\n"
-    text = re.sub(r"image: ''.*", "image: registry.iasf/ioc:1.0", text)
-    text = re.sub(
-        r"cmd_at_dbload: ''.*",
-        'cmd_at_dbload: |\n      line1\n      dbLoadRecords("x.db")',
-        text,
-    )
-    text = text.replace("ABC: 'xxx:'", "P: 'xxx:'")
-    step("手工修改 image、cmd_at_dbload、macros,并加一行注释")
-    write(conf.path, text)
-    conf.load()
-    check_true("再次 load 后文件没变", read(conf.path) == text)
-    check("issues", conf.issues, [])
-    check("basic.image", conf.data.basic.image, "registry.iasf/ioc:1.0")
-    check("macros['P']", conf.data.build.db_load[0].macros["P"], "xxx:")
-    check(
-        "cmd_at_dbload",
-        conf.data.build.raw_cmd.cmd_at_dbload,
-        'line1\ndbLoadRecords("x.db")\n',
-    )
-
-
-def test_empty_list_is_valid_and_stays_empty(make_conf):
-    """load: 空列表是合法值,读出来仍是空列表"""
-    conf = make_conf("t-check")
-    base = read(conf.path)
-    text = re.sub(r"modules:.*\n    - autosave\n    - caputlog", "modules: []", base)
-    assert text != base
-    write(conf.path, text)
-    conf.load()
-    check("is_valid", conf.is_valid, True)
-    check("modules", conf.data.build.modules, [])
-
-
-def test_invalid_value_becomes_an_issue_and_there_is_no_config(make_conf, tmp_path):
-    """load: 取值不合法时产生 issue,data 为 None,show/to_string/save 都拒绝工作"""
-    conf = make_conf("t-invalid")
-    base = read(conf.path)
-    step("把 cpus: '1' 改成 cpus: 1(类型不对)")
-    write(conf.path, base.replace("cpus: '1'", "cpus: 1"))
-    conf.load()
-    check("data", conf.data, None)
-    check("is_valid", conf.is_valid, False)
-    check("issue 数量", len(conf.issues), 1)
-    issue = conf.issues[0]
-    note("issue", f"{issue.level.value}/{issue.reason.value}: {issue.message}")
-    check_true("issue 是 IssueEntry", isinstance(issue, IssueEntry))
-    check("level", issue.level, IssueLevel.ERROR)
-    check("reason", issue.reason, IssueReason.VALIDATION_ERROR)
-    check_true(
-        "message 带字段路径", issue.message.startswith("deploy.resources.limits.cpus:")
-    )
-
-    never = tmp_path / "never-written.yaml"
-    for method, args in (
-        (conf.show, ()),
-        (conf.to_string, ()),
-        (conf.save, (str(never),)),
-    ):
-        with expect_error(RuntimeError, f"{method.__name__}() 在没有配置时"):
-            method(*args)
-    check_true("save 没有写出文件", not never.exists())
-
-    # the issue is accepted by IocStateSchema as is
-    state = IocStateSchema(
-        state="error",
-        snapshot="untracked",
-        src_files={"db_files": [], "protocol_files": [], "other_files": []},
-        issues=conf.issues,
-    )
-    check("这条 issue 可以直接放进 IocStateSchema", state.issues[0].message, issue.message)
-
-
-def test_load_recovers_after_the_file_is_fixed(make_conf):
-    """load: 文件修好之后再次 load,恢复正常"""
-    conf = make_conf("t-invalid")
-    base = read(conf.path)
-    write(conf.path, base.replace("cpus: '1'", "cpus: 1"))
-    conf.load()
-    check("损坏时 data", conf.data, None)
-    write(conf.path, base)
-    conf.load()
-    check_true("修好后有 data", conf.data is not None)
-    check("修好后 issues", conf.issues, [])
-
-
-def test_invalid_nested_value_is_reported_with_its_path(make_conf):
-    """load: 嵌套字段取值不合法时,issue 里带完整路径"""
-    conf = make_conf("t-invalid")
-    write(conf.path, read(conf.path).replace("report_info: true", "report_info: maybe"))
-    conf.load()
-    note("issues", messages(conf))
-    check_true(
-        "路径为 build.settings.report_info",
-        any(m.startswith("build.settings.report_info:") for m in messages(conf)),
-    )
-
-
-def test_missing_field_is_reported_including_nested_ones(make_conf):
-    """load: 缺字段(含嵌套字段)会被指出来"""
-    conf = make_conf("t-missing")
-    base = read(conf.path)
-    write(conf.path, base.replace("    report_info: true\n", ""))
-    conf.load()
-    check("data", conf.data, None)
-    check("缺嵌套字段", messages(conf), ["build.settings.report_info: Field required"])
-    write(conf.path, base.replace("  epics_env: {}\n", ""))
-    conf.load()
-    check("缺上层字段", messages(conf), ["build.epics_env: Field required"])
-
-
-def test_extra_field_is_an_error_at_any_depth(make_conf):
-    """load: 任何层级出现多余字段都报错"""
-    conf = make_conf("t-extra")
-    base = read(conf.path)
-    write(conf.path, base.replace("  settings:\n", "  foo: 1\n  settings:\n"))
-    conf.load()
-    check("data", conf.data, None)
-    check("上层多余", messages(conf), ["build.foo: Extra inputs are not permitted"])
-    write(
-        conf.path,
-        base.replace("    caputlog_json: false", "    caputlog_json: false\n    bar: 2"),
-    )
-    conf.load()
-    check(
-        "嵌套多余",
-        messages(conf),
-        ["build.settings.bar: Extra inputs are not permitted"],
-    )
-
-
-def test_free_form_mapping_takes_any_key(make_conf):
-    """load: macros 这类自由字典可以随意加键"""
-    conf = make_conf("t-extra")
-    text = read(conf.path).replace(
-        "        ABC: 'xxx:'\n", "        ABC: 'xxx:'\n        Z: zzz\n"
-    )
-    assert "Z: zzz" in text
-    write(conf.path, text)
-    conf.load()
-    check_true("有 data", conf.data is not None)
-    check("issues", conf.issues, [])
-
-
-def test_name_mismatch_is_a_warning_and_config_stays_usable(make_conf):
-    """load: basic.name 与目录名不符只是 warning,配置仍可用但 is_valid 为 False"""
-    conf = make_conf("t-name")
-    base = read(conf.path)
-    write(conf.path, base.replace("name: t-name", "name: other"))
-    conf.load()
-    check_true("仍有 data", conf.data is not None)
-    check("issue 数量", len(conf.issues), 1)
-    check("is_valid", conf.is_valid, False)  # usable, but the name check failed
-    note("issue", conf.issues[0].message)
-    check("level", conf.issues[0].level, IssueLevel.WARNING)
-    check_true("message 以 basic.name: 开头", conf.issues[0].message.startswith("basic.name:"))
-    check("reason", conf.issues[0].reason, IssueReason.VALIDATION_ERROR)
-    write(conf.path, base)
-    conf.load()
-    check("改回之后 issues", conf.issues, [])
-    check("改回之后 is_valid", conf.is_valid, True)
-
-
-@pytest.mark.parametrize(
-    "content, expected",
-    [
-        (b"basic: [unclosed\n", "while parsing a flow sequence"),
-        (b"basic:\n  name: a\n  name: b\n", "found duplicate key"),
-        (b"", "config file is empty"),
-        (b"\xff\xfe\x00bad", "codec can't decode"),
-    ],
-    ids=["unclosed-bracket", "duplicate-key", "empty-file", "not-utf8"],
-)
-def test_unreadable_file_becomes_a_file_error_issue(tmp_path, content, expected):
-    """load: 读不了的文件(语法错、重复键、空文件、乱码)变成 file_error 的 issue"""
-    path = tmp_path / "bad.yaml"
-    path.write_bytes(content)
-    bad = IocConfig(str(path))
-    check("file_exists", bad.file_exists(), True)
-    bad.load()
-    check("data", bad.data, None)
-    check("issue 数量", len(bad.issues), 1)
-    check("is_valid", bad.is_valid, False)
-    note("message", bad.issues[0].message)
-    check("reason", bad.issues[0].reason, IssueReason.FILE_ERROR)
-    check("level", bad.issues[0].level, IssueLevel.ERROR)
-    check_true(f"message 含 {expected!r}", expected in bad.issues[0].message)
-
-
-@pytest.mark.parametrize(
-    "content", ["- a\n- b\n", "just text\n", "42\n"], ids=["list", "string", "number"]
-)
-def test_yaml_root_that_is_not_a_mapping_is_reported_as_root(tmp_path, content):
-    """load: YAML 根节点不是映射(列表、字符串、数字)时,issue 的路径是 <root>"""
-    path = tmp_path / "ioc.yaml"
-    path.write_text(content)
-    conf = IocConfig(str(path))
-    conf.load()
-    check("data", conf.data, None)
-    check("issue 数量", len(conf.issues), 1)
-    note("issue", conf.issues[0].message)
-    check_true("message 以 <root>: 开头", conf.issues[0].message.startswith("<root>:"))
-    check("reason", conf.issues[0].reason, IssueReason.VALIDATION_ERROR)
-    check("is_valid", conf.is_valid, False)
-
-
-def test_load_of_a_missing_file_raises(tmp_path):
-    """load: 文件不存在时抛 FileNotFoundError(这不是 issue)"""
-    bad = IocConfig(str(tmp_path / "bad.yaml"))
-    check("file_exists", bad.file_exists(), False)
-    with expect_error(FileNotFoundError, "文件不存在", match="config file not found"):
-        bad.load()
-    check("data", bad.data, None)
-    check("is_valid", bad.is_valid, False)
-
-
-def test_file_that_vanishes_after_load_leaves_no_stale_result(make_conf):
-    """load: 加载后文件被删,再 load 会报错,并且不留下上一次的旧结果"""
-    conf = make_conf("t-vanish")
-    conf.load()
-    check("第一次 is_valid", conf.is_valid, True)
-    Path(conf.path).unlink()
-    step("删掉配置文件后再 load")
-    with expect_error(FileNotFoundError, "文件没了"):
-        conf.load()
-    check("data", conf.data, None)
-    check("issues", conf.issues, [])
-    check("is_valid", conf.is_valid, False)
-
-
-def test_use_before_load_raises(make_conf, tmp_path):
-    """show/to_string/save: 还没 load 时拒绝工作"""
-    fresh = make_conf("t-fresh")
-    check("data", fresh.data, None)
-    check("is_valid", fresh.is_valid, False)
-    never = tmp_path / "never-written.yaml"
-    for method, args in (
-        (fresh.show, ()),
-        (fresh.to_string, ()),
-        (fresh.save, (str(never),)),
-    ):
-        with expect_error(RuntimeError, f"{method.__name__}() 在 load 之前"):
-            method(*args)
-    check_true("save 没有写出文件", not never.exists())
-    fresh.load()
-    check_true("load 之后有 data", fresh.data is not None)
-
-
-def test_show_prints_plain_data_without_comments(make_conf, capsys):
-    """show: 输出纯数据,不带注释和空行,内容与 to_string 一致"""
-    conf = make_conf("t-show")
-    with open(conf.path, "a", encoding="utf-8") as f:
-        f.write("# my own note\n")
-    conf.load()
-    conf.show()
-    out = capsys.readouterr().out
-    check_true("没有注释符号和空行", "#" not in out and "\n\n" not in out)
-    check_true("再解析得到同样的数据", get_yaml_tool().load(out) == conf.data.model_dump())
-    check_true("与 to_string 一致", out == conf.to_string())
-
-
-def test_save_writes_validated_config_and_leaves_source_untouched(make_conf, tmp_path):
-    """save: 写出校验过的配置(不带注释),源文件不变"""
-    source = make_conf("t-save")
-    with open(source.path, "a", encoding="utf-8") as f:
-        f.write("# my own note\n")
-    source_text = read(source.path)
-    source.load()
-    target_path = tmp_path / "managed" / "t-save" / "ioc.yaml"
-    target_path.parent.mkdir(parents=True)
-    source.save(str(target_path))
-    check_true("源文件没变", read(source.path) == source_text)
-    target = IocConfig(str(target_path))
-    target.load()
-    check("目标文件的 issues", target.issues, [])
-    check_true("目标与源的数据相同", target.data == source.data)
-    check_true("注释没有被写出", "# my own note" not in read(target_path))
-
-
-def test_save_of_an_invalid_config_writes_nothing(make_conf, tmp_path):
-    """save: 配置不合法时什么都不写"""
-    invalid = make_conf("t-save-invalid")
-    write(invalid.path, read(invalid.path).replace("cpus: '1'", "cpus: 1"))
-    invalid.load()
-    check("data", invalid.data, None)
-    other = tmp_path / "managed" / "t-save-invalid" / "ioc.yaml"
-    other.parent.mkdir(parents=True)
-    with expect_error(RuntimeError, "配置不合法"):
-        invalid.save(str(other))
-    check_true("没有写出文件", not other.exists())
-
-
-def test_save_into_a_missing_directory_fails_and_creates_nothing(make_conf, tmp_path):
-    """save: 目标目录不存在时报错,不会替你建目录"""
-    conf = make_conf("t-save-nodir")
-    conf.load()
-    target = tmp_path / "no-such-dir" / "ioc.yaml"
-    with expect_error(FileNotFoundError, "目录不存在"):
-        conf.save(str(target))
-    check_true("目录没有被创建", not target.parent.exists())
-
-
-# ---------------------------------------------------------------- IocStateManager
-# The database is created on purpose, never by accident.
-
-
-def make_issue(message="m", level=IssueLevel.WARNING):
-    return IssueEntry(
-        level=level,
-        reason=IssueReason.VALIDATION_ERROR,
-        message=message,
-        prompt="",
-        time=get_now_str(),
-    )
-
-
-def opened(path, **kwargs):
-    state = IocStateManager(path, **kwargs)
-    state.connect()
-    return state
-
-
-def add_ioc(state, name, data=None):
-    data = new_state() if data is None else data
-    state.write_ioc(name, {f: getattr(data, f) for f in IocStateManager.ADAPTERS})
-    state.write_issues(name, data.issues, append=True)
-
-
-def count_issues(db):
-    con = sqlite3.connect(db)
-    try:
-        return con.execute("SELECT COUNT(*) FROM issue").fetchone()[0]
-    finally:
-        con.close()
-
-
-def snapshot_of(state, name="ioc-a"):
-    return state.read_ioc(name).snapshot
-
-
-@pytest.fixture
-def db(tmp_path):
-    """Path of a database that has been initialized and is empty."""
-    path = str(tmp_path / "t-state" / "ioc-state.db")
-    Path(path).parent.mkdir()
-    IocStateManager.initialize(path)
-    return path
-
-
-@pytest.fixture
-def st(db):
-    """A connected instance holding two IOCs, ioc-a and ioc-b, in the new state."""
-    state = opened(db)
-    add_ioc(state, "ioc-b")
-    add_ioc(state, "ioc-a")
-    yield state
-    state.close()
-
-
-def test_database_is_created_only_by_initialize(tmp_path):
-    """数据库只会被 initialize 创建,其他操作不会偷偷建库,也不会碰已有文件"""
-    db = str(tmp_path / "ioc-state.db")
-    missing = IocStateManager(db)  # building the instance does not touch the database
-    check_true("IocStateManager(db) 没有建文件", not Path(db).exists())
-    with expect_error(RuntimeError, "还没 connect 就读"):
-        missing.list_iocs()
-    with expect_error(FileNotFoundError, "库不存在时 connect"):
-        missing.connect()
-    check_true("connect 失败后仍没有文件", not Path(db).exists())
-
-    Path(db).touch()
-    step("放一个空文件在那里")
-    with expect_error(RuntimeError, "空文件(没有表)"):
-        opened(db)
-    with expect_error(FileExistsError, "initialize 遇到已有文件"):
-        IocStateManager.initialize(db)
-
-    Path(db).unlink()
-    IocStateManager.initialize(db)
-    with expect_error(FileExistsError, "initialize 遇到已有数据库"):
-        IocStateManager.initialize(db)
-    con = sqlite3.connect(db)
-    version = con.execute("PRAGMA user_version").fetchone()[0]
-    con.close()
-    check("user_version", version, IocStateManager.SCHEMA_VERSION)
-
-
-def test_initialize_creates_missing_parent_directories(tmp_path):
-    """initialize: 上级目录不存在时自动创建"""
-    db = tmp_path / "a" / "b" / "ioc-state.db"
-    check_true("上级目录起初不存在", not db.parent.exists())
-    IocStateManager.initialize(str(db))
-    check_true("数据库文件已创建", db.is_file())
-    state = opened(str(db))
-    check("list_iocs", state.list_iocs(), [])
-    state.close()
-
-
-def test_initialize_that_fails_leaves_no_file_behind(tmp_path, monkeypatch):
-    """initialize: 建表失败时删掉半成品文件,并抛出原来的错误"""
-    db = tmp_path / "ioc-state.db"
-    step("把建表脚本换成无法执行的 SQL")
-    monkeypatch.setattr(IocStateManager, "SCHEMA_SQL", "THIS IS NOT SQL")
-    with expect_error(sqlite3.OperationalError, "建表失败", match="syntax error"):
-        IocStateManager.initialize(str(db))
-    check_true("没有留下文件", not db.exists())
-    monkeypatch.undo()
-    IocStateManager.initialize(str(db))
-    check_true("之后可以正常 initialize", db.is_file())
-
-
-def test_damaged_database_is_an_error_and_is_not_touched(tmp_path):
-    """connect: 文件不是数据库时报错,并且不动它"""
-    db = tmp_path / "ioc-state.db"
-    db.write_bytes(b"this is not a database" * 100)
-    with expect_error(sqlite3.DatabaseError, "乱码文件"):
-        opened(str(db))
-    with expect_error(FileExistsError, "initialize 不会覆盖它"):
-        IocStateManager.initialize(str(db))
-
-
-def test_database_that_fails_the_integrity_check_is_an_error(db):
-    """connect: 完整性检查(quick_check)不通过时报错"""
-    step("用 writable_schema 造一个 state 列为 NULL、却声明 NOT NULL 的库")
-
-    def edit_schema(old, new):
-        con = sqlite3.connect(db, isolation_level=None)
-        con.execute("PRAGMA writable_schema = ON")
-        con.execute(
-            "UPDATE sqlite_master SET sql = replace(sql, ?, ?) WHERE name = 'ioc'",
-            (old, new),
-        )
-        con.close()
-
-    edit_schema("state     TEXT NOT NULL", "state     TEXT")
-    con = sqlite3.connect(db, isolation_level=None)
-    con.execute(
-        "INSERT INTO ioc (name, state, snapshot, src_files) VALUES ('x', NULL, '\"\"', '{}')"
-    )
-    con.close()
-    edit_schema("state     TEXT,", "state     TEXT NOT NULL,")
-    with expect_error(sqlite3.DatabaseError, "完整性检查失败", match="integrity check failed"):
-        opened(db)
-    with expect_error(FileExistsError, "initialize 不会覆盖它"):
-        IocStateManager.initialize(db)
-
-
-def test_unknown_schema_version_is_an_error(db):
-    """connect: 版本号对不上时报错"""
-    other = sqlite3.connect(db)
-    other.execute("PRAGMA user_version = 99")
-    other.close()
-    with expect_error(RuntimeError, "版本号 99", match="version 99"):
-        opened(db)
-
-
-def test_default_and_relative_database_paths(tmp_path, monkeypatch):
-    """IocStateManager(): 不给路径用 ioc_config.DEFAULT_DB_PATH,相对路径会转成绝对路径,构造时不碰磁盘"""
-    check("默认路径", IocStateManager().db_path, os.path.abspath(ioc_config.DEFAULT_DB_PATH))
-    monkeypatch.chdir(tmp_path)
-    state = IocStateManager("rel/state.db")
-    check("相对路径", state.db_path, os.path.join(os.getcwd(), "rel", "state.db"))
-    check("磁盘上没有任何东西", list(tmp_path.iterdir()), [])
-
-
-def test_connect_twice_keeps_the_same_connection(st, db):
-    """connect: 重复调用没有副作用,一次 close 就结束"""
-    connection = st._conn
-    st.connect()
-    st.connect()
-    check_true("还是原来的连接对象", st._conn is connection)
-    check("list_iocs", st.list_iocs(), ["ioc-a", "ioc-b"])
-    st.close()
-    with expect_error(RuntimeError, "close 一次之后"):
-        st.list_iocs()
-
-
-def test_close_twice_is_harmless(db):
-    """close: 重复调用不报错"""
-    state = opened(db)
-    state.close()
-    state.close()
-    note("两次 close", "都没有报错")
-
-
-def test_write_read_list_delete(st, db):
-    """写入、读取、列出、删除 IOC 的基本流程"""
-    check("list_iocs", st.list_iocs(), ["ioc-a", "ioc-b"])
-    data = st.read_ioc("ioc-a")
-    check_true("读出的状态等于 new_state()", data == new_state())
-    check("(state, snapshot)", (data.state, data.snapshot), ("", ""))
-    check("issues", data.issues, [])
-    check("db_files", data.src_files.db_files, [])
-
-    st.delete_ioc("ioc-b")
-    check("删除 ioc-b 之后", st.list_iocs(), ["ioc-a"])
-
-
-def test_list_iocs_is_empty_after_initialize(db):
-    """list_iocs: 新建的库里没有 IOC"""
-    state = opened(db)
-    check("list_iocs", state.list_iocs(), [])
-    state.close()
-
-
-def test_columns_keep_the_json_text_of_their_values(st, db):
-    """存储格式: 每列保存值的 JSON 文本,列与 schema 字段一一对应"""
-    con = sqlite3.connect(db)
-    raw = con.execute(
-        "SELECT state, snapshot, src_files FROM ioc WHERE name = 'ioc-a'"
-    ).fetchone()
-    note("数据库里的原始文本", raw)
-    check(
-        "原始文本",
-        raw,
-        ('""', '""', '{"db_files":[],"protocol_files":[],"other_files":[]}'),
-    )
-    # the columns of the table are the schema's fields (but issues), so none is left out.
-    columns = [r[1] for r in con.execute("PRAGMA table_info(ioc)")]
-    con.close()
-    check("表的列", columns, ["name", *IocStateManager.ADAPTERS])
-    check_true("issues 不是 ioc 表的列", "issues" not in IocStateManager.ADAPTERS)
-
-
-def test_unknown_or_empty_name(st):
-    """名字: 读不存在的 IOC 报 KeyError,空名字报 ValueError"""
-    with expect_error(KeyError, "读不存在的 IOC"):
-        st.read_ioc("ioc-none")
-    with expect_error(ValueError, "空名字"):
-        add_ioc(st, "")
-
-
-@pytest.mark.parametrize("name", [None, 123, b"ioc-a"], ids=repr)
-def test_a_name_that_is_not_a_string(st, name):
-    """名字: 不是字符串时,写入报 ValueError,读和删找不到(KeyError)"""
-    with expect_error(ValueError, "write_ioc"):
-        st.write_ioc(name, {"snapshot": "x"})
-    with expect_error(KeyError, "read_ioc"):
-        st.read_ioc(name)
-    with expect_error(KeyError, "delete_ioc"):
-        st.delete_ioc(name)
-    check("库没有变化", st.list_iocs(), ["ioc-a", "ioc-b"])
-
-
-def test_any_name_is_just_a_value(st):
-    """名字: 含引号、分号、SQL 语句的名字只是普通的值,不会被当成 SQL"""
-    odd = 'ioc "测试" \'1\'; DROP TABLE ioc; --'
-    add_ioc(st, odd)
-    check_true("名字在列表里", odd in st.list_iocs())
-    check_true("能读回", st.read_ioc(odd) == new_state())
-    check_true("ioc 表还在", len(st.list_iocs()) == 3)
-    st.delete_ioc(odd)
-    check_true("删除后不在列表里", odd not in st.list_iocs())
-
-
-def test_whole_state_can_be_written_and_invalid_one_is_not(st, db):
-    """整体写入: 合法的状态能写入读回,非法的整个被拒绝且什么都不留"""
-    custom = new_state()
-    custom.snapshot = "tracked"
-    custom.issues = [make_issue("kept")]
-    add_ioc(st, "ioc-c", custom)
-    check_true("读回的状态与写入的相同", st.read_ioc("ioc-c") == custom)
-
-    custom.snapshot = 5
-    step("写入 snapshot=5(类型不对)")
-    with expect_error(ValidationError, "非法取值"):
-        add_ioc(st, "ioc-d", custom)
-    with expect_error(KeyError, "ioc-d 没有被建出来"):
-        st.read_ioc("ioc-d")
-
-    st.delete_ioc("ioc-c")
-    with expect_error(KeyError, "删除之后读"):
-        st.read_ioc("ioc-c")
-    with expect_error(KeyError, "重复删除"):
-        st.delete_ioc("ioc-c")
-    check("issue 表里剩下的行数", count_issues(db), 0)
-
-
-@pytest.mark.parametrize(
-    "column, text",
-    [("snapshot", "5"), ("snapshot", "not json"), ("src_files", "{}")],
-    ids=["number-not-str", "not-json", "missing-keys"],
-)
-def test_content_that_does_not_fit_the_schema_is_an_error(st, db, column, text):
-    """读取: 库里的内容不符合 schema(被外部改坏)时报 ValidationError"""
-    step(f"绕过程序,直接把 {column} 改成 {text!r}")
-    damage = sqlite3.connect(db)
-    damage.execute(f"UPDATE ioc SET {column} = ? WHERE name = 'ioc-a'", (text,))
-    damage.commit()
-    damage.close()
-    with expect_error(ValidationError, "读取被改坏的内容"):
-        st.read_ioc("ioc-a")
-
-
-def test_write_ioc_changes_only_the_given_columns(st):
-    """write_ioc: 只改给出的列,其他列和其他 IOC 都不变"""
-    st.write_ioc("ioc-a", {"state": "warning"})
-    st.write_ioc(
-        "ioc-a",
-        {
-            "snapshot": "tracked",
-            "src_files": {
-                "db_files": ["a.db"],
-                "protocol_files": ["a.proto"],
-                "other_files": [],
-            },
-        },
-    )
-    data = st.read_ioc("ioc-a")
-    check("(state, snapshot)", (data.state, data.snapshot), ("warning", "tracked"))
-    check("db_files", data.src_files.db_files, ["a.db"])
-    check("protocol_files", data.src_files.protocol_files, ["a.proto"])
-    check("other_files", data.src_files.other_files, [])
-    check_true("另一个 IOC 没有被动", st.read_ioc("ioc-b") == new_state())
-
-
-def test_write_ioc_rejects_invalid_values_as_a_whole(st):
-    """write_ioc: 有一个值非法就整体拒绝,一个都不写"""
-    st.write_ioc("ioc-a", {"state": "warning", "snapshot": "tracked"})
-    with expect_error(ValidationError, "snapshot=5"):
-        st.write_ioc("ioc-a", {"snapshot": 5})
-    with expect_error(ValidationError, "db_files 不是列表"):
-        st.write_ioc("ioc-a", {"src_files": {"db_files": "a.db"}})
-    with expect_error(ValidationError, "一个坏值拦住全部"):
-        st.write_ioc("ioc-a", {"state": "error", "snapshot": 5})
-    data = st.read_ioc("ioc-a")
-    check("(state, snapshot) 没变", (data.state, data.snapshot), ("warning", "tracked"))
-    with expect_error(ValueError, "什么都不写"):
-        st.write_ioc("ioc-a", {})
-    with expect_error(ValueError, "issues 不是 ioc 表的列"):
-        st.write_ioc("ioc-a", {"issues": []})
-
-
-def test_write_ioc_of_a_new_ioc_needs_every_column(st):
-    """write_ioc: 新建 IOC 时必须给齐所有列"""
-    with expect_error(sqlite3.IntegrityError, "只给了 snapshot"):
-        st.write_ioc("ioc-none", {"snapshot": "x"})
-    with expect_error(KeyError, "没有留下半个 IOC"):
-        st.read_ioc("ioc-none")
-    check_true("不在列表里", "ioc-none" not in st.list_iocs())
-
-
-def test_issues_are_appended_in_order_and_not_deduplicated(st):
-    """write_issues(append=True): 按顺序追加,不去重"""
-    st.write_ioc("ioc-a", {"state": "warning"})
-    issue = make_issue("first")
-    st.write_issues("ioc-a", [issue], append=True)
-    st.write_issues(
-        "ioc-a", [issue, make_issue("second", IssueLevel.ERROR)], append=True
-    )
-    data = st.read_ioc("ioc-a")
-    check("message 顺序", [i.message for i in data.issues], ["first", "first", "second"])
-    check("第三条的 level", data.issues[2].level, IssueLevel.ERROR)
-    check("另一个 IOC 的 issues", st.read_issues("ioc-b"), [])
-
-
-def test_write_issues_accepts_plain_dicts_and_an_empty_append(st):
-    """write_issues: 可以传 dict;append=True 配空列表什么都不改"""
-    entry = dict(level="info", reason="file_error", message="d", prompt="p", time="t")
-    st.write_issues("ioc-a", [entry])
-    issues = st.read_issues("ioc-a")
-    check("条数", len(issues), 1)
-    check("读回的 IssueEntry", issues[0], IssueEntry(**entry))
-    st.write_issues("ioc-a", [], append=True)
-    check("追加空列表之后", [i.message for i in st.read_issues("ioc-a")], ["d"])
-
-
-def test_replacing_issues_leaves_the_state_alone(st):
-    """write_issues: 替换 issue 不影响 IOC 的其他状态"""
-    st.write_ioc("ioc-a", {"state": "warning"})
-    st.write_issues("ioc-a", [make_issue("old")], append=True)
-    st.write_issues("ioc-a", [make_issue("only")])  # replaces
-    check("替换后", [i.message for i in st.read_issues("ioc-a")], ["only"])
-    st.write_issues("ioc-a", [])
-    data = st.read_ioc("ioc-a")
-    check("清空后 issues", data.issues, [])
-    check("state 没变", data.state, "warning")
-
-
-def test_invalid_issue_stops_a_replace_before_the_old_log_is_touched(st):
-    """write_issues: issue 非法时在动手之前就拒绝,旧记录保持原样"""
-    issue = make_issue("x")
-    st.write_issues("ioc-a", [make_issue("kept")])
-    with expect_error(ValidationError, "level 不合法"):
-        st.write_issues("ioc-a", [{"level": "nope"}])
-    with expect_error(ValidationError, "第二条不合法"):
-        st.write_issues("ioc-a", [issue, {"level": "nope"}])
-    check("旧记录", [i.message for i in st.read_issues("ioc-a")], ["kept"])
-
-
-def test_a_failing_insert_undoes_the_replace_and_the_append(st, db):
-    """write_issues: 写到一半失败时整体撤销(替换不会丢旧记录,追加不会留下前几条)"""
-    step("在库里加一个触发器,message 为 'bad' 的 issue 一律拒绝")
-    con = sqlite3.connect(db, isolation_level=None)
-    con.execute(
-        "CREATE TRIGGER no_bad BEFORE INSERT ON issue WHEN NEW.message = 'bad' "
-        "BEGIN SELECT RAISE(ABORT, 'bad issue'); END"
-    )
-    con.close()
-    st.write_issues("ioc-a", [make_issue("kept")])
-
-    with expect_error(sqlite3.IntegrityError, "替换:第二条被拒绝", match="bad issue"):
-        st.write_issues("ioc-a", [make_issue("new"), make_issue("bad")])
-    check("替换失败后旧记录还在", [i.message for i in st.read_issues("ioc-a")], ["kept"])
-
-    with expect_error(sqlite3.IntegrityError, "追加:第二条被拒绝", match="bad issue"):
-        st.write_issues("ioc-a", [make_issue("new"), make_issue("bad")], append=True)
-    check("追加失败后第一条也没留下", [i.message for i in st.read_issues("ioc-a")], ["kept"])
-
-
-def test_issues_of_an_ioc_that_is_not_there(st):
-    """write_issues: 给不存在的 IOC 写 issue 报错,读则返回空"""
-    with expect_error(sqlite3.IntegrityError, "IOC 不存在"):
-        st.write_issues("ioc-none", [make_issue()])
-    check("read_issues", st.read_issues("ioc-none"), [])
-    st.write_issues("ioc-none", [])  # nothing to write for an IOC that is not there
-    check_true("没有凭空建出 IOC", "ioc-none" not in st.list_iocs())
-
-
-def test_deleting_an_ioc_deletes_its_issues(st, db):
-    """delete_ioc: 删除 IOC 时它的 issue 一起被删"""
-    st.write_issues("ioc-a", [make_issue()], append=True)
-    check("删除前 issue 行数", count_issues(db), 1)
-    st.delete_ioc("ioc-a")  # the issues go with it
-    check("删除后 issue 行数", count_issues(db), 0)
-
-
-# ------------------------------------------------------------- transactions
-
-
-def test_transaction_commits_several_changes_as_one(st):
-    """transaction: 块正常结束时,里面的多个操作一起生效"""
-    with st.transaction():
-        st.write_ioc("ioc-a", {"snapshot": "tracked"})
-        st.write_issues("ioc-a", [make_issue("in tx")], append=True)
-        add_ioc(st, "ioc-e")
-    check("snapshot", snapshot_of(st), "tracked")
-    check("issue 条数", len(st.read_issues("ioc-a")), 1)
-    check_true("ioc-e 已加入", "ioc-e" in st.list_iocs())
-
-
-def test_transaction_is_undone_together_when_the_block_raises(st):
-    """transaction: 块里抛异常时,里面的多个操作一起撤销"""
-    st.write_ioc("ioc-a", {"snapshot": "tracked"})
-    add_ioc(st, "ioc-e")
-    with expect_error(RuntimeError, "块里抛异常", match="boom"):
-        with st.transaction():
-            st.write_ioc("ioc-a", {"snapshot": "error"})
-            st.delete_ioc("ioc-e")
-            raise RuntimeError("boom")
-    check("snapshot 回到原值", snapshot_of(st), "tracked")
-    check_true("ioc-e 还在", "ioc-e" in st.list_iocs())
-
-
-def test_failing_call_inside_a_transaction_undoes_the_calls_before_it(st):
-    """transaction: 其中一个调用失败时,它之前的调用也撤销"""
-    st.write_ioc("ioc-a", {"snapshot": "tracked"})
-    with expect_error(KeyError, "删除不存在的 IOC"):
-        with st.transaction():
-            st.write_ioc("ioc-a", {"snapshot": "error"})
-            st.delete_ioc("ioc-none")
-    check("snapshot 回到原值", snapshot_of(st), "tracked")
-
-
-def test_transaction_cannot_be_nested_and_leaves_nothing_open(st):
-    """transaction: 不能嵌套,报错之后实例仍可正常使用"""
-    with expect_error(RuntimeError, "嵌套"):
-        with st.transaction():
-            with st.transaction():
-                pass
-    st.write_ioc("ioc-a", {"snapshot": "tracked"})
-    check("之后可以正常写", snapshot_of(st), "tracked")
-
-
-def test_transaction_reads_its_own_writes_but_others_see_nothing_until_commit(st, db):
-    """transaction: 块里能读到自己未提交的写入,别的连接要等提交后才看得到"""
-    other = opened(db)
-    try:
-        with st.transaction():
-            st.write_ioc("ioc-a", {"snapshot": "tracked"})
-            check("块里自己读", snapshot_of(st), "tracked")
-            check("块里别的连接读", snapshot_of(other), "")
-        check("提交后别的连接读", snapshot_of(other), "tracked")
-    finally:
-        other.close()
-
-
-def test_other_thread_waits_until_the_transaction_ends(st):
-    """transaction: 事务期间,同一实例上别的线程的操作要等事务结束才能执行"""
-    done = threading.Event()
-    errors = []
-
-    def other_thread():
-        try:
-            st.write_ioc("ioc-a", {"snapshot": "from-thread"})
-        except BaseException as e:
-            errors.append(e)
-        finally:
-            done.set()
-
-    worker = threading.Thread(target=other_thread)
-    with st.transaction():
-        st.write_ioc("ioc-a", {"snapshot": "in-tx"})
-        step("事务还开着时,启动另一个线程去写")
-        worker.start()
-        check("0.5 秒内线程没有完成", done.wait(0.5), False)
-        check("事务里的值没被它改掉", snapshot_of(st), "in-tx")
-    worker.join(5)
-    check("事务结束后线程完成", done.is_set(), True)
-    check("线程没有出错", errors, [])
-    check("最后写入的是线程的值", snapshot_of(st), "from-thread")
-
-
-def test_transaction_of_another_thread_waits_instead_of_failing_as_nested(st):
-    """transaction: 另一个线程也想开事务时,要排队等待,不能被当成"嵌套"报错"""
-    done = threading.Event()
-    errors = []
-
-    def other_thread():
-        try:
-            with st.transaction():
-                st.write_ioc("ioc-a", {"snapshot": "from-thread"})
-        except BaseException as e:
-            errors.append(e)
-        finally:
-            done.set()
-
-    worker = threading.Thread(target=other_thread)
-    with st.transaction():
-        st.write_ioc("ioc-a", {"snapshot": "in-tx"})
-        step("事务还开着时,另一个线程也去开事务")
-        worker.start()
-        check("0.5 秒内线程在等待", done.wait(0.5), False)
-    worker.join(5)
-    check("线程的事务在之后完成", done.is_set(), True)
-    check("线程没有出错", errors, [])
-    check("最后写入的是线程的值", snapshot_of(st), "from-thread")
-
-
-def test_transaction_waits_for_another_writer_instead_of_failing(st, db):
-    """transaction: 先读后写的事务遇到别人正在写时,会等对方结束,而不是立刻失败"""
-    other = opened(db)
-    holding, release = threading.Event(), threading.Event()
-
-    def hold():
-        with other.transaction():
-            other.write_ioc("ioc-b", {"snapshot": "held"})
-            holding.set()
-            release.wait(10)
-
-    holder = threading.Thread(target=hold)
-    holder.start()
-    try:
-        check("另一个连接已持有写事务", holding.wait(5), True)
-        threading.Timer(0.5, release.set).start()
-        step("先读后写的事务开始(对方 0.5 秒后结束)")
-        started = time.monotonic()
-        with st.transaction():
-            st.read_ioc("ioc-a")
-            st.write_ioc("ioc-a", {"snapshot": "tracked"})
-        waited = time.monotonic() - started
-        note("等待了", f"{waited:.2f} 秒")
-        check_true("确实等了对方", waited >= 0.4, f"{waited:.2f}s")
-        check("写入成功", snapshot_of(st), "tracked")
-    finally:
-        release.set()
-        holder.join(5)
-        other.close()
-
-
-# ------------------------------------------------- how a transaction can fail
-
-
-def test_begin_failure_that_is_not_busy_is_raised_as_it_is(st):
-    """_txn: BEGIN 失败但不是锁忙时,原样抛出(不会被当成超时)"""
-    step("手工开一个事务,让下一次 BEGIN 失败")
-    st._conn.execute("BEGIN")
-    try:
-        with expect_error(
-            sqlite3.OperationalError, "BEGIN 失败", match="within a transaction"
-        ):
-            st.list_iocs()
-    finally:
-        st._conn.execute("ROLLBACK")
-    check("清理之后又能用了", st.list_iocs(), ["ioc-a", "ioc-b"])
-
-
-def test_busy_error_inside_the_block_becomes_a_timeout(st):
-    """_txn: 块里遇到"数据库被锁"时转成 TimeoutError,别的 OperationalError 不转"""
-    with expect_error(TimeoutError, "锁忙", match="busy") as info:
-        with st._txn(True):
-            raise sqlite3.OperationalError("database is locked")
-    check_true(
-        "原始错误保留在 __cause__",
-        isinstance(info.value.__cause__, sqlite3.OperationalError),
-    )
-    with expect_error(sqlite3.OperationalError, "别的运行错误", match="no such table"):
-        with st._txn(True):
-            raise sqlite3.OperationalError("no such table: ioc")
-    check("两次失败后仍可用", st.list_iocs(), ["ioc-a", "ioc-b"])
-
-
-def test_a_rollback_that_fails_does_not_hide_the_real_error(st):
-    """_txn: ROLLBACK 自己失败时,抛出的仍是原来的错误,实例之后仍可用"""
-    step("块里先让 SQLite 结束事务,再抛错,于是 _txn 的 ROLLBACK 会失败")
-    with expect_error(RuntimeError, "原来的错误", match="boom"):
-        with st._txn(True) as conn:
-            conn.execute("ROLLBACK")
-            raise RuntimeError("boom")
-    check("之后仍可用", st.list_iocs(), ["ioc-a", "ioc-b"])
-    st.write_ioc("ioc-a", {"snapshot": "tracked"})
-    check("之后仍可写", snapshot_of(st), "tracked")
-
-
-def test_busy_database_times_out_for_writers_but_not_readers(st, db):
-    """锁: 别人在写事务里时,写的一方超时报 TimeoutError,读的一方不受影响"""
-    st.write_ioc("ioc-a", {"snapshot": "tracked"})
-    st2 = opened(db, timeout=0.3)
-    try:
-        with st.transaction():
-            st.write_ioc("ioc-a", {"snapshot": "error"})
-            check("st2 读到的是提交前的值", snapshot_of(st2), "tracked")
-            with expect_error(TimeoutError, "st2 写入"):
-                st2.write_ioc("ioc-a", {"snapshot": "untracked"})
-        check("提交后 st2 读到新值", snapshot_of(st2), "error")
-        st2.write_ioc("ioc-a", {"snapshot": "tracked"})  # free again
-        check("锁释放后 st2 可以写", snapshot_of(st2), "tracked")
-    finally:
-        st2.close()
-
-
-def test_exclusive_lock_blocks_even_connecting(db):
-    """锁: 别人持有独占锁时,连 connect 都会超时"""
-    hold = sqlite3.connect(db, isolation_level=None)
-    try:
-        hold.execute("BEGIN EXCLUSIVE")  # nothing can even read now
-        with expect_error(TimeoutError, "独占锁下 connect"):
-            opened(db, timeout=0.3)
-        hold.execute("ROLLBACK")
-    finally:
-        hold.close()
-
-
-def test_only_locked_by_another_process_counts_as_busy():
-    """_is_database_busy: 只有"锁/忙"类的 OperationalError 才算忙"""
-    busy = IocStateManager._is_database_busy
-    check("database is locked", busy(sqlite3.OperationalError("database is locked")), True)
-    check("table is locked", busy(sqlite3.OperationalError("database table is locked")), True)
-    check("database is busy", busy(sqlite3.OperationalError("database is busy")), True)
-    check("no such table", busy(sqlite3.OperationalError("no such table: ioc")), False)
-    check("不是 OperationalError", busy(ValueError("database is locked")), False)
-
-
-def test_threads_and_processes_writing_together_lose_nothing(st, db):
-    """并发: 8 个线程 + 4 个进程同时写 issue,一条都不丢"""
-    # The processes are started fresh: an instance cannot be carried across fork().
-    add_ioc(st, "ioc-load")
-    errors = []
-
-    def thread_work():
-        try:
-            for _ in range(25):
-                st.write_issues("ioc-load", [make_issue("thread")], append=True)
-        except BaseException as e:
-            errors.append(e)
-
-    process_code = (
-        "import sys; sys.path.insert(0, sys.argv[1])\n"
-        "from core.ioc_state import IocStateManager\n"
-        "from core.ioc_schema import IssueEntry\n"
-        "own = IocStateManager(sys.argv[2])\n"
-        "own.connect()\n"
-        "for _ in range(25):\n"
-        "    own.write_issues('ioc-load', [IssueEntry(level='info', reason='file_error',"
-        " message='process', prompt='', time='t')], append=True)\n"
-        "own.close()\n"
-    )
-    step("启动 4 个进程(各写 25 条)和 8 个线程(各写 25 条)")
-    procs = [
-        subprocess.Popen(
-            [sys.executable, "-I", "-c", process_code, str(REPO_ROOT), db]
-        )
-        for _ in range(4)
-    ]
-    threads = [threading.Thread(target=thread_work) for _ in range(8)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    check("各进程的退出码", [p.wait() for p in procs], [0, 0, 0, 0])
-    check("线程里的错误", errors, [])
-    found = [i.message for i in st.read_issues("ioc-load")]
-    check("线程写入的条数(期望 8×25)", found.count("thread"), 200)
-    check("进程写入的条数(期望 4×25)", found.count("process"), 100)
-
-
-def test_database_that_vanishes_is_an_error_and_a_replaced_one_is_followed(st, db):
-    """文件: 库被删报 FileNotFoundError 且不会重建;被换成新库时实例跟着用新库"""
-    Path(db).unlink()
-    with expect_error(FileNotFoundError, "库文件被删"):
-        st.list_iocs()
-    check_true("原位置没有被偷偷建出文件", not Path(db).exists())
-    IocStateManager.initialize(db)  # a new database: the open instance moves to it
-    check("换成新库之后", st.list_iocs(), [])
-    add_ioc(st, "ioc-new")
-    other = opened(db)
-    check("另一个实例看到的", other.list_iocs(), ["ioc-new"])
-    other.close()
-
-
-def test_close_ends_the_instance_and_it_can_be_connected_again(st, db):
-    """close: 关闭后不能再用,可以重新 connect"""
-    scoped = opened(db)
-    check("关闭前", scoped.list_iocs(), ["ioc-a", "ioc-b"])
-    scoped.close()
-    with expect_error(RuntimeError, "关闭后使用"):
-        scoped.list_iocs()
-    scoped.connect()
-    check("重新 connect 后", scoped.list_iocs(), ["ioc-a", "ioc-b"])
-    scoped.close()
-
-
-# --------------------------------------------------------------------- IOC
-
-
-@pytest.fixture
-def shared():
-    """core.ioc.state_manager, with no IOC left in it after the test."""
-    yield state_manager
-    for name in state_manager.list_iocs():
-        state_manager.delete_ioc(name)
-
-
-def test_ioc_module_holds_one_connected_state():
-    """core.ioc.state_manager: import 时就连好的共享 IocStateManager,用的是临时库"""
-    check_true("是 IocStateManager", isinstance(state_manager, IocStateManager))
-    check("db_path", state_manager.db_path, os.path.abspath(ioc_config.DEFAULT_DB_PATH))
-    check_true("库在开发目录的 .test-tmp 里", state_manager.db_path.startswith(str(REPO_ROOT / ".test-tmp")))
-    check_true("不在 /opt 下", not state_manager.db_path.startswith("/opt"))
-    check("没有数据时", state_manager.list_iocs(), [])
-
-
-def test_importing_ioc_without_a_database_fails(tmp_path):
-    """core.ioc: 库不存在时 import 直接抛 FileNotFoundError,也不会建库"""
+def test_importing_ioc_needs_no_database_but_using_it_does(tmp_path):
+    """core.ioc: 库不存在时 import 照常成功,get_state_manager 才抛 FileNotFoundError,也不会建库"""
     missing = tmp_path / "ioc-state.db"
     code = (
         "import sys; sys.path.insert(0, sys.argv[1])\n"
-        "from core import ioc_config\n"
-        "ioc_config.DEFAULT_DB_PATH = sys.argv[2]\n"
+        "from core import settings\n"
+        "settings.DEFAULT_DB_PATH = sys.argv[2]\n"
         "import core.ioc\n"
+        "print('imported')\n"
+        "from core.ioc_state import get_state_manager\n"
+        "get_state_manager()\n"
     )
     result = subprocess.run(
         [sys.executable, "-I", "-c", code, str(REPO_ROOT), str(missing)],
@@ -1168,67 +35,832 @@ def test_importing_ioc_without_a_database_fails(tmp_path):
         text=True,
     )
     check("退出码", result.returncode, 1)
+    check_true("import 成功了", "imported" in result.stdout, result.stdout)
     check_true("报的是 FileNotFoundError", "FileNotFoundError" in result.stderr, result.stderr)
     check_true("没有建出库文件", not missing.exists())
 
 
-def test_ioc_reads_its_state_from_the_shared_database(shared):
-    """IOC: 初始化时用 core.ioc.state_manager 从库里读自己的状态"""
-    add_ioc(shared, "ioc-a")
-    ioc = IOC("ioc-a")
-    check("name", ioc.name, "ioc-a")
-    check_true("state_manager 就是 core.ioc.state_manager", ioc.state_manager is shared)
-    check("state_data", ioc.state_data, shared.read_ioc("ioc-a"))
+def test_ioc_reads_its_state_from_the_shared_database(fresh):
+    """IOC: 初始化时用共享的 state manager 从库里读自己的状态"""
+    shared = fresh
+    add_ioc(shared, "ioca")
+    os.makedirs(os.path.join(settings.IOCS_DIR, "ioca"))
+    ioc = IOC("ioca")
+    check("name", ioc.name, "ioca")
+    check_true("state_manager 就是 get_state_manager() 的那个", ioc.state_manager is shared)
+    check("state_data", ioc.state_data, shared.read_ioc("ioca"))
     check_true("config 是 IocConfig", isinstance(ioc.config, IocConfig))
     check("config.path", ioc.config.path, ioc.config_path)
-    check("config 文件名", os.path.basename(ioc.config_path), ioc_config.CONFIG_FILE_NAME)
-    check("config 在 IOC 自己的目录里", os.path.dirname(ioc.config_path), os.path.join(ioc_config.IOCS_DIR, "ioc-a"))
+    check("config 文件名", os.path.basename(ioc.config_path), settings.CONFIG_FILE_NAME)
+    check("config 在 IOC 自己的目录里", os.path.dirname(ioc.config_path), os.path.join(settings.IOCS_DIR, "ioca"))
     check_true("config 路径不在 /opt 下", not ioc.config_path.startswith("/opt"))
     check_true("config 路径在开发目录的 .test-tmp 里", ioc.config_path.startswith(str(REPO_ROOT / ".test-tmp")))
 
 
-def test_ioc_that_is_not_in_the_database_raises_ioc_not_found(shared):
+def test_ioc_that_is_not_in_the_database_raises_ioc_not_found(fresh):
     """IOC: 库里没有这个 IOC 时抛 IocNotFoundError"""
-    add_ioc(shared, "ioc-a")
+    add_ioc(fresh, "ioca")
+    os.makedirs(os.path.join(settings.IOCS_DIR, "ioca"))
     with expect_error(IocNotFoundError, "库里没有 ioc-b"):
-        IOC("ioc-b")
+        IOC("iocb")
 
 
-# ------------------------------------------------------- scripts/init_state_db.py
+def test_check_presence_tells_the_four_cases_apart(fresh):
+    """IOC.check_presence: 库里的记录和目录各有各没有,四种情况分开返回"""
+    check("都没有", IOC.check_presence("ioca"), "missing")
+    IOC.create("ioca")
+    check("都有", IOC.check_presence("ioca"), "complete")
+    shutil.rmtree(os.path.join(settings.IOCS_DIR, "ioca"))
+    check("只有记录", IOC.check_presence("ioca"), "no_directory")
+    fresh.delete_ioc("ioca")
+    os.makedirs(os.path.join(settings.IOCS_DIR, "ioca"))
+    check("只有目录", IOC.check_presence("ioca"), "unregistered")
+    with expect_error(ValueError, "名字不合法"):
+        IOC.check_presence("../x")
 
-INIT_SCRIPT = REPO_ROOT / "scripts" / "init_state_db.py"
+
+def test_ioc_whose_directory_is_gone_is_opened_and_refresh_records_it_once(fresh):
+    """IOC: 库里有记录但目录没了,照常打开;refresh 把问题记成一条 issue,再 refresh 多少次也只有这一条"""
+    IOC.create("ioca")
+    shutil.rmtree(os.path.join(settings.IOCS_DIR, "ioca"))
+    ioc = IOC("ioca")
+    check("name", ioc.name, "ioca")
+    check("打开时不看文件,还没有问题", problems(ioc.state_data.issues), [])
+    found = problems(ioc.refresh().issues)
+    check("一条", len(found), 1)
+    issue = found[0]
+    check("level", issue.level, IssueLevel.ERROR)
+    check("reason", issue.reason, IssueReason.FILE_ERROR)
+    check_true("消息说目录没了", "directory is missing" in issue.message and ioc.dir_path in issue.message)
+    check("库里存了同一条", problems(fresh.read_issues("ioca")), [issue])
+    ioc.refresh()
+    check("还是一条", problems(IOC("ioca").state_data.issues), [issue])
+    check("记录还在", fresh.list_iocs(), ["ioca"])
 
 
-def run_init_script(*args):
-    return subprocess.run(
-        [sys.executable, "-I", str(INIT_SCRIPT), *args], capture_output=True, text=True
+def test_directory_without_a_record_is_opened_and_gets_a_record_and_an_issue(fresh):
+    """IOC: 有目录但库里没有记录,照常打开,补一条记录并记一条 RECORD_RESET;目录里的东西不动;再打开不再重复,这条也不会被刷新掉"""
+    d = Path(settings.IOCS_DIR) / "ioca"
+    (d / "src").mkdir(parents=True)
+    (d / "src" / "mine.db").write_text("keep me\n")
+    (d / "notes.txt").write_text("also mine\n")
+    ioc = IOC("ioca")
+    check("name", ioc.name, "ioca")
+    reset = [i for i in ioc.state_data.issues if i.reason == IssueReason.RECORD_RESET]
+    check("一条 RECORD_RESET", len(reset), 1)
+    check("level", reset[0].level, IssueLevel.ERROR)
+    check_true("消息说库里没有记录", "not in the database" in reset[0].message and ioc.dir_path in reset[0].message)
+    check("打开时只有这一条 issue", ioc.state_data.issues, reset)
+    check("src_files 还是空的,要等 refresh", ioc.state_data.src_files.db_files, [])
+    check("refresh 之后按目录里实际的文件填", ioc.refresh().src_files.db_files, ["mine.db"])
+    check("库里存了同样的 issue", fresh.read_issues("ioca"), ioc.state_data.issues)
+    check("目录里的文件没动", sorted(p.name for p in d.iterdir()), ["notes.txt", "src"])
+    check("文件内容没动", (d / "src" / "mine.db").read_text(), "keep me\n")
+    check_true("没有擅自建仓库", not (d / ".git").exists())
+    check("现在是完整的", IOC.check_presence("ioca"), "complete")
+    step("再打开两次")
+    IOC("ioca")
+    again = IOC("ioca")
+    check("RECORD_RESET 还是那一条", [i for i in again.state_data.issues if i.reason == IssueReason.RECORD_RESET], reset)
+
+
+def test_both_halves_missing_is_still_not_found(fresh):
+    """IOC: 目录和记录都没有才是真的找不到,抛 IocNotFoundError"""
+    with expect_error(IocNotFoundError, "什么都没有"):
+        IOC("ioca")
+    check("没有补出记录", fresh.list_iocs(), [])
+
+
+def test_create_refuses_a_complete_ioc_even_with_force(fresh):
+    """IOC.create: 完整的 IOC 即使 force 也不会重建,什么都不动"""
+    ioc = IOC.create("ioca")
+    mine = Path(ioc.dir_path) / "src" / "mine.db"
+    mine.write_text("keep me\n")
+    before = fresh.read_ioc("ioca")
+    with expect_error(IocExistsError, "force 也不行") as info:
+        IOC.create("ioca", force=True)
+    check_true("说的是已经存在", str(info.value).endswith("already exists"), str(info.value))
+    check("文件没动", mine.read_text(), "keep me\n")
+    check("状态没动", fresh.read_ioc("ioca"), before)
+
+
+def test_forced_create_adopts_a_directory_that_has_no_record(fresh):
+    """IOC.create(force=True): 目录已经有、库里没有:目录和里面的东西保留,缺的补上,登记一条默认状态的记录"""
+    d = Path(settings.IOCS_DIR) / "ioca"
+    d.mkdir(parents=True)
+    (d / "ioc-config.yaml").write_text("mine\n")
+    ioc = IOC.create("ioca", force=True)
+    check("文件还在", (d / "ioc-config.yaml").read_text(), "mine\n")
+    check_true("补了 src", (d / "src").is_dir())
+    check_true("补了仓库", ioc.repository.exists())
+    check("状态是默认值", plain(ioc.state_data), plain(new_state()))
+    check("现在是完整的", IOC.check_presence("ioca"), "complete")
+
+
+def test_forced_create_keeps_an_existing_repository_and_src(fresh):
+    """IOC.create(force=True): 目录里已有仓库和 src 就原样用,不重新初始化,历史不丢"""
+    d = Path(settings.IOCS_DIR) / "ioca"
+    (d / "src").mkdir(parents=True)
+    (d / "src" / "mine.db").write_text("keep me\n")
+    repo = IocRepository(d)
+    repo.init()
+    head = repo.commit("mine")
+    ioc = IOC.create("ioca", force=True)
+    check("提交还在", ioc.repository.head(), head)
+    check("文件还在", (d / "src" / "mine.db").read_text(), "keep me\n")
+
+
+def test_forced_create_rebuilds_a_directory_that_is_gone_and_resets_the_record(fresh):
+    """IOC.create(force=True): 有记录目录没了:重新建目录,记录重置为默认状态,旧 issue 清掉"""
+    ioc = IOC.create("ioca")
+    fresh.write_ioc("ioca", {"snapshot": "old"})
+    fresh.write_issues("ioca", [make_issue("old problem")])
+    shutil.rmtree(ioc.dir_path)
+    again = IOC.create("ioca", force=True)
+    check_true("目录又有了", os.path.isdir(again.dir_path))
+    check_true("有 src", os.path.isdir(os.path.join(again.dir_path, "src")))
+    check_true("有仓库", again.repository.exists())
+    check("状态是默认值", plain(again.state_data), plain(new_state()))
+    check_true("旧 issue 没了", "old problem" not in messages_of(again), messages_of(again))
+    check_true("目录没了的 issue 也没了", not any("missing" in m for m in messages_of(again)))
+    check("现在是完整的", IOC.check_presence("ioca"), "complete")
+
+
+def test_forced_create_that_fails_leaves_an_adopted_directory_as_it_was(fresh, monkeypatch):
+    """IOC.create(force=True): 失败时,原来就有的目录和文件不删,只撤销自己加的 src 和 .git,库里不留记录"""
+    d = Path(settings.IOCS_DIR) / "ioca"
+    d.mkdir(parents=True)
+    (d / "mine.txt").write_text("keep me\n")
+    monkeypatch.setattr(type(fresh), "write_ioc", lambda *a, **k: (_ for _ in ()).throw(OSError("disk on fire")))
+    with expect_error(IocInitError, "写库失败"):
+        IOC.create("ioca", force=True)
+    check("目录里只剩原来的文件", sorted(p.name for p in d.iterdir()), ["mine.txt"])
+    check("文件没动", (d / "mine.txt").read_text(), "keep me\n")
+    monkeypatch.undo()
+    check("库里没有", fresh.list_iocs(), [])
+
+
+def test_forced_create_that_fails_leaves_the_old_record_when_it_made_the_directory(fresh, monkeypatch):
+    """IOC.create(force=True): 有记录目录没了的情况下失败:刚建的目录删掉,原来的记录和 issue 不变"""
+    ioc = IOC.create("ioca")
+    fresh.write_ioc("ioca", {"snapshot": "old"})
+    shutil.rmtree(ioc.dir_path)
+    before = fresh.read_ioc("ioca")
+    real_write = type(fresh).write_ioc
+
+    def write_then_fail(self, *args, **kwargs):
+        real_write(self, *args, **kwargs)
+        raise OSError("disk on fire")
+
+    monkeypatch.setattr(type(fresh), "write_ioc", write_then_fail)
+    with expect_error(IocInitError, "写库失败"):
+        IOC.create("ioca", force=True)
+    monkeypatch.undo()
+    check_true("刚建的目录删了", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
+    check("记录回到原样(事务回滚)", fresh.read_ioc("ioca"), before)
+
+
+def test_create_says_which_half_of_an_ioc_is_there_and_touches_neither(fresh):
+    """IOC.create: 只有记录、只有目录两种异常情况都拒绝创建,而且报错分得清是哪一种,记录和目录都不动"""
+    IOC.create("ioca")
+    IOC.create("iocb")
+    shutil.rmtree(os.path.join(settings.IOCS_DIR, "ioca"))  # a: only the record
+    fresh.delete_ioc("iocb")                                  # b: only the directory
+    (Path(settings.IOCS_DIR) / "iocb" / "src" / "mine.db").write_text("keep me\n")
+    with expect_error(IocExistsError, "只有记录") as only_record:
+        IOC.create("ioca")
+    with expect_error(IocExistsError, "只有目录") as only_dir:
+        IOC.create("iocb")
+    check_true("a 的消息说目录没了", "directory is missing" in str(only_record.value))
+    check_true("b 的消息说库里没有", "not in the database" in str(only_dir.value))
+    check_true("a 的目录没有被建出来", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
+    check("a 的记录还在", fresh.list_iocs(), ["ioca"])
+    check("b 的文件还在", (Path(settings.IOCS_DIR) / "iocb" / "src" / "mine.db").read_text(), "keep me\n")
+
+
+def plain(state):
+    """A state without its issues, to compare the rest of it"""
+    return state.model_dump(exclude={"issues"})
+
+
+def problems(issues):
+    """The issues of refresh(), without the records of the operations that were done"""
+    return [i for i in issues if i.reason not in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
+
+
+def messages_of(ioc):
+    return [i.message for i in problems(ioc.state_data.issues)]
+
+
+def fresh_tmp_dir(ioc):
+    """An empty directory next to the IOC's, outside of it"""
+    d = Path(ioc.dir_path).parent / "_templates"
+    d.mkdir(exist_ok=True)
+    return d
+
+
+@pytest.fixture
+def fresh(shared):
+    """The shared state manager and an empty directory of IOCs, both emptied again
+    after the test"""
+    shutil.rmtree(settings.IOCS_DIR, ignore_errors=True)
+    yield shared
+    shutil.rmtree(settings.IOCS_DIR, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["ioca", "ab", "a1", "ioc01", "a" * 63],
+    ids=lambda n: n if len(n) < 20 else f"{len(n)} chars",
+)
+def test_names_that_every_user_of_the_name_accepts(name):
+    """check_name: 目录名、Docker service/container 名和 DNS 都能用的名字通过"""
+    check_name(name)
+    check_true(f"{name[:20]!r} 通过", True)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "", "a", "A", "Ioc-a", "ioc_a", "ioc.a", "ioc-a", "-ioc", "ioc-", "a--b", "1ioc", "ioc a", "ioc/a",
+        "../x", "..", ".", "ioc\n", "ioc-\u4e2d", "a" * 64, None, 5, b"ioca",
+    ],
+    ids=repr,
+)
+def test_names_that_some_user_of_the_name_rejects(name):
+    """check_name: 大写、下划线、点、路径符号、太短太长、不是字符串的名字都被拒绝"""
+    with expect_error(ValueError, f"{name!r} 不合法"):
+        check_name(name)
+
+
+def test_ioc_rejects_a_bad_name_before_touching_anything(fresh):
+    """IOC / IOC.create: 名字不合法就直接报 ValueError,既不查库也不碰目录"""
+    with expect_error(ValueError, "打开"):
+        IOC("../x")
+    with expect_error(ValueError, "创建"):
+        IOC.create("../x")
+    check_true("没有建出目录", not os.path.exists(settings.IOCS_DIR) or os.listdir(settings.IOCS_DIR) == [])
+    check("库里没有", fresh.list_iocs(), [])
+
+
+def test_create_makes_an_empty_ioc_with_a_repository_and_a_state(fresh):
+    """IOC.create: 建出空的 IOC:目录、空的 src、还没有提交的 git 仓库,库里登记状态;不放配置文件"""
+    ioc = IOC.create("ioca")
+    check_true("返回 IOC", isinstance(ioc, IOC))
+    check("name", ioc.name, "ioca")
+    check_true("目录在 IOCS_DIR 里", os.path.isdir(os.path.join(settings.IOCS_DIR, "ioca")))
+    check("目录里只有 src 和 .git", sorted(p.name for p in Path(ioc.dir_path).iterdir()), [".git", "src"])
+    check("src 是空的", list((Path(ioc.dir_path) / "src").iterdir()), [])
+    check_true("没有配置文件", not os.path.exists(ioc.config_path))
+    check_true("有仓库", ioc.repository.exists())
+    check("还没有提交", ioc.repository.head(), None)
+    check("没有任何改动", ioc.repository.is_clean(), True)
+    check("库里的状态是 new_state() 的默认值", plain(ioc.state_data), plain(new_state()))
+    check("只有一条操作记录:创建", [(i.level, i.reason, i.message) for i in ioc.state_data.issues], [(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "created")])
+    check("库里读到的和对象里的一样", fresh.read_ioc("ioca"), ioc.state_data)
+    check("之后能用 IOC(name) 打开", IOC("ioca").state_data, ioc.state_data)
+    with expect_error(FileNotFoundError, "还没有配置文件时 load"):
+        ioc.config.load()
+
+
+def test_create_template_writes_into_the_given_directory_and_the_ioc_need_not_exist(fresh, tmp_path):
+    """IOC.create_template: 模板写进指定目录,不要求 IOC 存在,也不在库里登记任何东西"""
+    path = IOC.create_template("ioca", directory=tmp_path)
+    check("路径", path, str(tmp_path / settings.CONFIG_FILE_NAME))
+    check("库里没有", fresh.list_iocs(), [])
+    check_true("IOCS_DIR 里没有", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
+    conf = IocConfig(path)
+    conf.load()
+    check("模板里的名字是 IOC 的名字,不是目录名", conf.data.basic.name, "ioca")
+
+
+def test_create_template_without_a_directory_uses_the_current_one(fresh, tmp_path, monkeypatch):
+    """IOC.create_template: 不给目录就写在当前目录(终端在哪里执行就在哪里)"""
+    monkeypatch.chdir(tmp_path)
+    path = IOC.create_template("ioca", build_type="modbus")
+    check("路径", Path(path).resolve(), (tmp_path / settings.CONFIG_FILE_NAME).resolve())
+    check_true("文件在", Path(path).is_file())
+
+
+def test_create_template_never_overwrites_and_checks_the_name(tmp_path):
+    """IOC.create_template: 已有的文件不覆盖(用户可能已经改过);名字不合法报 ValueError,不写文件"""
+    path = Path(IOC.create_template("ioca", directory=tmp_path))
+    path.write_text("edited by the user\n")
+    with expect_error(FileExistsError, "已有文件"):
+        IOC.create_template("ioca", directory=tmp_path)
+    check("没被覆盖", path.read_text(), "edited by the user\n")
+    other = tmp_path / "other"
+    other.mkdir()
+    with expect_error(ValueError, "名字不合法"):
+        IOC.create_template("Bad_Name", directory=other)
+    check("没有写文件", list(other.iterdir()), [])
+
+
+def test_a_template_copied_into_the_ioc_directory_is_a_valid_config(fresh, tmp_path):
+    """IOC.create_template + IOC.create: 模板放进 IOC 目录后,配置有效,名字和目录名对得上,没有警告"""
+    template = IOC.create_template("ioca", build_type="stream_device", directory=tmp_path)
+    ioc = IOC.create("ioca")
+    shutil.copy(template, ioc.config_path)
+    ioc.config.load()
+    check("没有问题", ioc.config.issues, [])
+    check("有效", ioc.config.is_valid, True)
+    check("仓库里它是新增的文件", ioc.repository.status()["added"], [settings.CONFIG_FILE_NAME])
+
+
+def test_create_of_a_name_in_the_database_changes_nothing(fresh):
+    """IOC.create: 库里已经有这个名字就报 IocExistsError,已有的东西不动"""
+    first = IOC.create("ioca")
+    mine = Path(first.dir_path) / "src" / "mine.db"
+    mine.write_text("keep me\n")
+    before = fresh.read_ioc("ioca")
+    with expect_error(IocExistsError, "再建一次"):
+        IOC.create("ioca")
+    check("库里还是一个", fresh.list_iocs(), ["ioca"])
+    check("状态没动", fresh.read_ioc("ioca"), before)
+    check("文件没动", mine.read_text(), "keep me\n")
+    check_true("仓库还在", first.repository.exists())
+
+
+def test_create_of_a_name_whose_directory_exists_leaves_the_directory_alone(fresh):
+    """IOC.create: 目录已经有了(库里没有)也报 IocExistsError,而且不会把别人的目录当成自己的清理掉"""
+    leftover = Path(settings.IOCS_DIR) / "ioca"
+    leftover.mkdir(parents=True)
+    (leftover / "mine.txt").write_text("keep me\n")
+    with expect_error(IocExistsError, "目录已存在"):
+        IOC.create("ioca")
+    check("文件还在", (leftover / "mine.txt").read_text(), "keep me\n")
+    check("目录里没有多出东西", sorted(p.name for p in leftover.iterdir()), ["mine.txt"])
+    check("库里没有", fresh.list_iocs(), [])
+
+
+@pytest.mark.parametrize(
+    "target, why",
+    [
+        ("core.ioc_repository.IocRepository.init", "初始化仓库时"),
+        ("core.ioc_state.IocStateManager.write_ioc", "写库时"),
+    ],
+    ids=lambda v: v if v.startswith("core") else None,
+)
+def test_create_that_fails_removes_what_it_made(fresh, monkeypatch, target, why):
+    """IOC.create: 哪一步失败都把已经建好的目录清掉、库里不留记录,并报 IocInitError"""
+    module, cls, attr = target.rsplit(".", 2)
+    owner = getattr(__import__(module, fromlist=[cls]), cls)
+
+    def boom(*args, **kwargs):
+        raise OSError("disk on fire")
+
+    monkeypatch.setattr(owner, attr, boom)
+    with expect_error(IocInitError, why) as info:
+        IOC.create("ioca")
+    check_true("原因在消息里", "disk on fire" in str(info.value))
+    check_true("原因接在后面", isinstance(info.value.__cause__, OSError))
+    check_true("目录没有留下", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
+    check("库里没有", fresh.list_iocs(), [])
+    monkeypatch.undo()
+    check_true("之后可以正常创建", isinstance(IOC.create("ioca"), IOC))
+
+
+def test_create_that_cannot_make_src_removes_the_directory(fresh, monkeypatch):
+    """IOC.create: 建 src 失败也清理刚建的目录"""
+    real_mkdir = os.mkdir
+
+    def mkdir_that_fails_for_src(path, *args, **kwargs):
+        if os.path.basename(path) == "src":
+            raise PermissionError("no src for you")
+        return real_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "mkdir", mkdir_that_fails_for_src)
+    with expect_error(IocInitError, "建 src 时"):
+        IOC.create("ioca")
+    check_true("目录没有留下", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
+    check("库里没有", fresh.list_iocs(), [])
+
+
+def test_create_that_meets_a_directory_made_at_the_last_moment_leaves_it_alone(fresh, monkeypatch):
+    """IOC.create: 检查之后、建目录之前有人手动建了同名目录:报 IocExistsError,那个目录和里面的东西不动,库里没有记录"""
+    d = Path(settings.IOCS_DIR) / "ioca"
+    d.mkdir(parents=True)
+    (d / "mine.txt").write_text("keep me\n")
+    monkeypatch.setattr(IOC, "check_presence", classmethod(lambda cls, name: "missing"))  # it was not there yet
+    with expect_error(IocExistsError, "后来才有的目录") as info:
+        IOC.create("ioca")
+    check_true("说的是目录已存在", "directory" in str(info.value) and "exists" in str(info.value), str(info.value))
+    check("文件还在", (d / "mine.txt").read_text(), "keep me\n")
+    check("目录里没有多出东西", sorted(p.name for p in d.iterdir()), ["mine.txt"])
+    check("库里没有", fresh.list_iocs(), [])
+
+
+def test_create_that_is_interrupted_cleans_up_and_raises_the_interrupt_itself(fresh, monkeypatch):
+    """IOC.create: 被 Ctrl-C 打断也清理,而且抛的还是 KeyboardInterrupt,不包成 IocInitError"""
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(IocRepository, "init", interrupted)
+    with expect_error(KeyboardInterrupt, "打断"):
+        IOC.create("ioca")
+    check_true("目录没有留下", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
+    check("库里没有", fresh.list_iocs(), [])
+
+
+CREATE_SLOWLY = """
+import sys, time
+sys.path.insert(0, sys.argv[1])
+from core import settings
+settings.DEFAULT_DB_PATH, settings.IOCS_DIR = sys.argv[2], sys.argv[3]
+from core.ioc_repository import IocRepository
+real_init = IocRepository.init
+def slow_init(self, *args, **kwargs):
+    real_init(self, *args, **kwargs)
+    time.sleep(1.5)  # the directory and the repository are there, the record is not yet
+IocRepository.init = slow_init
+from core.ioc import IOC
+IOC.create("ioca")
+"""
+
+
+def test_opening_an_ioc_that_another_process_is_still_creating_waits_for_it(fresh):
+    """IOC.create: 别的进程正在创建(目录和仓库已经有、记录还没写)时,这时打开同名 IOC 会等它做完,拿到完整的 IOC,不会抢先给目录补记录"""
+    proc = subprocess.Popen(
+        [sys.executable, "-I", "-c", CREATE_SLOWLY, str(REPO_ROOT), settings.DEFAULT_DB_PATH, settings.IOCS_DIR],
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        git_dir = Path(settings.IOCS_DIR) / "ioca" / ".git"
+        deadline = time.monotonic() + 10
+        while not git_dir.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        check_true("创建进程已经建好目录和仓库", git_dir.exists())
+        check("这时库里还没有记录", fresh.exists("ioca"), False)
+        started = time.monotonic()
+        opened = IOC("ioca")
+        waited = time.monotonic() - started
+        note("等了(秒)", round(waited, 2))
+        check_true("确实等了它", waited > 0.5)
+        check("拿到的是完整的 IOC", IOC.check_presence("ioca"), "complete")
+        check("只有创建时那一条记录", [i.message for i in opened.state_data.issues], ["created"])
+        check_true("没有补记录的 RECORD_RESET", not any(i.reason == IssueReason.RECORD_RESET for i in opened.state_data.issues))
+    finally:
+        proc.wait(timeout=20)
+    check("创建进程成功结束", proc.returncode, 0)
+    check("它没有报错", proc.stderr.read(), "")
+
+
+def test_create_that_fails_takes_its_files_away_before_anyone_else_can_look(fresh, monkeypatch):
+    """IOC.create: 失败时先把自己建的东西删掉,再放开数据库锁,所以别人不会看到做了一半的目录"""
+    seen = {}
+
+    def failing_write(self, *args, **kwargs):
+        raise OSError("disk on fire")
+
+    monkeypatch.setattr(type(fresh), "write_ioc", failing_write)
+    real_transaction = type(fresh).transaction
+
+    from contextlib import contextmanager
+
+    @contextmanager
+    def watching(self):
+        try:
+            with real_transaction(self):
+                yield self
+        finally:
+            seen["directory_after_lock_was_let_go"] = os.path.exists(os.path.join(settings.IOCS_DIR, "ioca"))
+
+    monkeypatch.setattr(type(fresh), "transaction", watching)
+    with expect_error(IocInitError, "写库失败"):
+        IOC.create("ioca")
+    check("锁放开时目录已经没有了", seen, {"directory_after_lock_was_let_go": False})
+
+
+def test_opening_a_directory_whose_creation_failed_meanwhile_is_not_found(fresh, monkeypatch):
+    """IOC: 打开只有目录的 IOC 时拿到写锁后发现目录已经没了(创建失败清理掉了),报 IocNotFoundError,不会给不存在的目录补记录"""
+    d = Path(settings.IOCS_DIR) / "ioca"
+    d.mkdir(parents=True)
+    real_exists = type(fresh).exists
+
+    def exists_then_the_directory_is_gone(self, name):
+        result = real_exists(self, name)
+        shutil.rmtree(d, ignore_errors=True)
+        return result
+
+    monkeypatch.setattr(type(fresh), "exists", exists_then_the_directory_is_gone)
+    with expect_error(IocNotFoundError, "目录没了"):
+        IOC("ioca")
+    monkeypatch.undo()
+    check("没有补出记录", fresh.list_iocs(), [])
+
+
+def test_create_records_that_it_happened_and_says_so_for_an_existing_directory(fresh):
+    """IOC.create: 成功后记一条 INFO 的操作记录;在已有目录上创建时消息不同;重置有记录的 IOC 时旧记录清掉"""
+    a = IOC.create("ioca")
+    check("记录", [(i.level, i.reason, i.message) for i in a.state_data.issues], [(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "created")])
+    (Path(settings.IOCS_DIR) / "iocb").mkdir()
+    b = IOC.create("iocb", force=True)
+    check("已有目录", [i.message for i in b.state_data.issues], ["created on the existing directory"])
+    a.record_success("exported")
+    shutil.rmtree(a.dir_path)
+    again = IOC.create("ioca", force=True)
+    check("重新创建后只有新的一条", [i.message for i in again.state_data.issues], ["created"])
+
+
+def test_record_success_and_record_failure_add_issues_that_refresh_never_removes(ioc, fresh):
+    """record_success / record_failure: 成功是 INFO + OPERATION_SUCCESS,失败是 ERROR + OPERATION_FAILED;一条条追加,refresh 不会刷掉,顺序不变"""
+    ioc.record_success("built")
+    ioc.record_failure("export failed: no space left")
+    ioc.record_success("exported")
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.refresh()
+    ioc.refresh()
+    ops = [i for i in ioc.state_data.issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
+    check(
+        "按顺序",
+        [(i.level, i.reason, i.message) for i in ops],
+        [
+            (IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "created"),
+            (IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built"),
+            (IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "export failed: no space left"),
+            (IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "exported"),
+        ],
+    )
+    check("库里一样", [i for i in fresh.read_issues("ioca") if i in ops], ops)
+    check_true("同时 refresh 查出来的 FILE_CHANGED 也在", any(i.reason == IssueReason.FILE_CHANGED for i in ioc.state_data.issues))
+
+
+# ------------------------------------------------------------------ refresh
+
+
+@pytest.fixture
+def ioc(fresh, tmp_path):
+    """An IOC whose config is valid and committed, with nothing changed since"""
+    made = IOC.create("ioca")
+    shutil.copy(IOC.create_template("ioca", directory=tmp_path), made.config_path)
+    made.repository.commit("config")
+    return made.refresh() and made
+
+
+def kinds(ioc):
+    return [(i.level.value, i.reason.value) for i in problems(ioc.state_data.issues)]
+
+
+def test_refresh_of_an_ioc_that_is_in_order_finds_nothing(ioc):
+    """refresh: 一切正常时没有 issue,src_files 是空的"""
+    check("issues", problems(ioc.state_data.issues), [])
+    check("src_files", ioc.state_data.src_files.model_dump(), new_state().src_files.model_dump())
+
+
+def test_opening_an_ioc_does_not_look_at_the_files_but_refresh_does(ioc, fresh):
+    """IOC(name): 打开只读记录,不看文件;refresh 才去看并写回库"""
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    opened = IOC("ioca")
+    check("打开时还是旧的", opened.state_data.src_files.db_files, [])
+    check("库里也还是旧的", fresh.read_ioc("ioca").src_files.db_files, [])
+    check("refresh 之后更新了", opened.refresh().src_files.db_files, ["a.db"])
+    check("库里也更新了", fresh.read_ioc("ioca").src_files.db_files, ["a.db"])
+
+
+def test_refresh_sorts_the_source_files_by_suffix_and_ignores_the_rest(ioc):
+    """refresh: src_files 按后缀分成 db / 协议 / 其他,排序;隐藏文件和子目录不算;删掉文件后也同步"""
+    src = Path(ioc.src_path)
+    for name in ["b.db", "a.db", "x.proto", "readme.txt", "ioc.cmd", ".hidden.db"]:
+        (src / name).write_text("x\n")
+    (src / "sub").mkdir()
+    (src / "sub" / "deep.db").write_text("x\n")
+    files = ioc.refresh().src_files
+    check("db_files", files.db_files, ["a.db", "b.db"])
+    check("protocol_files", files.protocol_files, ["x.proto"])
+    check("other_files", files.other_files, ["ioc.cmd", "readme.txt"])
+    (src / "a.db").unlink()
+    check("删掉之后", ioc.refresh().src_files.db_files, ["b.db"])
+
+
+def test_refresh_records_a_config_that_is_invalid_and_forgets_it_once_fixed(ioc):
+    """refresh: 配置有问题就记成 issue,改好之后 issue 自己消失"""
+    good = Path(ioc.config_path).read_text(encoding="utf-8")
+    Path(ioc.config_path).write_text("basic: [not, a, mapping]\n", encoding="utf-8")
+    ioc.refresh()
+    check_true("有 VALIDATION_ERROR", any(r == "validation_error" for _, r in kinds(ioc)), kinds(ioc))
+    Path(ioc.config_path).write_text(good, encoding="utf-8")
+    ioc.repository.commit("fixed")
+    check("改好之后没有了", problems(ioc.refresh().issues), [])
+
+
+def test_refresh_reports_a_missing_config_as_information(fresh):
+    """refresh: 还没有配置文件只是一条 INFO,不算错误"""
+    ioc = IOC.create("ioca")
+    ioc.refresh()
+    check("issues", kinds(ioc), [("info", "file_error")])
+
+
+def test_refresh_reports_files_that_differ_from_the_latest_snapshot(ioc):
+    """refresh: 相对最近一次提交,改了、新增、删除的文件各记一条 FILE_CHANGED;改回去就没了"""
+    src = Path(ioc.src_path)
+    good_config = Path(ioc.config_path).read_text(encoding="utf-8")
+    (src / "a.db").write_text("one\n")
+    ioc.repository.commit("a")
+    check("没有变化", problems(ioc.refresh().issues), [])
+    (src / "a.db").write_text("two\n")
+    (src / "new.db").write_text("x\n")
+    Path(ioc.config_path).unlink()
+    ioc.refresh()
+    changed = [i for i in ioc.state_data.issues if i.reason == IssueReason.FILE_CHANGED]
+    check(
+        "改动的文件",
+        sorted(i.message.split(" since")[0] for i in changed),
+        ["ioc-config.yaml: deleted", "src/a.db: modified", "src/new.db: added"],
+    )
+    check_true("消息带着快照 id", all(ioc.repository.head()[:8] in i.message for i in changed))
+    (src / "a.db").write_text("one\n")
+    (src / "new.db").unlink()
+    Path(ioc.config_path).write_text(good_config, encoding="utf-8")
+    check("改回去之后没有了", problems(ioc.refresh().issues), [])
+
+
+def test_refresh_does_not_look_for_changes_before_there_is_a_snapshot(fresh):
+    """refresh: 还没有任何提交时没有可比较的,不报 FILE_CHANGED"""
+    ioc = IOC.create("ioca")
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.refresh()
+    check_true("没有 FILE_CHANGED", not any(r == "file_changed" for _, r in kinds(ioc)), kinds(ioc))
+
+
+def test_refresh_reports_a_missing_repository_and_a_missing_src(ioc):
+    """refresh: .git 或 src 没了各记一条 WARNING"""
+    shutil.rmtree(Path(ioc.dir_path) / ".git")
+    shutil.rmtree(ioc.src_path)
+    ioc.refresh()
+    check_true("说没有 git 仓库", any("no git repository" in m for m in messages_of(ioc)), messages_of(ioc))
+    check_true("说读不了 src", any("source directory" in m for m in messages_of(ioc)), messages_of(ioc))
+    check("都是 WARNING", {i.level for i in problems(ioc.state_data.issues)}, {IssueLevel.WARNING})
+    check("src_files 清空", ioc.state_data.src_files.model_dump(), new_state().src_files.model_dump())
+
+
+def test_refresh_survives_a_git_that_fails_and_says_so(ioc, monkeypatch):
+    """refresh: 读 git 失败不会让 refresh 抛错,记成一条 ERROR"""
+    from core.exceptions import IocRepositoryError
+
+    def broken(self):
+        raise IocRepositoryError("git on fire")
+
+    monkeypatch.setattr(IocRepository, "status", broken)
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.refresh()
+    check_true("记了 ERROR", any(i.level == IssueLevel.ERROR and "git on fire" in i.message for i in ioc.state_data.issues), messages_of(ioc))
+    check("src_files 照常更新", ioc.state_data.src_files.db_files, ["a.db"])
+
+
+def test_a_problem_that_stays_is_not_added_again_and_keeps_the_time_it_was_first_seen(ioc, fresh):
+    """refresh: 同一个问题一直在时只有一条,时间还是第一次发现的时间,而且没有变化时不写库"""
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    first = problems(ioc.refresh().issues)
+    check("一条", len(first), 1)
+    writes = []
+    real = type(fresh).write_issues
+    original_time = first[0].time
+    import core.ioc as ioc_module
+
+    ioc_module.get_now_str = lambda: "later"  # what a new issue would be stamped with
+    try:
+        type(fresh).write_issues = lambda self, *a, **k: (writes.append(a), real(self, *a, **k))[1]
+        again = problems(ioc.refresh().issues)
+        reopened = problems(IOC("ioca").state_data.issues)
+    finally:
+        type(fresh).write_issues = real
+        import core.utils as utils
+        ioc_module.get_now_str = utils.get_now_str
+    check("还是那一条", again, first)
+    check("重新打开也是", reopened, first)
+    check("时间没变", again[0].time, original_time)
+    check("没有写过库", writes, [])
+
+
+def test_a_change_adds_the_new_problem_and_keeps_the_old_one_as_it_was(ioc):
+    """refresh: 又出现新问题时,旧的那条保持原样(包括时间),新的加在后面"""
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    first = problems(ioc.refresh().issues)
+    (Path(ioc.src_path) / "b.db").write_text("x\n")
+    second = problems(ioc.refresh().issues)
+    check("两条", len(second), 2)
+    check_true("旧的还在而且没变", first[0] in second)
+
+
+def test_refresh_leaves_issues_of_other_kinds_alone(ioc, fresh):
+    """refresh: 不是它自己查出来的 issue(RECORD_RESET)不会被刷掉"""
+    fresh.write_issues("ioca", [IssueEntry(level=IssueLevel.ERROR, reason=IssueReason.RECORD_RESET, message="reset", prompt="", time="t")], append=True)
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.refresh()
+    check_true("RECORD_RESET 还在", any(i.reason == IssueReason.RECORD_RESET and i.message == "reset" for i in ioc.state_data.issues))
+    ioc.refresh()
+    check("仍然只有一条", sum(i.reason == IssueReason.RECORD_RESET for i in ioc.state_data.issues), 1)
+
+
+def test_refresh_of_a_directory_that_is_gone_only_records_that(ioc, fresh):
+    """refresh: 目录没了只记一条目录丢了,src_files 保持原样不被清空,目录回来后这条消失"""
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.repository.commit("a")
+    ioc.refresh()
+    backup = Path(str(ioc.dir_path) + ".bak")
+    os.rename(ioc.dir_path, backup)
+    ioc.refresh()
+    check("只有一条", [m.split(":")[1].strip().split(",")[0] for m in messages_of(ioc)], ["is in the database"])
+    check("src_files 没被清空", ioc.state_data.src_files.db_files, ["a.db"])
+    os.rename(backup, ioc.dir_path)
+    check("回来后没有了", problems(ioc.refresh().issues), [])
+
+
+def test_successes_and_failures_share_one_limit_and_the_newest_are_kept(ioc, fresh, monkeypatch):
+    """record_success / record_failure: 成功和失败共用 MAX_OPERATION_RECORDS,超过就丢最旧的(不分成败),顺序不变;refresh 查出来的问题不受影响"""
+    check("默认保留 100 条", settings.MAX_OPERATION_RECORDS, 100)
+    monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.refresh()
+    ioc.record_success("op1")
+    ioc.record_failure("op2")
+    ioc.record_failure("op3")
+    ioc.record_success("op4")
+    ioc.record_failure("op5")
+    ops = lambda issues: [(i.reason, i.message) for i in issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
+    expected = [
+        (IssueReason.OPERATION_FAILED, "op3"),
+        (IssueReason.OPERATION_SUCCESS, "op4"),
+        (IssueReason.OPERATION_FAILED, "op5"),
+    ]
+    check("对象里最新的 3 条", ops(ioc.state_data.issues), expected)
+    check("库里一样", ops(fresh.read_issues("ioca")), expected)
+    check_true("refresh 查出来的问题还在", any(i.reason == IssueReason.FILE_CHANGED for i in fresh.read_issues("ioca")))
+    ioc.refresh()
+    check("refresh 之后也一样", ops(fresh.read_issues("ioca")), expected)
+
+
+def test_nothing_is_dropped_while_there_is_room(ioc, monkeypatch):
+    """record_success / record_failure: 没超过上限时一条都不丢(包括创建时的那一条)"""
+    monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
+    ioc.record_success("op1")
+    ioc.record_failure("op2")
+    check(
+        "三条",
+        [i.message for i in ioc.state_data.issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)],
+        ["created", "op1", "op2"],
     )
 
 
-def test_init_script_creates_the_database_and_creating_it_again_is_harmless(tmp_path):
-    """建库脚本: 新路径建库(包括缺的目录);已有的库不改动,退出码仍是 0"""
-    db = tmp_path / "new-dir" / "ioc-state.db"
-    first = run_init_script(str(db))
-    check("第一次的退出码", first.returncode, 0)
-    check_true("库建出来了", db.is_file(), first.stderr)
-    opened_db = opened(str(db))
-    add_ioc(opened_db, "ioc-a")
-    opened_db.close()
-    second = run_init_script(str(db))
-    check("第二次的退出码", second.returncode, 0)
-    check_true("提示已存在", "already exists" in second.stdout, second.stdout)
-    again = opened(str(db))
-    check("已有的数据没有被动", again.list_iocs(), ["ioc-a"])
-    again.close()
+def test_refresh_all_refreshes_every_ioc_that_has_a_record(fresh):
+    """IOC.refresh_all: 库里每个 IOC 都 refresh,返回 {名字: None}"""
+    a, b = IOC.create("ioca"), IOC.create("iocb")
+    (Path(a.src_path) / "a.db").write_text("x\n")
+    (Path(b.src_path) / "b.proto").write_text("x\n")
+    check("结果", IOC.refresh_all(), {"ioca": None, "iocb": None})
+    check("ioca", fresh.read_ioc("ioca").src_files.db_files, ["a.db"])
+    check("iocb", fresh.read_ioc("iocb").src_files.protocol_files, ["b.proto"])
 
 
-def test_init_script_reports_failures_and_bad_arguments(tmp_path):
-    """建库脚本: 建不出来退出码 1 并写 stderr;参数多了退出码 2"""
-    blocker = tmp_path / "a-file"
-    blocker.write_text("x")
-    bad = run_init_script(str(blocker / "ioc-state.db"))
-    check("目录建不出来的退出码", bad.returncode, 1)
-    check_true("错误写在 stderr", "failed to create" in bad.stderr, bad.stderr)
-    usage = run_init_script("a", "b")
-    check("参数多了的退出码", usage.returncode, 2)
-    check_true("提示用法", "usage" in usage.stderr, usage.stderr)
+def test_refresh_all_with_no_iocs_does_nothing(fresh):
+    """IOC.refresh_all: 库里一个 IOC 也没有时返回空"""
+    check("结果", IOC.refresh_all(), {})
+
+
+def test_one_ioc_that_cannot_be_refreshed_does_not_stop_the_others(fresh, monkeypatch):
+    """IOC.refresh_all: 有一个 IOC 出错,错误放进结果里,其他的照常 refresh"""
+    IOC.create("ioca")
+    bad = IOC.create("iocb")
+    IOC.create("iocc")
+    (Path(bad.src_path).parent / "x").mkdir()
+    real = IOC.refresh
+
+    def refresh_that_fails_for_iocb(self):
+        if self.name == "iocb":
+            raise OSError("disk on fire")
+        return real(self)
+
+    monkeypatch.setattr(IOC, "refresh", refresh_that_fails_for_iocb)
+    results = IOC.refresh_all()
+    check("出错的是 iocb", sorted(n for n, e in results.items() if e is not None), ["iocb"])
+    check_true("错误原样放在结果里", isinstance(results["iocb"], OSError) and "disk on fire" in str(results["iocb"]))
+    check_true("其他的 refresh 了(有了配置文件还没有的提示)", all(fresh.read_issues(n) for n in ("ioca", "iocc")))
+
+
+def test_refresh_all_does_not_make_a_record_for_a_directory_that_has_none(fresh):
+    """IOC.refresh_all: 只有目录没有记录的不去碰(打开它会补记录;正在创建的 IOC 也还没有记录)"""
+    IOC.create("ioca")
+    (Path(settings.IOCS_DIR) / "iocb" / "src").mkdir(parents=True)
+    IOC.refresh_all()
+    check("库里还是只有 ioca", fresh.list_iocs(), ["ioca"])
+
+
+def test_refresh_all_survives_a_name_in_the_database_that_is_not_a_valid_ioc_name(fresh):
+    """IOC.refresh_all: 库里有个不合法的名字(别的途径写进去的),记成 ValueError,不影响其他"""
+    IOC.create("ioca")
+    add_ioc(fresh, "Bad_Name")
+    results = IOC.refresh_all()
+    check_true("Bad_Name 是 ValueError", isinstance(results["Bad_Name"], ValueError))
+    check("ioca 正常", results["ioca"], None)
+
+
+def test_refresh_all_records_a_directory_that_has_gone(fresh):
+    """IOC.refresh_all: 目录被删了的 IOC 记一条 issue,其他不受影响"""
+    IOC.create("ioca")
+    IOC.create("iocb")
+    shutil.rmtree(os.path.join(settings.IOCS_DIR, "iocb"))
+    IOC.refresh_all()
+    check_true("iocb 有目录丢了的 issue", any("directory is missing" in i.message for i in fresh.read_issues("iocb")))
+    check_true("ioca 没有", not any("directory is missing" in i.message for i in fresh.read_issues("ioca")))

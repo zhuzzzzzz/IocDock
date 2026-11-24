@@ -86,6 +86,10 @@ class IssueLevel(StrEnum):
 class IssueReason(StrEnum):
     VALIDATION_ERROR = "validation_error"
     FILE_ERROR = "file_error"
+    FILE_CHANGED = "file_changed"
+    RECORD_RESET = "record_reset"
+    OPERATION_SUCCESS = "operation_success"
+    OPERATION_FAILED = "operation_failed"
 
 
 class IssueEntry(BaseModel):

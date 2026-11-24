@@ -2,7 +2,7 @@
 
     python3 scripts/init_state_db.py [db_path]
 
-Without db_path it creates ioc_config.DEFAULT_DB_PATH. Run it as the user
+Without db_path it creates settings.DEFAULT_DB_PATH. Run it as the user
 that runs IocDock, so the database belongs to that user. An existing database is
 left untouched, so running it again is harmless.
 
@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core import ioc_config
+from core import settings
 from core.ioc_state import IocStateManager
 
 
@@ -25,7 +25,7 @@ def main(argv):
     if len(argv) > 2:
         print(f"usage: {argv[0]} [db_path]", file=sys.stderr)
         return 2
-    path = os.path.abspath(argv[1] if len(argv) == 2 else ioc_config.DEFAULT_DB_PATH)
+    path = os.path.abspath(argv[1] if len(argv) == 2 else settings.DEFAULT_DB_PATH)
     try:
         IocStateManager.initialize(path)
     except FileExistsError as e:
