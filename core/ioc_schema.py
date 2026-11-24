@@ -98,9 +98,7 @@ class IssueEntry(BaseModel):
 
 class IocStateSchema(BaseModel):
     state: str
-    status: str
     snapshot: str
-    is_exported: bool | str  # "unknown" when the state file is damaged
     src_files: _Src
     issues: list[IssueEntry]
 
@@ -205,10 +203,8 @@ def new_config(name, build_type=None):
 
 def new_state():
     return IocStateSchema(
-        state="normal",
-        status="created",
-        snapshot="untracked",
-        is_exported=False,
+        state="",
+        snapshot="",
         src_files=_Src(db_files=[], protocol_files=[], other_files=[]),
         issues=[],
     )

@@ -1,9 +1,60 @@
 """Shared pytest fixtures. The layout under tests/ mirrors the source tree:
 core/utils.py -> tests/core/test_utils.py."""
 
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
 import pytest
 
-from core.ioc import IocConfig
+from core import ioc_config
+from core.ioc_state import IocStateManager
+from tests.logutil import log
+
+# The tests never touch /opt/IocDockHome. Everything they keep on disk for core.ioc
+# lives in .test-tmp/ of the repository and is removed when the run ends.
+TEST_TMP = Path(__file__).resolve().parents[1] / ".test-tmp"
+TEST_TMP.mkdir(exist_ok=True)
+_RUN_DIR = tempfile.mkdtemp(prefix="run-", dir=TEST_TMP)
+
+# core.ioc opens the state database when it is imported, so a database has to be
+# there first.
+ioc_config.DEFAULT_DB_PATH = os.path.join(_RUN_DIR, "ioc-state.db")
+IocStateManager.initialize()
+
+from core.ioc import IocConfig, state_manager  # noqa: E402
+
+ioc_config.IOCS_DIR = os.path.join(_RUN_DIR, "iocs")
+
+
+def pytest_unconfigure(config):
+    """Close the shared state and delete the temporary files."""
+    state_manager.close()
+    shutil.rmtree(_RUN_DIR, ignore_errors=True)
+    try:
+        TEST_TMP.rmdir()  # only when no other run is using it
+    except OSError:
+        pass
+
+
+def _title(item):
+    """What the test is about: the first line of its docstring, else its name."""
+    doc = (item.function.__doc__ or "").strip()
+    title = doc.splitlines()[0] if doc else item.name.removeprefix("test_").replace("_", " ")
+    callspec = getattr(item, "callspec", None)
+    return f"{title}  [{callspec.id}]" if callspec else title
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """Print what each test is about when it starts and how it ended."""
+    log.info("▶ %s", _title(item))
+    outcome = yield
+    if outcome.excinfo is None:
+        log.info("  ✔ passed")
+    else:
+        log.error("  ✘ FAILED: %s", outcome.excinfo[1])
 
 
 @pytest.fixture
