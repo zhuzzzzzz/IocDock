@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from enum import StrEnum
 
 
@@ -92,12 +92,42 @@ class IssueReason(StrEnum):
     OPERATION_FAILED = "operation_failed"
 
 
+class IssueCategory(StrEnum):
+    # a problem with the state of the IOC, worked out from what is there now
+    STATE = "state"
+    # the result of an operation the user did (a build, an export, ...)
+    OPERATION = "operation"
+
+
+OPERATION_REASONS = (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)
+
+
 class IssueEntry(BaseModel):
     level: IssueLevel
     reason: IssueReason
+    category: IssueCategory
     message: str
     prompt: str
     time: str
+
+    @model_validator(mode="after")
+    def _category_matches_reason(self):
+        if (self.reason in OPERATION_REASONS) != (self.category is IssueCategory.OPERATION):
+            raise ValueError(
+                f"reason {self.reason.value!r} does not belong to category {self.category.value!r}"
+            )
+        return self
+
+
+_LEVEL_RANK = {IssueLevel.ERROR: 0, IssueLevel.WARNING: 1, IssueLevel.INFO: 2}
+
+
+def sort_by_priority(issues):
+    """A new list of the issues, the ones that matter most first: by level (error,
+    warning, info), and of one level the newest first. Issues that are still equal
+    stay in the order they were in."""
+    newest_first = sorted(issues, key=lambda i: i.time, reverse=True)
+    return sorted(newest_first, key=lambda i: _LEVEL_RANK[i.level])
 
 
 class IocStateSchema(BaseModel):

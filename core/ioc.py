@@ -15,16 +15,24 @@ from core.exceptions import (
 )
 from core.ioc_config import IocConfig
 from core.ioc_repository import IocRepository
-from core.ioc_schema import IssueEntry, IssueLevel, IssueReason, new_state
+from core.ioc_schema import (
+    IssueCategory,
+    IssueEntry,
+    IssueLevel,
+    IssueReason,
+    new_state,
+    sort_by_priority,
+)
 from core.ioc_state import get_state_manager
 from core.utils import get_now_str
 
-# The name of an IOC is also the name of its directory, of its Docker service and
-# container, and a DNS label in the swarm network, so it has to be valid for all of
-# them: lowercase letters and digits, starting with a letter (no "_" or ".", which DNS
-# names and swarm service names do not take, and no "-", which Docker joins names
-# with), 2 to 63 characters (a container name has at least 2, a DNS label at most 63).
-NAME_PATTERN = re.compile(r"[a-z][a-z0-9]+")
+# The name of an IOC is also the name of its directory and of its Docker service and
+# container, so it has to be valid for all of them: letters and digits, starting with a
+# letter (no "." or "_", which a service name does not take or takes only inside, and
+# no "-", which Docker joins names with), 2 to 63 characters (a container name has at
+# least 2, a service name at most 63). Upper case is allowed, for camel case names; two names
+# that differ only in case are still not allowed together (see _find_case_conflict()).
+NAME_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9]+")
 MAX_NAME_LENGTH = 63
 
 
@@ -36,7 +44,7 @@ def check_name(name):
         or not NAME_PATTERN.fullmatch(name)
     ):
         raise ValueError(
-            f"invalid IOC name {name!r}: use 2 to {MAX_NAME_LENGTH} lowercase letters "
+            f"invalid IOC name {name!r}: use 2 to {MAX_NAME_LENGTH} letters "
             "and digits, starting with a letter"
         )
 
@@ -44,15 +52,16 @@ def check_name(name):
 # The issues refresh() finds out again each time it runs. It replaces all of them, so
 # one that is gone (the file was fixed) disappears and one that stays is not added
 # twice. The others are not about what is there now and are kept: RECORD_RESET, and
-# the records of the operations that were done (see record_success()).
-_OPERATION_REASONS = {IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED}
+# the records of the operations that were done (see record_operation()).
 _REFRESHED_REASONS = {IssueReason.VALIDATION_ERROR, IssueReason.FILE_ERROR, IssueReason.FILE_CHANGED}
 
 _PRESENCE_MESSAGES = {
     "complete": "{name}: already exists",
     "no_directory": "{name}: is in the database, but its directory is missing: {path}",
-    "unregistered": "{name}: not in the database, but the directory {path} exists",
+    "no_record": "{name}: not in the database, but the directory {path} exists",
 }
+
+_CASE_CONFLICT_MESSAGE = "{name}: differs only in case from the existing {other}"
 
 
 class IOC:
@@ -88,7 +97,7 @@ class IOC:
     def _add_record(self):
         """A directory that has no record: make one, with the default state, and an
         issue saying so. Nothing in the directory is touched."""
-        message = _PRESENCE_MESSAGES["unregistered"].format(
+        message = _PRESENCE_MESSAGES["no_record"].format(
             name=self.name, path=self.dir_path
         ) + "; a record with the default state was made"
         with self.state_manager.transaction():
@@ -100,35 +109,35 @@ class IOC:
                 )
                 self.state_manager.write_issues(
                     self.name,
-                    [self._issue(IssueLevel.ERROR, IssueReason.RECORD_RESET, message)],
+                    [
+                        IssueEntry(
+                            level=IssueLevel.ERROR,
+                            reason=IssueReason.RECORD_RESET,
+                            category=IssueCategory.STATE,
+                            message=message,
+                            prompt="",
+                            time=get_now_str(),
+                        )
+                    ],
                 )
         self.state_data = self.state_manager.read_ioc(self.name)
 
-    def record_success(self, message):
-        """Record that an operation (a build, an export, ...) succeeded, as an INFO
-        issue. refresh() leaves it alone."""
-        self._record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, message)
-
-    def record_failure(self, message):
-        """Record that an operation failed, as an ERROR issue. refresh() leaves it
-        alone."""
-        self._record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, message)
-
-    def _record_operation(self, level, reason, message):
-        """Successes and failures share one limit: only the newest
-        settings.MAX_OPERATION_RECORDS of them are kept, the oldest are dropped."""
-        with self.state_manager.transaction():
-            self.state_manager.write_issues(
-                self.name, [self._issue(level, reason, message)], append=True
-            )
-            issues = self.state_manager.read_issues(self.name)
-            records = [n for n, i in enumerate(issues) if i.reason in _OPERATION_REASONS]
-            excess = len(records) - settings.MAX_OPERATION_RECORDS
-            if excess > 0:
-                dropped = set(records[:excess])
-                self.state_manager.write_issues(
-                    self.name, [i for n, i in enumerate(issues) if n not in dropped]
-                )
+    def record_operation(self, level, reason, message):
+        """Record the result of an operation the user did (a build, an export, ...),
+        as an issue of the category OPERATION: IssueLevel.INFO and
+        IssueReason.OPERATION_SUCCESS when it succeeded, IssueLevel.ERROR and
+        IssueReason.OPERATION_FAILED when it failed. refresh() leaves it alone. Only
+        the newest settings.MAX_OPERATION_RECORDS of them are kept, the state manager
+        drops the oldest."""
+        entry = IssueEntry(
+            level=level,
+            reason=reason,
+            category=IssueCategory.OPERATION,
+            message=message,
+            prompt="",
+            time=get_now_str(),
+        )
+        self.state_manager.write_issues(self.name, [entry], append=True)
         self.state_data = self.state_manager.read_ioc(self.name)
 
     @classmethod
@@ -162,10 +171,15 @@ class IOC:
         src_files = None
         if not os.path.isdir(self.dir_path):
             issues.append(
-                self._issue(
-                    IssueLevel.ERROR,
-                    IssueReason.FILE_ERROR,
-                    _PRESENCE_MESSAGES["no_directory"].format(name=self.name, path=self.dir_path),
+                IssueEntry(
+                    level=IssueLevel.ERROR,
+                    reason=IssueReason.FILE_ERROR,
+                    category=IssueCategory.STATE,
+                    message=_PRESENCE_MESSAGES["no_directory"].format(
+                        name=self.name, path=self.dir_path
+                    ),
+                    prompt="",
+                    time=get_now_str(),
                 )
             )
         else:
@@ -185,10 +199,13 @@ class IOC:
             self.config.load()
         except FileNotFoundError:
             return [
-                self._issue(
-                    IssueLevel.INFO,
-                    IssueReason.FILE_ERROR,
-                    f"config file not found: {self.config_path}",
+                IssueEntry(
+                    level=IssueLevel.INFO,
+                    reason=IssueReason.FILE_ERROR,
+                    category=IssueCategory.STATE,
+                    message=f"config file not found: {self.config_path}",
+                    prompt="",
+                    time=get_now_str(),
                 )
             ]
         return list(self.config.issues)
@@ -205,10 +222,13 @@ class IOC:
             return (
                 new_state().src_files,
                 [
-                    self._issue(
-                        IssueLevel.WARNING,
-                        IssueReason.FILE_ERROR,
-                        f"cannot read the source directory {self.src_path}: {e}",
+                    IssueEntry(
+                        level=IssueLevel.WARNING,
+                        reason=IssueReason.FILE_ERROR,
+                        category=IssueCategory.STATE,
+                        message=f"cannot read the source directory {self.src_path}: {e}",
+                        prompt="",
+                        time=get_now_str(),
                     )
                 ],
             )
@@ -222,10 +242,13 @@ class IOC:
     def _check_repository(self):
         if not self.repository.exists():
             return [
-                self._issue(
-                    IssueLevel.WARNING,
-                    IssueReason.FILE_ERROR,
-                    f"no git repository in {self.dir_path}, its history is not kept",
+                IssueEntry(
+                    level=IssueLevel.WARNING,
+                    reason=IssueReason.FILE_ERROR,
+                    category=IssueCategory.STATE,
+                    message=f"no git repository in {self.dir_path}, its history is not kept",
+                    prompt="",
+                    time=get_now_str(),
                 )
             ]
         try:
@@ -235,17 +258,23 @@ class IOC:
             status = self.repository.status()
         except IocRepositoryError as e:
             return [
-                self._issue(
-                    IssueLevel.ERROR,
-                    IssueReason.FILE_ERROR,
-                    f"cannot read the history of {self.dir_path}: {e}",
+                IssueEntry(
+                    level=IssueLevel.ERROR,
+                    reason=IssueReason.FILE_ERROR,
+                    category=IssueCategory.STATE,
+                    message=f"cannot read the history of {self.dir_path}: {e}",
+                    prompt="",
+                    time=get_now_str(),
                 )
             ]
         return [
-            self._issue(
-                IssueLevel.WARNING,
-                IssueReason.FILE_CHANGED,
-                f"{path}: {kind} since the snapshot {head[:8]}",
+            IssueEntry(
+                level=IssueLevel.WARNING,
+                reason=IssueReason.FILE_CHANGED,
+                category=IssueCategory.STATE,
+                message=f"{path}: {kind} since the snapshot {head[:8]}",
+                prompt="",
+                time=get_now_str(),
             )
             for kind in ("modified", "added", "deleted")
             for path in status[kind]
@@ -253,24 +282,27 @@ class IOC:
 
     def _replace_issues(self, found):
         """Make `found` the refreshed issues of the IOC, and leave the others alone.
-        Run inside a transaction."""
+        What is kept (RECORD_RESET, the operation records) is not counted against
+        the refreshed ones, but the state issues of the IOC are no more than
+        settings.MAX_STATE_ISSUES together: of `found` the ones that matter most stay
+        (sort_by_priority()), and they are cut before they are compared with what is
+        there, or a `found` that is too long would never equal it. Run inside a
+        transaction."""
         old = self.state_manager.read_issues(self.name)
         ours = [i for i in old if i.reason in _REFRESHED_REASONS]
+        kept = [i for i in old if i.reason not in _REFRESHED_REASONS]
         first_seen = {(i.level, i.reason, i.message): i.time for i in ours}
         found = [
             i.model_copy(update={"time": first_seen.get((i.level, i.reason, i.message), i.time)})
             for i in found
         ]
+        room = settings.MAX_STATE_ISSUES - sum(i.category is IssueCategory.STATE for i in kept)
+        found = sort_by_priority(found)[: max(room, 0)]
         if [(i.level, i.reason, i.message) for i in ours] == [
             (i.level, i.reason, i.message) for i in found
         ]:
             return
-        kept = [i for i in old if i.reason not in _REFRESHED_REASONS]
         self.state_manager.write_issues(self.name, kept + found)
-
-    @staticmethod
-    def _issue(level, reason, message):
-        return IssueEntry(level=level, reason=reason, message=message, prompt="", time=get_now_str())
 
     @staticmethod
     def create_template(name, build_type=None, directory=None):
@@ -298,8 +330,10 @@ class IOC:
         waits for it to end and then finds the complete IOC.
 
         A name that is not valid raises ValueError. A name that is taken raises
-        IocExistsError, and nothing is touched: a complete IOC always, and one that
-        has only half of itself unless `force` is given:
+        IocExistsError, and nothing is touched: an IOC whose name differs from it
+        only in case (in the database or as a directory) always, even with `force`,
+        a complete IOC always, and one that has only half of itself unless `force`
+        is given:
           - only a record: the directory is made again and the record is reset to
             the default state, its old issues gone;
           - only a directory: it is kept as it is, with what is in it (an existing
@@ -313,18 +347,23 @@ class IOC:
         try:
             with state_manager.transaction():
                 try:
+                    other = cls._find_case_conflict(name)
+                    if other is not None:
+                        raise IocExistsError(
+                            _CASE_CONFLICT_MESSAGE.format(name=name, other=other)
+                        )
                     presence = cls.check_presence(name)
                     if presence == "complete" or (presence != "missing" and not force):
                         raise IocExistsError(
                             _PRESENCE_MESSAGES[presence].format(name=name, path=dir_path)
                         )
                     os.makedirs(settings.IOCS_DIR, exist_ok=True)
-                    if presence != "unregistered":
+                    if presence != "no_record":
                         try:
                             os.mkdir(dir_path)  # fails if there is one, whoever made it
                         except FileExistsError:
                             raise IocExistsError(
-                                _PRESENCE_MESSAGES["unregistered"].format(name=name, path=dir_path)
+                                _PRESENCE_MESSAGES["no_record"].format(name=name, path=dir_path)
                             ) from None
                         made.append(dir_path)
                     if not os.path.isdir(src_path):
@@ -338,12 +377,15 @@ class IOC:
                     state_manager.write_issues(
                         name,
                         [
-                            cls._issue(
-                                IssueLevel.INFO,
-                                IssueReason.OPERATION_SUCCESS,
-                                "created"
-                                if presence != "unregistered"
+                            IssueEntry(
+                                level=IssueLevel.INFO,
+                                reason=IssueReason.OPERATION_SUCCESS,
+                                category=IssueCategory.OPERATION,
+                                message="created"
+                                if presence != "no_record"
                                 else "created on the existing directory",
+                                prompt="",
+                                time=get_now_str(),
                             )
                         ],
                     )  # replaces the issues there were, which were about files that are gone
@@ -364,13 +406,29 @@ class IOC:
             "missing"       nothing: no record in the database, no directory
             "complete"      a record in the database and its directory
             "no_directory"  a record, but the directory is gone
-            "unregistered"  a directory, but no record in the database"""
+            "no_record"     a directory, but no record in the database"""
         check_name(name)
         registered = get_state_manager().exists(name)
         has_dir = os.path.isdir(cls._dir_of(name))
         if registered:
             return "complete" if has_dir else "no_directory"
-        return "unregistered" if has_dir else "missing"
+        return "no_record" if has_dir else "missing"
+
+    @classmethod
+    def _find_case_conflict(cls, name):
+        """The name of an IOC that differs from `name` only in case, or None. The
+        IOCs looked at are the records of the database and the directories of
+        IOCS_DIR (a name is the name of its directory, so every directory counts, one
+        without a record too); files are not IOCs. The same name is not a conflict,
+        that is check_presence()'s business. Run inside the transaction of create()."""
+        lower = name.lower()
+        taken = set(get_state_manager().list_iocs())
+        try:
+            with os.scandir(settings.IOCS_DIR) as entries:
+                taken.update(e.name for e in entries if e.is_dir())
+        except FileNotFoundError:
+            pass
+        return next((n for n in sorted(taken) if n != name and n.lower() == lower), None)
 
     @staticmethod
     def _dir_of(name):

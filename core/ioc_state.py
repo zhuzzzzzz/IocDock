@@ -6,7 +6,12 @@ from contextlib import contextmanager
 from pydantic import TypeAdapter
 
 from core import settings
-from core.ioc_schema import IocStateSchema, IssueEntry
+from core.ioc_schema import (
+    IocStateSchema,
+    IssueCategory,
+    IssueEntry,
+    sort_by_priority,
+)
 
 
 class IocStateManager:
@@ -40,6 +45,7 @@ CREATE TABLE issue (
     ioc_name TEXT NOT NULL REFERENCES ioc(name) ON DELETE CASCADE,
     level    TEXT NOT NULL,
     reason   TEXT NOT NULL,
+    category TEXT NOT NULL,
     message  TEXT NOT NULL,
     prompt   TEXT NOT NULL,
     time     TEXT NOT NULL
@@ -195,6 +201,9 @@ COMMIT;
         if f != "issues"
     }
 
+    # the columns of the issue table but its id and ioc_name, in the order of the fields
+    _ISSUE_COLUMNS = ", ".join(IssueEntry.model_fields)
+
     def read_ioc(self, name):
         """The whole state of an IOC, its issues too, as an IocStateSchema. An IOC
         that is not there raises KeyError."""
@@ -205,8 +214,7 @@ COMMIT;
             if row is None:
                 raise KeyError(name)
             issues = conn.execute(
-                "SELECT level, reason, message, prompt, time FROM issue"
-                " WHERE ioc_name = ? ORDER BY id",
+                f"SELECT {self._ISSUE_COLUMNS} FROM issue WHERE ioc_name = ? ORDER BY id",
                 (name,),
             ).fetchall()
         return IocStateSchema(
@@ -265,8 +273,7 @@ COMMIT;
         not there has none."""
         with self._txn(False) as conn:
             rows = conn.execute(
-                "SELECT level, reason, message, prompt, time FROM issue"
-                " WHERE ioc_name = ? ORDER BY id",
+                f"SELECT {self._ISSUE_COLUMNS} FROM issue WHERE ioc_name = ? ORDER BY id",
                 (name,),
             ).fetchall()
         return [IssueEntry(**dict(zip(IssueEntry.model_fields, row))) for row in rows]
@@ -274,18 +281,56 @@ COMMIT;
     def write_issues(self, name, issues, append=False):
         """Replace the issues of an IOC with `issues`, or with append=True add them
         after the ones there. Issues are never de-duplicated. Issues of an IOC that
-        is not there raise sqlite3.IntegrityError."""
+        is not there raise sqlite3.IntegrityError.
+
+        Afterwards the issues of each category are cut down to its limit, in the
+        same transaction (settings.MAX_OPERATION_RECORDS: the oldest operation
+        records go; settings.MAX_STATE_ISSUES: the ones that matter least go, see
+        sort_by_priority())."""
         entries = [IssueEntry.model_validate(i) for i in issues]
         with self._txn(True) as conn:
             if not append:
                 conn.execute("DELETE FROM issue WHERE ioc_name = ?", (name,))
             conn.executemany(
-                "INSERT INTO issue (ioc_name, level, reason, message, prompt, time)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
+                f"INSERT INTO issue (ioc_name, {self._ISSUE_COLUMNS})"
+                f" VALUES (?{', ?' * len(IssueEntry.model_fields)})",
                 [
                     (name, *(d[f] for f in IssueEntry.model_fields))
                     for d in (e.model_dump(mode="json") for e in entries)
                 ],
+            )
+            self._enforce_limits(conn, name)
+
+    def _enforce_limits(self, conn, name):
+        """Run inside the transaction of a write."""
+        conn.execute(
+            "DELETE FROM issue WHERE ioc_name = ? AND category = ? AND id NOT IN"
+            " (SELECT id FROM issue WHERE ioc_name = ? AND category = ?"
+            " ORDER BY id DESC LIMIT ?)",
+            (
+                name,
+                IssueCategory.OPERATION.value,
+                name,
+                IssueCategory.OPERATION.value,
+                settings.MAX_OPERATION_RECORDS,
+            ),
+        )
+        rows = conn.execute(
+            f"SELECT id, {self._ISSUE_COLUMNS} FROM issue"
+            " WHERE ioc_name = ? AND category = ? ORDER BY id",
+            (name, IssueCategory.STATE.value),
+        ).fetchall()
+        if len(rows) > settings.MAX_STATE_ISSUES:
+            entries, row_ids = [], {}
+            for row in rows:
+                entry = IssueEntry(**dict(zip(IssueEntry.model_fields, row[1:])))
+                entries.append(entry)
+                row_ids[id(entry)] = row[0]
+            best = sort_by_priority(entries)[: settings.MAX_STATE_ISSUES]
+            keep = {row_ids[id(e)] for e in best}
+            conn.executemany(
+                "DELETE FROM issue WHERE id = ?",
+                [(i,) for i in row_ids.values() if i not in keep],
             )
 
 

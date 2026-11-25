@@ -6,13 +6,14 @@ import time
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from core import settings
 from core.exceptions import IocExistsError, IocInitError, IocNotFoundError
 from core.ioc import IOC, check_name
 from core.ioc_config import IocConfig
 from core.ioc_repository import IocRepository
-from core.ioc_schema import IssueEntry, IssueLevel, IssueReason, new_state
+from core.ioc_schema import IssueCategory, IssueEntry, IssueLevel, IssueReason, new_state
 from tests.helpers import REPO_ROOT, add_ioc, make_issue
 from tests.logutil import check, check_true, expect_error, note, step
 
@@ -74,7 +75,7 @@ def test_check_presence_tells_the_four_cases_apart(fresh):
     check("只有记录", IOC.check_presence("ioca"), "no_directory")
     fresh.delete_ioc("ioca")
     os.makedirs(os.path.join(settings.IOCS_DIR, "ioca"))
-    check("只有目录", IOC.check_presence("ioca"), "unregistered")
+    check("只有目录", IOC.check_presence("ioca"), "no_record")
     with expect_error(ValueError, "名字不合法"):
         IOC.check_presence("../x")
 
@@ -238,6 +239,40 @@ def test_create_says_which_half_of_an_ioc_is_there_and_touches_neither(fresh):
     check("b 的文件还在", (Path(settings.IOCS_DIR) / "iocb" / "src" / "mine.db").read_text(), "keep me\n")
 
 
+@pytest.mark.parametrize("force", [False, True], ids=["no force", "force"])
+@pytest.mark.parametrize("taken, new", [("ioca", "Ioca"), ("modbusGateway", "modbusgateway")])
+def test_create_refuses_a_name_that_differs_only_in_case(fresh, taken, new, force):
+    """IOC.create: 库里已有只差大小写的名字就拒绝,force 也不行,什么都不建"""
+    IOC.create(taken)
+    with expect_error(IocExistsError, "只差大小写") as info:
+        IOC.create(new, force=force)
+    check_true("消息说出已有的名字", str(info.value).endswith(f"differs only in case from the existing {taken}"), str(info.value))
+    check_true("没有建出目录", not os.path.exists(os.path.join(settings.IOCS_DIR, new)))
+    check("库里还是原来的", fresh.list_iocs(), [taken])
+
+
+@pytest.mark.parametrize("force", [False, True], ids=["no force", "force"])
+def test_create_refuses_a_name_that_differs_only_in_case_from_a_directory(fresh, force):
+    """IOC.create: 只有目录、没有记录的 IOC 也算,只差大小写同样拒绝;普通文件不是 IOC,不算"""
+    os.makedirs(os.path.join(settings.IOCS_DIR, "ioca", "src"))
+    Path(settings.IOCS_DIR, "README").write_text("not an ioc\n")
+    with expect_error(IocExistsError, "目录只差大小写"):
+        IOC.create("Ioca", force=force)
+    check("库里什么都没有", fresh.list_iocs(), [])
+    check_true("原来的目录还在", os.path.isdir(os.path.join(settings.IOCS_DIR, "ioca", "src")))
+    check_true("文件名只差大小写不挡路", IOC.create("Readme").name == "Readme")
+
+
+def test_create_allows_names_that_differ_in_more_than_case(fresh):
+    """IOC.create: 只差大小写才拒绝,别的名字不受影响;同名仍然报已存在,不报大小写冲突"""
+    IOC.create("ioca")
+    IOC.create("Iocb")
+    check("两个都建出来了", fresh.list_iocs(), ["Iocb", "ioca"])
+    with expect_error(IocExistsError, "同名") as info:
+        IOC.create("ioca")
+    check_true("说的是已经存在", str(info.value).endswith("already exists"), str(info.value))
+
+
 def plain(state):
     """A state without its issues, to compare the rest of it"""
     return state.model_dump(exclude={"issues"})
@@ -270,11 +305,11 @@ def fresh(shared):
 
 @pytest.mark.parametrize(
     "name",
-    ["ioca", "ab", "a1", "ioc01", "a" * 63],
+    ["ioca", "ab", "a1", "ioc01", "A1", "Ioca", "modbusGateway", "ModbusGateway2", "a" * 63],
     ids=lambda n: n if len(n) < 20 else f"{len(n)} chars",
 )
 def test_names_that_every_user_of_the_name_accepts(name):
-    """check_name: 目录名、Docker service/container 名和 DNS 都能用的名字通过"""
+    """check_name: 目录名、Docker service/container 名都能用的名字通过,驼峰命名也可以"""
     check_name(name)
     check_true(f"{name[:20]!r} 通过", True)
 
@@ -282,13 +317,13 @@ def test_names_that_every_user_of_the_name_accepts(name):
 @pytest.mark.parametrize(
     "name",
     [
-        "", "a", "A", "Ioc-a", "ioc_a", "ioc.a", "ioc-a", "-ioc", "ioc-", "a--b", "1ioc", "ioc a", "ioc/a",
+        "", "a", "A", "Ioc-a", "Ioc_a", "1Ioc", "ioc_a", "ioc.a", "ioc-a", "-ioc", "ioc-", "a--b", "1ioc", "ioc a", "ioc/a",
         "../x", "..", ".", "ioc\n", "ioc-\u4e2d", "a" * 64, None, 5, b"ioca",
     ],
     ids=repr,
 )
 def test_names_that_some_user_of_the_name_rejects(name):
-    """check_name: 大写、下划线、点、路径符号、太短太长、不是字符串的名字都被拒绝"""
+    """check_name: 下划线、点、横线、数字开头、路径符号、太短太长、不是字符串的名字都被拒绝"""
     with expect_error(ValueError, f"{name!r} 不合法"):
         check_name(name)
 
@@ -558,17 +593,17 @@ def test_create_records_that_it_happened_and_says_so_for_an_existing_directory(f
     (Path(settings.IOCS_DIR) / "iocb").mkdir()
     b = IOC.create("iocb", force=True)
     check("已有目录", [i.message for i in b.state_data.issues], ["created on the existing directory"])
-    a.record_success("exported")
+    a.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "exported")
     shutil.rmtree(a.dir_path)
     again = IOC.create("ioca", force=True)
     check("重新创建后只有新的一条", [i.message for i in again.state_data.issues], ["created"])
 
 
-def test_record_success_and_record_failure_add_issues_that_refresh_never_removes(ioc, fresh):
-    """record_success / record_failure: 成功是 INFO + OPERATION_SUCCESS,失败是 ERROR + OPERATION_FAILED;一条条追加,refresh 不会刷掉,顺序不变"""
-    ioc.record_success("built")
-    ioc.record_failure("export failed: no space left")
-    ioc.record_success("exported")
+def test_record_operation_adds_issues_that_refresh_never_removes(ioc, fresh):
+    """record_operation: 成功是 INFO + OPERATION_SUCCESS,失败是 ERROR + OPERATION_FAILED;一条条追加,refresh 不会刷掉,顺序不变"""
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built")
+    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "export failed: no space left")
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "exported")
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
     ioc.refresh()
@@ -746,7 +781,7 @@ def test_a_change_adds_the_new_problem_and_keeps_the_old_one_as_it_was(ioc):
 
 def test_refresh_leaves_issues_of_other_kinds_alone(ioc, fresh):
     """refresh: 不是它自己查出来的 issue(RECORD_RESET)不会被刷掉"""
-    fresh.write_issues("ioca", [IssueEntry(level=IssueLevel.ERROR, reason=IssueReason.RECORD_RESET, message="reset", prompt="", time="t")], append=True)
+    fresh.write_issues("ioca", [IssueEntry(level=IssueLevel.ERROR, reason=IssueReason.RECORD_RESET, category=IssueCategory.STATE, message="reset", prompt="", time="t")], append=True)
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
     check_true("RECORD_RESET 还在", any(i.reason == IssueReason.RECORD_RESET and i.message == "reset" for i in ioc.state_data.issues))
@@ -769,16 +804,16 @@ def test_refresh_of_a_directory_that_is_gone_only_records_that(ioc, fresh):
 
 
 def test_successes_and_failures_share_one_limit_and_the_newest_are_kept(ioc, fresh, monkeypatch):
-    """record_success / record_failure: 成功和失败共用 MAX_OPERATION_RECORDS,超过就丢最旧的(不分成败),顺序不变;refresh 查出来的问题不受影响"""
-    check("默认保留 100 条", settings.MAX_OPERATION_RECORDS, 100)
+    """record_operation: 成功和失败共用 MAX_OPERATION_RECORDS,超过就丢最旧的(不分成败),顺序不变;refresh 查出来的问题不受影响"""
+    check("默认保留 50 条", settings.MAX_OPERATION_RECORDS, 50)
     monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
-    ioc.record_success("op1")
-    ioc.record_failure("op2")
-    ioc.record_failure("op3")
-    ioc.record_success("op4")
-    ioc.record_failure("op5")
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "op1")
+    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op2")
+    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op3")
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "op4")
+    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op5")
     ops = lambda issues: [(i.reason, i.message) for i in issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
     expected = [
         (IssueReason.OPERATION_FAILED, "op3"),
@@ -793,10 +828,10 @@ def test_successes_and_failures_share_one_limit_and_the_newest_are_kept(ioc, fre
 
 
 def test_nothing_is_dropped_while_there_is_room(ioc, monkeypatch):
-    """record_success / record_failure: 没超过上限时一条都不丢(包括创建时的那一条)"""
+    """record_operation: 没超过上限时一条都不丢(包括创建时的那一条)"""
     monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
-    ioc.record_success("op1")
-    ioc.record_failure("op2")
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "op1")
+    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op2")
     check(
         "三条",
         [i.message for i in ioc.state_data.issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)],
@@ -864,3 +899,56 @@ def test_refresh_all_records_a_directory_that_has_gone(fresh):
     IOC.refresh_all()
     check_true("iocb 有目录丢了的 issue", any("directory is missing" in i.message for i in fresh.read_issues("iocb")))
     check_true("ioca 没有", not any("directory is missing" in i.message for i in fresh.read_issues("ioca")))
+
+
+def test_refresh_keeps_the_most_important_state_issues_and_does_not_rewrite_for_the_rest(ioc, fresh, monkeypatch):
+    """refresh: 问题太多时只留最重要的 MAX_STATE_ISSUES 条(级别优先,同级别新的优先),再刷新一次不写库"""
+    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 3)
+    for n in range(5):
+        (Path(ioc.src_path) / f"f{n}.db").write_text("x\n")  # 5 added files: 5 warnings
+    (Path(ioc.config_path)).write_text("not: [valid\n")  # and an error from the config
+    first = problems(ioc.refresh().issues)
+    check("只留 3 条", len(first), 3)
+    check("错误排在最前", first[0].level, IssueLevel.ERROR)
+    check("其余是警告", [i.level for i in first[1:]], [IssueLevel.WARNING] * 2)
+    writes = []
+    real = type(fresh).write_issues
+    try:
+        type(fresh).write_issues = lambda self, *a, **k: (writes.append(a), real(self, *a, **k))[1]
+        again = problems(ioc.refresh().issues)
+    finally:
+        type(fresh).write_issues = real
+    check("再刷新结果一样", again, first)
+    check("没有写过库", writes, [])
+
+
+def test_refresh_counts_the_reset_record_against_the_state_limit_and_leaves_operations_out(ioc, fresh, monkeypatch):
+    """refresh: RECORD_RESET 算在状态类的上限里,操作记录不算;它们都留着"""
+    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 2)
+    fresh.write_issues(
+        "ioca",
+        [
+            IssueEntry(level=IssueLevel.ERROR, reason=IssueReason.RECORD_RESET, category=IssueCategory.STATE, message="reset", prompt="", time="t"),
+        ],
+        append=True,
+    )
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built")
+    for n in range(3):
+        (Path(ioc.src_path) / f"f{n}.db").write_text("x\n")
+    issues = ioc.refresh().issues
+    check(
+        "RECORD_RESET 和两条操作记录(创建、built)都在,刷新类只剩 1 条",
+        sorted(i.reason.value for i in issues),
+        ["file_changed", "operation_success", "operation_success", "record_reset"],
+    )
+
+
+def test_record_operation_only_takes_the_reasons_of_an_operation(ioc):
+    """record_operation: 状态类的 reason 不能当操作记录写进去,什么都不写"""
+    before = ioc.state_data
+    with expect_error(ValidationError, "file_error 不是操作的结果"):
+        ioc.record_operation(IssueLevel.ERROR, IssueReason.FILE_ERROR, "x")
+    check("状态没变", IOC("ioca").state_data, before)
+    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built")
+    check("操作记录的 category", ioc.state_data.issues[-1].category, IssueCategory.OPERATION)
+    check("创建时那一条的 category", ioc.state_data.issues[0].category, IssueCategory.OPERATION)

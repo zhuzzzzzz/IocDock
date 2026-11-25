@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from core import settings
 from core.ioc_schema import IssueEntry, IssueLevel, new_state
 from core.ioc_state import IocStateManager, get_state_manager
-from tests.helpers import REPO_ROOT, add_ioc, make_issue, opened
+from tests.helpers import REPO_ROOT, add_ioc, make_issue, make_operation, opened
 from tests.logutil import check, check_true, expect_error, note, step
 
 
@@ -354,7 +354,7 @@ def test_issues_are_appended_in_order_and_not_deduplicated(st):
 
 def test_write_issues_accepts_plain_dicts_and_an_empty_append(st):
     """write_issues: 可以传 dict;append=True 配空列表什么都不改"""
-    entry = dict(level="info", reason="file_error", message="d", prompt="p", time="t")
+    entry = dict(level="info", reason="file_error", category="state", message="d", prompt="p", time="t")
     st.write_issues("ioc-a", [entry])
     issues = st.read_issues("ioc-a")
     check("条数", len(issues), 1)
@@ -404,6 +404,62 @@ def test_a_failing_insert_undoes_the_replace_and_the_append(st, db):
     with expect_error(sqlite3.IntegrityError, "追加:第二条被拒绝", match="bad issue"):
         st.write_issues("ioc-a", [make_issue("new"), make_issue("bad")], append=True)
     check("追加失败后第一条也没留下", [i.message for i in st.read_issues("ioc-a")], ["kept"])
+
+
+def test_only_the_newest_operation_records_are_kept(st, monkeypatch):
+    """write_issues: 操作记录超过 MAX_OPERATION_RECORDS 就丢最旧的,状态类的 issue 和别的 IOC 不受影响"""
+    monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
+    add_ioc(st, "ioc-a")
+    add_ioc(st, "ioc-b")
+    st.write_issues("ioc-a", [make_issue("state")], append=True)
+    for n in range(1, 6):
+        st.write_issues("ioc-a", [make_operation(f"op{n}")], append=True)
+    st.write_issues("ioc-b", [make_operation("other")], append=True)
+    check("留下最新的三条", [i.message for i in st.read_issues("ioc-a")], ["state", "op3", "op4", "op5"])
+    check("别的 IOC", [i.message for i in st.read_issues("ioc-b")], ["other"])
+
+
+def test_operation_records_are_cut_by_a_replace_too(st, monkeypatch):
+    """write_issues: 整体替换时带进来的操作记录一样要裁到上限,留下排在后面(新)的"""
+    monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 2)
+    add_ioc(st, "ioc-a")
+    st.write_issues("ioc-a", [make_operation(f"op{n}") for n in range(1, 5)])
+    check("留下最后两条", [i.message for i in st.read_issues("ioc-a")], ["op3", "op4"])
+
+
+def test_the_state_issues_that_matter_least_are_dropped_first(st, monkeypatch):
+    """write_issues: 状态类超过 MAX_STATE_ISSUES 时,低级别的先丢,同级别里旧的先丢,操作记录不算在里面"""
+    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 3)
+    add_ioc(st, "ioc-a")
+    st.write_issues("ioc-a", [make_operation("op")], append=True)
+    st.write_issues(
+        "ioc-a",
+        [
+            make_issue("info", IssueLevel.INFO, "2026/09/01 00:00:00"),
+            make_issue("warn-old", IssueLevel.WARNING, "2026/01/01 00:00:00"),
+            make_issue("warn-new", IssueLevel.WARNING, "2026/02/01 00:00:00"),
+            make_issue("error-old", IssueLevel.ERROR, "2026/01/01 00:00:00"),
+            make_issue("warn-mid", IssueLevel.WARNING, "2026/01/15 00:00:00"),
+        ],
+        append=True,
+    )
+    check(
+        "留下的(按写入的顺序)",
+        [i.message for i in st.read_issues("ioc-a")],
+        ["op", "warn-new", "error-old", "warn-mid"],
+    )
+
+
+def test_the_state_limit_is_the_same_whether_issues_are_appended_or_replaced(st, monkeypatch):
+    """write_issues: 追加和替换用同一条上限;已经在上限以内时什么都不丢"""
+    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 2)
+    add_ioc(st, "ioc-a")
+    st.write_issues("ioc-a", [make_issue("a", time="1"), make_issue("b", time="2")])
+    check("刚好到上限不丢", [i.message for i in st.read_issues("ioc-a")], ["a", "b"])
+    st.write_issues("ioc-a", [make_issue("c", time="3")], append=True)
+    check("追加后丢最旧的", [i.message for i in st.read_issues("ioc-a")], ["b", "c"])
+    st.write_issues("ioc-a", [make_issue(m, time=t) for m, t in [("x", "7"), ("y", "9"), ("z", "8")]])
+    check("替换也一样", [i.message for i in st.read_issues("ioc-a")], ["y", "z"])
 
 
 def test_issues_of_an_ioc_that_is_not_there(st):
@@ -649,8 +705,9 @@ def test_only_locked_by_another_process_counts_as_busy():
     check("不是 OperationalError", busy(ValueError("database is locked")), False)
 
 
-def test_threads_and_processes_writing_together_lose_nothing(st, db):
-    """并发: 8 个线程 + 4 个进程同时写 issue,一条都不丢"""
+def test_threads_and_processes_writing_together_lose_nothing(st, db, monkeypatch):
+    """并发: 8 个线程 + 4 个进程同时写 issue,一条都不丢(上限调到够大,这里不测裁剪)"""
+    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 10_000)
     # The processes are started fresh: an instance cannot be carried across fork().
     add_ioc(st, "ioc-load")
     errors = []
@@ -664,13 +721,15 @@ def test_threads_and_processes_writing_together_lose_nothing(st, db):
 
     process_code = (
         "import sys; sys.path.insert(0, sys.argv[1])\n"
+        "from core import settings\n"
+        "settings.MAX_STATE_ISSUES = 10_000\n"
         "from core.ioc_state import IocStateManager\n"
         "from core.ioc_schema import IssueEntry\n"
         "own = IocStateManager(sys.argv[2])\n"
         "own.connect()\n"
         "for _ in range(25):\n"
         "    own.write_issues('ioc-load', [IssueEntry(level='info', reason='file_error',"
-        " message='process', prompt='', time='t')], append=True)\n"
+        " category='state', message='process', prompt='', time='t')], append=True)\n"
         "own.close()\n"
     )
     step("启动 4 个进程(各写 25 条)和 8 个线程(各写 25 条)")

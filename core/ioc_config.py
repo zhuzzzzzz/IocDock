@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from core.ioc_schema import (
     IocConfigSchema,
+    IssueCategory,
     IssueEntry,
     IssueLevel,
     IssueReason,
@@ -60,6 +61,7 @@ class IocConfig:
                 IssueEntry(
                     level=IssueLevel.ERROR,
                     reason=IssueReason.FILE_ERROR,
+                    category=IssueCategory.STATE,
                     message=error,
                     prompt="",
                     time=now,
@@ -79,6 +81,7 @@ class IocConfig:
                     IssueEntry(
                         level=IssueLevel.ERROR,
                         reason=IssueReason.VALIDATION_ERROR,
+                        category=IssueCategory.STATE,
                         message=f"{path}: {err['msg']}",
                         prompt="",
                         time=now,
@@ -91,6 +94,7 @@ class IocConfig:
                     IssueEntry(
                         level=IssueLevel.WARNING,
                         reason=IssueReason.VALIDATION_ERROR,
+                        category=IssueCategory.STATE,
                         message=f"basic.name: {name!r} does not match directory name {dir_name!r}",
                         prompt="",
                         time=now,

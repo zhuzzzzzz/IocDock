@@ -5,6 +5,7 @@ import core.ioc_schema as schema
 from core.ioc_schema import (
     IocConfigSchema,
     IocStateSchema,
+    IssueCategory,
     IssueEntry,
     IssueLevel,
     IssueReason,
@@ -13,6 +14,7 @@ from core.ioc_schema import (
     _Src,
     new_config,
     new_state,
+    sort_by_priority,
 )
 from core.utils import get_yaml_tool
 from tests.logutil import check, check_true, expect_error, note, step
@@ -114,7 +116,7 @@ def test_generated_config_survives_a_yaml_round_trip(tmp_path):
 
 # -------------------------------------------------------------- issue entry
 
-ISSUE = dict(level="error", reason="validation_error", message="m", prompt="p", time="t")
+ISSUE = dict(level="error", reason="validation_error", category="state", message="m", prompt="p", time="t")
 
 
 def test_issue_entry_converts_to_enums():
@@ -152,6 +154,56 @@ def test_issue_entry_rejects_undefined_values(field, bad):
     with expect_error(ValidationError, "未定义的取值") as info:
         IssueEntry(**{**ISSUE, field: bad})
     check("出错的字段", [e["loc"] for e in info.value.errors()], [(field,)])
+
+
+@pytest.mark.parametrize(
+    "reason, category",
+    [
+        ("validation_error", "state"),
+        ("file_error", "state"),
+        ("file_changed", "state"),
+        ("record_reset", "state"),
+        ("operation_success", "operation"),
+        ("operation_failed", "operation"),
+    ],
+)
+def test_issue_entry_accepts_a_reason_with_its_own_category(reason, category):
+    """IssueEntry: 操作的结果属于 operation,其余的 reason 属于 state"""
+    entry = IssueEntry(**{**ISSUE, "reason": reason, "category": category})
+    check("category", entry.category, category)
+
+
+@pytest.mark.parametrize(
+    "reason, category",
+    [("file_error", "operation"), ("operation_success", "state"), ("operation_failed", "state")],
+)
+def test_issue_entry_rejects_a_reason_with_the_other_category(reason, category):
+    """IssueEntry: reason 和 category 对不上就拒绝,没有 category 也拒绝"""
+    with expect_error(ValidationError, f"{reason} 不能是 {category}"):
+        IssueEntry(**{**ISSUE, "reason": reason, "category": category})
+    with expect_error(ValidationError, "没有 category"):
+        IssueEntry(**{k: v for k, v in ISSUE.items() if k != "category"})
+
+
+def test_sort_by_priority_puts_the_level_first_then_the_newest():
+    """sort_by_priority: 先按级别(error、warning、info),同级别新的在前,完全相同的保持原来的顺序"""
+    def issue(message, level, time):
+        return IssueEntry(**{**ISSUE, "message": message, "level": level, "time": time})
+
+    issues = [
+        issue("w-old", "warning", "2026/01/01 00:00:00"),
+        issue("i-new", "info", "2026/03/01 00:00:00"),
+        issue("e-old", "error", "2026/01/01 00:00:00"),
+        issue("w-new", "warning", "2026/02/01 00:00:00"),
+        issue("e-new-a", "error", "2026/02/01 00:00:00"),
+        issue("e-new-b", "error", "2026/02/01 00:00:00"),
+    ]
+    check(
+        "顺序",
+        [i.message for i in sort_by_priority(issues)],
+        ["e-new-a", "e-new-b", "e-old", "w-new", "w-old", "i-new"],
+    )
+    check("原来的列表没动", [i.message for i in issues][0], "w-old")
 
 
 # ------------------------------------------------------------- state schema
