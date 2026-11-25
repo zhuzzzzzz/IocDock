@@ -16,10 +16,10 @@ from core.exceptions import (
 from core.ioc_config import IocConfig
 from core.ioc_repository import IocRepository
 from core.ioc_schema import (
-    IssueCategory,
+    IssueCode,
     IssueEntry,
     IssueLevel,
-    IssueReason,
+    IssueSource,
     new_state,
     sort_by_priority,
 )
@@ -49,12 +49,6 @@ def check_name(name):
         )
 
 
-# The issues refresh() finds out again each time it runs. It replaces all of them, so
-# one that is gone (the file was fixed) disappears and one that stays is not added
-# twice. The others are not about what is there now and are kept: RECORD_RESET, and
-# the records of the operations that were done (see record_operation()).
-_REFRESHED_REASONS = {IssueReason.VALIDATION_ERROR, IssueReason.FILE_ERROR, IssueReason.FILE_CHANGED}
-
 _PRESENCE_MESSAGES = {
     "complete": "{name}: already exists",
     "no_directory": "{name}: is in the database, but its directory is missing: {path}",
@@ -64,15 +58,47 @@ _PRESENCE_MESSAGES = {
 _CASE_CONFLICT_MESSAGE = "{name}: differs only in case from the existing {other}"
 
 
+def _is_utf8(path):
+    """Whether `path` can be stored: a name from the file system that is not valid UTF-8
+    has its odd bytes as lone surrogates (see IocRepository._git()), which neither the
+    JSON nor the database take."""
+    try:
+        path.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _name_issue(path):
+    """The issue of a file whose name is not valid UTF-8: the file is left out of the
+    check. Its odd bytes are shown as \\xNN, which is also how the user finds it."""
+    shown = path.encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+    return IssueEntry(
+        source=IssueSource.CHECK,
+        level=IssueLevel.WARNING,
+        code=IssueCode.FILE_NAME_INVALID,
+        target=shown,
+        message=f"{shown}: the name of the file is not valid UTF-8, the file is left out",
+        prompt="",
+        time=get_now_str(),
+    )
+
+
+def _content(issue):
+    """What of an issue says that it changed: its time is not part of it, the time
+    a problem was first seen does not change with it."""
+    return (issue.level, issue.code, issue.target, issue.message, issue.prompt)
+
+
 class IOC:
     """One IOC: its state in the database, its config file and the version history
     of its directory. IOC(name) opens an IOC that exists, IOC.create(name) makes a
     new one.
 
     The database and the directory are equally part of an IOC, and when only one of
-    them is there the IOC is opened all the same and the problem is recorded as an
-    issue of the IOC: a directory that is gone cannot be put back; a directory
-    without a record gets one, with the default state.
+    them is there the IOC is opened all the same: a directory that is gone cannot be
+    put back, so refresh() reports it as a problem; a directory without a record gets
+    one, with the default state, and that repair is recorded as an issue of the IOC.
 
     Opening an IOC only reads its record. The files are looked at by refresh(), which
     a service calls over and over for every IOC (refresh_all()); call it yourself
@@ -95,8 +121,8 @@ class IOC:
             self._add_record()
 
     def _add_record(self):
-        """A directory that has no record: make one, with the default state, and an
-        issue saying so. Nothing in the directory is touched."""
+        """A directory that has no record: make one, with the default state, and a
+        repair record saying so. Nothing in the directory is touched."""
         message = _PRESENCE_MESSAGES["no_record"].format(
             name=self.name, path=self.dir_path
         ) + "; a record with the default state was made"
@@ -111,9 +137,10 @@ class IOC:
                     self.name,
                     [
                         IssueEntry(
-                            level=IssueLevel.ERROR,
-                            reason=IssueReason.RECORD_RESET,
-                            category=IssueCategory.STATE,
+                            source=IssueSource.REPAIR,
+                            level=IssueLevel.WARNING,
+                            code=IssueCode.RECORD_RESET,
+                            target="",
                             message=message,
                             prompt="",
                             time=get_now_str(),
@@ -122,17 +149,19 @@ class IOC:
                 )
         self.state_data = self.state_manager.read_ioc(self.name)
 
-    def record_operation(self, level, reason, message):
+    def record_operation(self, level, code, message, target=""):
         """Record the result of an operation the user did (a build, an export, ...),
-        as an issue of the category OPERATION: IssueLevel.INFO and
-        IssueReason.OPERATION_SUCCESS when it succeeded, IssueLevel.ERROR and
-        IssueReason.OPERATION_FAILED when it failed. refresh() leaves it alone. Only
+        as an issue of the source OPERATION. `code` is the operation (one of the
+        OPERATION_CODES of IssueCode) and `level` how it went: IssueLevel.INFO it
+        worked, WARNING it worked but with problems, ERROR it failed. `target` is
+        what it is about, for instance what it made. refresh() leaves it alone. Only
         the newest settings.MAX_OPERATION_RECORDS of them are kept, the state manager
         drops the oldest."""
         entry = IssueEntry(
+            source=IssueSource.OPERATION,
             level=level,
-            reason=reason,
-            category=IssueCategory.OPERATION,
+            code=code,
+            target=target,
             message=message,
             prompt="",
             time=get_now_str(),
@@ -172,9 +201,10 @@ class IOC:
         if not os.path.isdir(self.dir_path):
             issues.append(
                 IssueEntry(
+                    source=IssueSource.CHECK,
                     level=IssueLevel.ERROR,
-                    reason=IssueReason.FILE_ERROR,
-                    category=IssueCategory.STATE,
+                    code=IssueCode.DIR_MISSING,
+                    target="",
                     message=_PRESENCE_MESSAGES["no_directory"].format(
                         name=self.name, path=self.dir_path
                     ),
@@ -200,9 +230,10 @@ class IOC:
         except FileNotFoundError:
             return [
                 IssueEntry(
+                    source=IssueSource.CHECK,
                     level=IssueLevel.INFO,
-                    reason=IssueReason.FILE_ERROR,
-                    category=IssueCategory.STATE,
+                    code=IssueCode.CONFIG_MISSING,
+                    target=settings.CONFIG_FILE_NAME,
                     message=f"config file not found: {self.config_path}",
                     prompt="",
                     time=get_now_str(),
@@ -212,7 +243,8 @@ class IOC:
 
     def _scan_src(self):
         """The files directly in src/ (not hidden ones, not directories) as the three
-        lists of src_files, each sorted, and the issues of src/ itself."""
+        lists of src_files, each sorted, and the issues of src/ itself (it cannot be
+        read, or the name of a file is not valid UTF-8: the file is left out)."""
         try:
             with os.scandir(self.src_path) as entries:
                 names = sorted(
@@ -223,29 +255,33 @@ class IOC:
                 new_state().src_files,
                 [
                     IssueEntry(
+                        source=IssueSource.CHECK,
                         level=IssueLevel.WARNING,
-                        reason=IssueReason.FILE_ERROR,
-                        category=IssueCategory.STATE,
+                        code=IssueCode.SRC_UNREADABLE,
+                        target="src",
                         message=f"cannot read the source directory {self.src_path}: {e}",
                         prompt="",
                         time=get_now_str(),
                     )
                 ],
             )
+        bad_names = [n for n in names if not _is_utf8(n)]
+        names = [n for n in names if _is_utf8(n)]
         db = [n for n in names if n.endswith(settings.DB_FILE_SUFFIXES)]
         protocol = [n for n in names if n.endswith(settings.PROTOCOL_FILE_SUFFIXES)]
         other = [n for n in names if n not in db and n not in protocol]
         return new_state().src_files.model_copy(
             update={"db_files": db, "protocol_files": protocol, "other_files": other}
-        ), []
+        ), [_name_issue(f"src/{n}") for n in bad_names]
 
     def _check_repository(self):
-        if not self.repository.exists():
+        if not self.repository.is_initialized():
             return [
                 IssueEntry(
+                    source=IssueSource.CHECK,
                     level=IssueLevel.WARNING,
-                    reason=IssueReason.FILE_ERROR,
-                    category=IssueCategory.STATE,
+                    code=IssueCode.REPO_MISSING,
+                    target="",
                     message=f"no git repository in {self.dir_path}, its history is not kept",
                     prompt="",
                     time=get_now_str(),
@@ -259,48 +295,55 @@ class IOC:
         except IocRepositoryError as e:
             return [
                 IssueEntry(
+                    source=IssueSource.CHECK,
                     level=IssueLevel.ERROR,
-                    reason=IssueReason.FILE_ERROR,
-                    category=IssueCategory.STATE,
+                    code=IssueCode.REPO_UNREADABLE,
+                    target="",
                     message=f"cannot read the history of {self.dir_path}: {e}",
                     prompt="",
                     time=get_now_str(),
                 )
             ]
-        return [
-            IssueEntry(
-                level=IssueLevel.WARNING,
-                reason=IssueReason.FILE_CHANGED,
-                category=IssueCategory.STATE,
-                message=f"{path}: {kind} since the snapshot {head[:8]}",
-                prompt="",
-                time=get_now_str(),
-            )
-            for kind in ("modified", "added", "deleted")
-            for path in status[kind]
-        ]
+        issues = []
+        for kind in ("modified", "added", "deleted"):
+            for path in status[kind]:
+                if _is_utf8(path):
+                    issues.append(
+                        IssueEntry(
+                            source=IssueSource.CHECK,
+                            level=IssueLevel.WARNING,
+                            code=IssueCode.FILE_CHANGED,
+                            target=path,
+                            message=f"{path}: {kind} since the snapshot {head[:8]}",
+                            prompt="",
+                            time=get_now_str(),
+                        )
+                    )
+                elif kind != "deleted":  # a file that is gone is not there to be told about
+                    issues.append(_name_issue(path))
+        return issues
 
     def _replace_issues(self, found):
-        """Make `found` the refreshed issues of the IOC, and leave the others alone.
-        What is kept (RECORD_RESET, the operation records) is not counted against
-        the refreshed ones, but the state issues of the IOC are no more than
-        settings.MAX_STATE_ISSUES together: of `found` the ones that matter most stay
-        (sort_by_priority()), and they are cut before they are compared with what is
-        there, or a `found` that is too long would never equal it. Run inside a
-        transaction."""
+        """Make `found` the check issues of the IOC, and leave the repair and
+        operation records alone. An issue that was there before and is found again,
+        told by (code, target), keeps the time it was first seen, even when its
+        message changed. An issue found twice (the same file by two scans) is one. Of `found` no more than settings.MAX_CHECK_ISSUES stay, the
+        ones that matter most (sort_by_priority()), and they are cut before they are
+        compared with what is there, or a `found` that is too long would never equal
+        it. Nothing is written when nothing changed. Run inside a transaction."""
         old = self.state_manager.read_issues(self.name)
-        ours = [i for i in old if i.reason in _REFRESHED_REASONS]
-        kept = [i for i in old if i.reason not in _REFRESHED_REASONS]
-        first_seen = {(i.level, i.reason, i.message): i.time for i in ours}
+        ours = [i for i in old if i.source is IssueSource.CHECK]
+        kept = [i for i in old if i.source is not IssueSource.CHECK]
+        found = list({_content(i): i for i in found}.values())  # found twice is one issue
+        first_seen = {}
+        for i in ours:
+            first_seen.setdefault((i.code, i.target), i.time)
         found = [
-            i.model_copy(update={"time": first_seen.get((i.level, i.reason, i.message), i.time)})
+            i.model_copy(update={"time": first_seen.get((i.code, i.target), i.time)})
             for i in found
         ]
-        room = settings.MAX_STATE_ISSUES - sum(i.category is IssueCategory.STATE for i in kept)
-        found = sort_by_priority(found)[: max(room, 0)]
-        if [(i.level, i.reason, i.message) for i in ours] == [
-            (i.level, i.reason, i.message) for i in found
-        ]:
+        found = sort_by_priority(found)[: settings.MAX_CHECK_ISSUES]
+        if [_content(i) for i in ours] == [_content(i) for i in found]:
             return
         self.state_manager.write_issues(self.name, kept + found)
 
@@ -320,7 +363,7 @@ class IOC:
     def create(cls, name, force=False):
         """Make a new, empty IOC and return it: its directory with an empty src/,
         a git repository without any commit yet, and its state in the database, with
-        an OPERATION_SUCCESS issue saying it was created. The config and the source files are
+        an issue of the operation CREATE saying it was created. The config and the source files are
         added afterwards. When a step fails what this call made is removed again and
         IocInitError is raised.
 
@@ -370,7 +413,7 @@ class IOC:
                         os.makedirs(src_path)
                         made.append(src_path)
                     repository = IocRepository(dir_path)
-                    if not repository.exists():
+                    if not repository.is_initialized():
                         repository.init()
                         made.append(os.path.join(dir_path, ".git"))
                     state_manager.write_ioc(name, new_state().model_dump(exclude={"issues"}))
@@ -378,9 +421,10 @@ class IOC:
                         name,
                         [
                             IssueEntry(
+                                source=IssueSource.OPERATION,
                                 level=IssueLevel.INFO,
-                                reason=IssueReason.OPERATION_SUCCESS,
-                                category=IssueCategory.OPERATION,
+                                code=IssueCode.CREATE,
+                                target="",
                                 message="created"
                                 if presence != "no_record"
                                 else "created on the existing directory",

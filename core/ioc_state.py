@@ -8,8 +8,8 @@ from pydantic import TypeAdapter
 from core import settings
 from core.ioc_schema import (
     IocStateSchema,
-    IssueCategory,
     IssueEntry,
+    IssueSource,
     sort_by_priority,
 )
 
@@ -43,9 +43,10 @@ CREATE TABLE ioc (
 CREATE TABLE issue (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     ioc_name TEXT NOT NULL REFERENCES ioc(name) ON DELETE CASCADE,
+    source   TEXT NOT NULL,
     level    TEXT NOT NULL,
-    reason   TEXT NOT NULL,
-    category TEXT NOT NULL,
+    code     TEXT NOT NULL,
+    target   TEXT NOT NULL,
     message  TEXT NOT NULL,
     prompt   TEXT NOT NULL,
     time     TEXT NOT NULL
@@ -283,10 +284,10 @@ COMMIT;
         after the ones there. Issues are never de-duplicated. Issues of an IOC that
         is not there raise sqlite3.IntegrityError.
 
-        Afterwards the issues of each category are cut down to its limit, in the
-        same transaction (settings.MAX_OPERATION_RECORDS: the oldest operation
-        records go; settings.MAX_STATE_ISSUES: the ones that matter least go, see
-        sort_by_priority())."""
+        Afterwards the issues of each source are cut down to its limit, in the
+        same transaction (settings.MAX_REPAIR_RECORDS and MAX_OPERATION_RECORDS:
+        the oldest records go; settings.MAX_CHECK_ISSUES: the ones that matter least
+        go, see sort_by_priority())."""
         entries = [IssueEntry.model_validate(i) for i in issues]
         with self._txn(True) as conn:
             if not append:
@@ -303,30 +304,28 @@ COMMIT;
 
     def _enforce_limits(self, conn, name):
         """Run inside the transaction of a write."""
-        conn.execute(
-            "DELETE FROM issue WHERE ioc_name = ? AND category = ? AND id NOT IN"
-            " (SELECT id FROM issue WHERE ioc_name = ? AND category = ?"
-            " ORDER BY id DESC LIMIT ?)",
-            (
-                name,
-                IssueCategory.OPERATION.value,
-                name,
-                IssueCategory.OPERATION.value,
-                settings.MAX_OPERATION_RECORDS,
-            ),
-        )
+        for source, limit in (
+            (IssueSource.REPAIR, settings.MAX_REPAIR_RECORDS),
+            (IssueSource.OPERATION, settings.MAX_OPERATION_RECORDS),
+        ):
+            conn.execute(
+                "DELETE FROM issue WHERE ioc_name = ? AND source = ? AND id NOT IN"
+                " (SELECT id FROM issue WHERE ioc_name = ? AND source = ?"
+                " ORDER BY id DESC LIMIT ?)",
+                (name, source.value, name, source.value, limit),
+            )
         rows = conn.execute(
             f"SELECT id, {self._ISSUE_COLUMNS} FROM issue"
-            " WHERE ioc_name = ? AND category = ? ORDER BY id",
-            (name, IssueCategory.STATE.value),
+            " WHERE ioc_name = ? AND source = ? ORDER BY id",
+            (name, IssueSource.CHECK.value),
         ).fetchall()
-        if len(rows) > settings.MAX_STATE_ISSUES:
+        if len(rows) > settings.MAX_CHECK_ISSUES:
             entries, row_ids = [], {}
             for row in rows:
                 entry = IssueEntry(**dict(zip(IssueEntry.model_fields, row[1:])))
                 entries.append(entry)
                 row_ids[id(entry)] = row[0]
-            best = sort_by_priority(entries)[: settings.MAX_STATE_ISSUES]
+            best = sort_by_priority(entries)[: settings.MAX_CHECK_ISSUES]
             keep = {row_ids[id(e)] for e in best}
             conn.executemany(
                 "DELETE FROM issue WHERE id = ?",

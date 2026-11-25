@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from core.ioc_config import IocConfig
-from core.ioc_schema import IocStateSchema, IssueEntry, IssueLevel, IssueReason
+from core.ioc_schema import IocStateSchema, IssueCode, IssueEntry, IssueLevel, IssueSource
 from core.utils import get_yaml_tool
 from tests.logutil import check, check_true, expect_error, note, step
 
@@ -138,10 +138,12 @@ def test_invalid_value_becomes_an_issue_and_there_is_no_config(make_conf, tmp_pa
     check("is_valid", conf.is_valid, False)
     check("issue 数量", len(conf.issues), 1)
     issue = conf.issues[0]
-    note("issue", f"{issue.level.value}/{issue.reason.value}: {issue.message}")
+    note("issue", f"{issue.level.value}/{issue.code.value}: {issue.message}")
     check_true("issue 是 IssueEntry", isinstance(issue, IssueEntry))
     check("level", issue.level, IssueLevel.ERROR)
-    check("reason", issue.reason, IssueReason.VALIDATION_ERROR)
+    check("source", issue.source, IssueSource.CHECK)
+    check("code", issue.code, IssueCode.CONFIG_INVALID)
+    check("target 是字段路径", issue.target, "deploy.resources.limits.cpus")
     check_true(
         "message 带字段路径", issue.message.startswith("deploy.resources.limits.cpus:")
     )
@@ -249,7 +251,8 @@ def test_name_mismatch_is_a_warning_and_config_stays_usable(make_conf):
     note("issue", conf.issues[0].message)
     check("level", conf.issues[0].level, IssueLevel.WARNING)
     check_true("message 以 basic.name: 开头", conf.issues[0].message.startswith("basic.name:"))
-    check("reason", conf.issues[0].reason, IssueReason.VALIDATION_ERROR)
+    check("code", conf.issues[0].code, IssueCode.CONFIG_INVALID)
+    check("target", conf.issues[0].target, "basic.name")
     write(conf.path, base)
     conf.load()
     check("改回之后 issues", conf.issues, [])
@@ -267,7 +270,7 @@ def test_name_mismatch_is_a_warning_and_config_stays_usable(make_conf):
     ids=["unclosed-bracket", "duplicate-key", "empty-file", "not-utf8"],
 )
 def test_unreadable_file_becomes_a_file_error_issue(tmp_path, content, expected):
-    """load: 读不了的文件(语法错、重复键、空文件、乱码)变成 file_error 的 issue"""
+    """load: 读不了的文件(语法错、重复键、空文件、乱码)变成 config_unreadable 的 issue"""
     path = tmp_path / "bad.yaml"
     path.write_bytes(content)
     bad = IocConfig(str(path))
@@ -277,7 +280,8 @@ def test_unreadable_file_becomes_a_file_error_issue(tmp_path, content, expected)
     check("issue 数量", len(bad.issues), 1)
     check("is_valid", bad.is_valid, False)
     note("message", bad.issues[0].message)
-    check("reason", bad.issues[0].reason, IssueReason.FILE_ERROR)
+    check("code", bad.issues[0].code, IssueCode.CONFIG_UNREADABLE)
+    check("target 是配置文件名", bad.issues[0].target, "bad.yaml")
     check("level", bad.issues[0].level, IssueLevel.ERROR)
     check_true(f"message 含 {expected!r}", expected in bad.issues[0].message)
 
@@ -295,7 +299,8 @@ def test_yaml_root_that_is_not_a_mapping_is_reported_as_root(tmp_path, content):
     check("issue 数量", len(conf.issues), 1)
     note("issue", conf.issues[0].message)
     check_true("message 以 <root>: 开头", conf.issues[0].message.startswith("<root>:"))
-    check("reason", conf.issues[0].reason, IssueReason.VALIDATION_ERROR)
+    check("code", conf.issues[0].code, IssueCode.CONFIG_INVALID)
+    check("target 为空,指整个配置", conf.issues[0].target, "")
     check("is_valid", conf.is_valid, False)
 
 

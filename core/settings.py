@@ -20,10 +20,11 @@ DEFAULT_DB_PATH = IOC_HOME + "/" + STATE_DB_FILE_NAME
 DB_FILE_SUFFIXES = (".db",)
 PROTOCOL_FILE_SUFFIXES = (".proto",)
 
-# how many issues an IOC keeps, of each of the two categories (see IssueCategory):
-# - the results of the operations the user did (build, export, ...): when there are
-#   more the oldest are dropped
-# - the problems with the state of the IOC: when there are more, those of the lowest
+# how many issues an IOC keeps, of each of the three sources (see IssueSource):
+# - what the system repaired by itself, and the results of the operations the user
+#   did (build, export, ...): when there are more the oldest are dropped
+# - the problems the self-check found: when there are more, those of the lowest
 #   level are dropped first, and of one level the oldest ones
+MAX_REPAIR_RECORDS = 50
 MAX_OPERATION_RECORDS = 50
-MAX_STATE_ISSUES = 100
+MAX_CHECK_ISSUES = 100

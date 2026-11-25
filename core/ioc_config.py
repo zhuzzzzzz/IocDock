@@ -6,10 +6,10 @@ from pydantic import ValidationError
 
 from core.ioc_schema import (
     IocConfigSchema,
-    IssueCategory,
+    IssueCode,
     IssueEntry,
     IssueLevel,
-    IssueReason,
+    IssueSource,
     new_config,
 )
 from core.utils import atomic_write, get_dir_name, get_now_str, get_yaml_tool
@@ -59,9 +59,10 @@ class IocConfig:
         if error is not None:
             self.issues.append(
                 IssueEntry(
+                    source=IssueSource.CHECK,
                     level=IssueLevel.ERROR,
-                    reason=IssueReason.FILE_ERROR,
-                    category=IssueCategory.STATE,
+                    code=IssueCode.CONFIG_UNREADABLE,
+                    target=os.path.basename(self.path),
                     message=error,
                     prompt="",
                     time=now,
@@ -76,13 +77,14 @@ class IocConfig:
             self.data = IocConfigSchema.model_validate(data)
         except ValidationError as e:
             for err in e.errors():
-                path = ".".join(str(p) for p in err["loc"]) or "<root>"
+                field = ".".join(str(p) for p in err["loc"])
                 self.issues.append(
                     IssueEntry(
+                        source=IssueSource.CHECK,
                         level=IssueLevel.ERROR,
-                        reason=IssueReason.VALIDATION_ERROR,
-                        category=IssueCategory.STATE,
-                        message=f"{path}: {err['msg']}",
+                        code=IssueCode.CONFIG_INVALID,
+                        target=field,
+                        message=f"{field or '<root>'}: {err['msg']}",
                         prompt="",
                         time=now,
                     )
@@ -92,9 +94,10 @@ class IocConfig:
             if name != dir_name:
                 self.issues.append(
                     IssueEntry(
+                        source=IssueSource.CHECK,
                         level=IssueLevel.WARNING,
-                        reason=IssueReason.VALIDATION_ERROR,
-                        category=IssueCategory.STATE,
+                        code=IssueCode.CONFIG_INVALID,
+                        target="basic.name",
                         message=f"basic.name: {name!r} does not match directory name {dir_name!r}",
                         prompt="",
                         time=now,

@@ -13,7 +13,7 @@ from core.exceptions import IocExistsError, IocInitError, IocNotFoundError
 from core.ioc import IOC, check_name
 from core.ioc_config import IocConfig
 from core.ioc_repository import IocRepository
-from core.ioc_schema import IssueCategory, IssueEntry, IssueLevel, IssueReason, new_state
+from core.ioc_schema import IssueCode, IssueEntry, IssueLevel, IssueSource, new_state
 from tests.helpers import REPO_ROOT, add_ioc, make_issue
 from tests.logutil import check, check_true, expect_error, note, step
 
@@ -91,7 +91,9 @@ def test_ioc_whose_directory_is_gone_is_opened_and_refresh_records_it_once(fresh
     check("一条", len(found), 1)
     issue = found[0]
     check("level", issue.level, IssueLevel.ERROR)
-    check("reason", issue.reason, IssueReason.FILE_ERROR)
+    check("source", issue.source, IssueSource.CHECK)
+    check("code", issue.code, IssueCode.DIR_MISSING)
+    check("target", issue.target, "")
     check_true("消息说目录没了", "directory is missing" in issue.message and ioc.dir_path in issue.message)
     check("库里存了同一条", problems(fresh.read_issues("ioca")), [issue])
     ioc.refresh()
@@ -100,20 +102,23 @@ def test_ioc_whose_directory_is_gone_is_opened_and_refresh_records_it_once(fresh
 
 
 def test_directory_without_a_record_is_opened_and_gets_a_record_and_an_issue(fresh):
-    """IOC: 有目录但库里没有记录,照常打开,补一条记录并记一条 RECORD_RESET;目录里的东西不动;再打开不再重复,这条也不会被刷新掉"""
+    """IOC: 有目录但库里没有记录,照常打开,补一条记录并记一条 RECORD_RESET(修复记录);目录里的东西不动;再打开不再重复,刷新也不会把它刷掉"""
     d = Path(settings.IOCS_DIR) / "ioca"
     (d / "src").mkdir(parents=True)
     (d / "src" / "mine.db").write_text("keep me\n")
     (d / "notes.txt").write_text("also mine\n")
     ioc = IOC("ioca")
     check("name", ioc.name, "ioca")
-    reset = [i for i in ioc.state_data.issues if i.reason == IssueReason.RECORD_RESET]
+    reset = [i for i in ioc.state_data.issues if i.code == IssueCode.RECORD_RESET]
     check("一条 RECORD_RESET", len(reset), 1)
-    check("level", reset[0].level, IssueLevel.ERROR)
+    check("source 是修复", reset[0].source, IssueSource.REPAIR)
+    check("level", reset[0].level, IssueLevel.WARNING)
     check_true("消息说库里没有记录", "not in the database" in reset[0].message and ioc.dir_path in reset[0].message)
     check("打开时只有这一条 issue", ioc.state_data.issues, reset)
     check("src_files 还是空的,要等 refresh", ioc.state_data.src_files.db_files, [])
     check("refresh 之后按目录里实际的文件填", ioc.refresh().src_files.db_files, ["mine.db"])
+    check("refresh 之后这条还在,记录已经补上了也一样", [i for i in ioc.state_data.issues if i.code == IssueCode.RECORD_RESET], reset)
+    check_true("refresh 查出来的是另外的自检 issue", any(i.source is IssueSource.CHECK for i in ioc.state_data.issues))
     check("库里存了同样的 issue", fresh.read_issues("ioca"), ioc.state_data.issues)
     check("目录里的文件没动", sorted(p.name for p in d.iterdir()), ["notes.txt", "src"])
     check("文件内容没动", (d / "src" / "mine.db").read_text(), "keep me\n")
@@ -122,7 +127,7 @@ def test_directory_without_a_record_is_opened_and_gets_a_record_and_an_issue(fre
     step("再打开两次")
     IOC("ioca")
     again = IOC("ioca")
-    check("RECORD_RESET 还是那一条", [i for i in again.state_data.issues if i.reason == IssueReason.RECORD_RESET], reset)
+    check("RECORD_RESET 还是那一条", [i for i in again.state_data.issues if i.code == IssueCode.RECORD_RESET], reset)
 
 
 def test_both_halves_missing_is_still_not_found(fresh):
@@ -153,7 +158,7 @@ def test_forced_create_adopts_a_directory_that_has_no_record(fresh):
     ioc = IOC.create("ioca", force=True)
     check("文件还在", (d / "ioc-config.yaml").read_text(), "mine\n")
     check_true("补了 src", (d / "src").is_dir())
-    check_true("补了仓库", ioc.repository.exists())
+    check_true("补了仓库", ioc.repository.is_initialized())
     check("状态是默认值", plain(ioc.state_data), plain(new_state()))
     check("现在是完整的", IOC.check_presence("ioca"), "complete")
 
@@ -180,7 +185,7 @@ def test_forced_create_rebuilds_a_directory_that_is_gone_and_resets_the_record(f
     again = IOC.create("ioca", force=True)
     check_true("目录又有了", os.path.isdir(again.dir_path))
     check_true("有 src", os.path.isdir(os.path.join(again.dir_path, "src")))
-    check_true("有仓库", again.repository.exists())
+    check_true("有仓库", again.repository.is_initialized())
     check("状态是默认值", plain(again.state_data), plain(new_state()))
     check_true("旧 issue 没了", "old problem" not in messages_of(again), messages_of(again))
     check_true("目录没了的 issue 也没了", not any("missing" in m for m in messages_of(again)))
@@ -279,8 +284,8 @@ def plain(state):
 
 
 def problems(issues):
-    """The issues of refresh(), without the records of the operations that were done"""
-    return [i for i in issues if i.reason not in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
+    """The issues of the self-check, without the records of the operations that were done"""
+    return [i for i in issues if i.source is IssueSource.CHECK]
 
 
 def messages_of(ioc):
@@ -347,11 +352,11 @@ def test_create_makes_an_empty_ioc_with_a_repository_and_a_state(fresh):
     check("目录里只有 src 和 .git", sorted(p.name for p in Path(ioc.dir_path).iterdir()), [".git", "src"])
     check("src 是空的", list((Path(ioc.dir_path) / "src").iterdir()), [])
     check_true("没有配置文件", not os.path.exists(ioc.config_path))
-    check_true("有仓库", ioc.repository.exists())
+    check_true("有仓库", ioc.repository.is_initialized())
     check("还没有提交", ioc.repository.head(), None)
     check("没有任何改动", ioc.repository.is_clean(), True)
     check("库里的状态是 new_state() 的默认值", plain(ioc.state_data), plain(new_state()))
-    check("只有一条操作记录:创建", [(i.level, i.reason, i.message) for i in ioc.state_data.issues], [(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "created")])
+    check("只有一条操作记录:创建", [(i.level, i.code, i.message) for i in ioc.state_data.issues], [(IssueLevel.INFO, IssueCode.CREATE, "created")])
     check("库里读到的和对象里的一样", fresh.read_ioc("ioca"), ioc.state_data)
     check("之后能用 IOC(name) 打开", IOC("ioca").state_data, ioc.state_data)
     with expect_error(FileNotFoundError, "还没有配置文件时 load"):
@@ -413,7 +418,7 @@ def test_create_of_a_name_in_the_database_changes_nothing(fresh):
     check("库里还是一个", fresh.list_iocs(), ["ioca"])
     check("状态没动", fresh.read_ioc("ioca"), before)
     check("文件没动", mine.read_text(), "keep me\n")
-    check_true("仓库还在", first.repository.exists())
+    check_true("仓库还在", first.repository.is_initialized())
 
 
 def test_create_of_a_name_whose_directory_exists_leaves_the_directory_alone(fresh):
@@ -535,7 +540,7 @@ def test_opening_an_ioc_that_another_process_is_still_creating_waits_for_it(fres
         check_true("确实等了它", waited > 0.5)
         check("拿到的是完整的 IOC", IOC.check_presence("ioca"), "complete")
         check("只有创建时那一条记录", [i.message for i in opened.state_data.issues], ["created"])
-        check_true("没有补记录的 RECORD_RESET", not any(i.reason == IssueReason.RECORD_RESET for i in opened.state_data.issues))
+        check_true("没有补记录的 RECORD_RESET", not any(i.code == IssueCode.RECORD_RESET for i in opened.state_data.issues))
     finally:
         proc.wait(timeout=20)
     check("创建进程成功结束", proc.returncode, 0)
@@ -589,11 +594,11 @@ def test_opening_a_directory_whose_creation_failed_meanwhile_is_not_found(fresh,
 def test_create_records_that_it_happened_and_says_so_for_an_existing_directory(fresh):
     """IOC.create: 成功后记一条 INFO 的操作记录;在已有目录上创建时消息不同;重置有记录的 IOC 时旧记录清掉"""
     a = IOC.create("ioca")
-    check("记录", [(i.level, i.reason, i.message) for i in a.state_data.issues], [(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "created")])
+    check("记录", [(i.level, i.code, i.message) for i in a.state_data.issues], [(IssueLevel.INFO, IssueCode.CREATE, "created")])
     (Path(settings.IOCS_DIR) / "iocb").mkdir()
     b = IOC.create("iocb", force=True)
     check("已有目录", [i.message for i in b.state_data.issues], ["created on the existing directory"])
-    a.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "exported")
+    a.record_operation(IssueLevel.INFO, IssueCode.EXPORT, "exported")
     shutil.rmtree(a.dir_path)
     again = IOC.create("ioca", force=True)
     check("重新创建后只有新的一条", [i.message for i in again.state_data.issues], ["created"])
@@ -601,25 +606,25 @@ def test_create_records_that_it_happened_and_says_so_for_an_existing_directory(f
 
 def test_record_operation_adds_issues_that_refresh_never_removes(ioc, fresh):
     """record_operation: 成功是 INFO + OPERATION_SUCCESS,失败是 ERROR + OPERATION_FAILED;一条条追加,refresh 不会刷掉,顺序不变"""
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built")
-    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "export failed: no space left")
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "exported")
+    ioc.record_operation(IssueLevel.INFO, IssueCode.BUILD, "built")
+    ioc.record_operation(IssueLevel.ERROR, IssueCode.EXPORT, "export failed: no space left")
+    ioc.record_operation(IssueLevel.INFO, IssueCode.EXPORT, "exported")
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
     ioc.refresh()
-    ops = [i for i in ioc.state_data.issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
+    ops = [i for i in ioc.state_data.issues if i.source is IssueSource.OPERATION]
     check(
         "按顺序",
-        [(i.level, i.reason, i.message) for i in ops],
+        [(i.level, i.code, i.message) for i in ops],
         [
-            (IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "created"),
-            (IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built"),
-            (IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "export failed: no space left"),
-            (IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "exported"),
+            (IssueLevel.INFO, IssueCode.CREATE, "created"),
+            (IssueLevel.INFO, IssueCode.BUILD, "built"),
+            (IssueLevel.ERROR, IssueCode.EXPORT, "export failed: no space left"),
+            (IssueLevel.INFO, IssueCode.EXPORT, "exported"),
         ],
     )
     check("库里一样", [i for i in fresh.read_issues("ioca") if i in ops], ops)
-    check_true("同时 refresh 查出来的 FILE_CHANGED 也在", any(i.reason == IssueReason.FILE_CHANGED for i in ioc.state_data.issues))
+    check_true("同时 refresh 查出来的 FILE_CHANGED 也在", any(i.code == IssueCode.FILE_CHANGED for i in ioc.state_data.issues))
 
 
 # ------------------------------------------------------------------ refresh
@@ -635,7 +640,7 @@ def ioc(fresh, tmp_path):
 
 
 def kinds(ioc):
-    return [(i.level.value, i.reason.value) for i in problems(ioc.state_data.issues)]
+    return [(i.level.value, i.code.value) for i in problems(ioc.state_data.issues)]
 
 
 def test_refresh_of_an_ioc_that_is_in_order_finds_nothing(ioc):
@@ -674,7 +679,7 @@ def test_refresh_records_a_config_that_is_invalid_and_forgets_it_once_fixed(ioc)
     good = Path(ioc.config_path).read_text(encoding="utf-8")
     Path(ioc.config_path).write_text("basic: [not, a, mapping]\n", encoding="utf-8")
     ioc.refresh()
-    check_true("有 VALIDATION_ERROR", any(r == "validation_error" for _, r in kinds(ioc)), kinds(ioc))
+    check_true("有 CONFIG_INVALID", any(r == "config_invalid" for _, r in kinds(ioc)), kinds(ioc))
     Path(ioc.config_path).write_text(good, encoding="utf-8")
     ioc.repository.commit("fixed")
     check("改好之后没有了", problems(ioc.refresh().issues), [])
@@ -684,7 +689,8 @@ def test_refresh_reports_a_missing_config_as_information(fresh):
     """refresh: 还没有配置文件只是一条 INFO,不算错误"""
     ioc = IOC.create("ioca")
     ioc.refresh()
-    check("issues", kinds(ioc), [("info", "file_error")])
+    check("issues", kinds(ioc), [("info", "config_missing")])
+    check("target 是配置文件名", problems(ioc.state_data.issues)[0].target, settings.CONFIG_FILE_NAME)
 
 
 def test_refresh_reports_files_that_differ_from_the_latest_snapshot(ioc):
@@ -698,13 +704,18 @@ def test_refresh_reports_files_that_differ_from_the_latest_snapshot(ioc):
     (src / "new.db").write_text("x\n")
     Path(ioc.config_path).unlink()
     ioc.refresh()
-    changed = [i for i in ioc.state_data.issues if i.reason == IssueReason.FILE_CHANGED]
+    changed = [i for i in ioc.state_data.issues if i.code == IssueCode.FILE_CHANGED]
     check(
         "改动的文件",
         sorted(i.message.split(" since")[0] for i in changed),
         ["ioc-config.yaml: deleted", "src/a.db: modified", "src/new.db: added"],
     )
     check_true("消息带着快照 id", all(ioc.repository.head()[:8] in i.message for i in changed))
+    check(
+        "target 是文件的路径",
+        sorted(i.target for i in changed),
+        ["ioc-config.yaml", "src/a.db", "src/new.db"],
+    )
     (src / "a.db").write_text("one\n")
     (src / "new.db").unlink()
     Path(ioc.config_path).write_text(good_config, encoding="utf-8")
@@ -744,6 +755,55 @@ def test_refresh_survives_a_git_that_fails_and_says_so(ioc, monkeypatch):
     check("src_files 照常更新", ioc.state_data.src_files.db_files, ["a.db"])
 
 
+GBK_NAME = os.fsdecode(b"\xd6\xd0\xce\xc4.db")  # a name that is not valid UTF-8
+GBK_SHOWN = "\\xd6\\xd0\\xce\\xc4.db"  # how the issue shows it
+
+
+def odd_names(ioc):
+    return [i for i in ioc.state_data.issues if i.code == IssueCode.FILE_NAME_INVALID]
+
+
+def test_refresh_leaves_out_a_source_file_whose_name_is_not_utf8_and_says_so(ioc, fresh):
+    """refresh: src/ 里文件名不是 UTF-8 的文件不算进 src_files、也不当作改动,只记一条 file_name_invalid(一条,不是两条);别的文件照常;库里存得进去"""
+    src = Path(ioc.src_path)
+    (src / "a.db").write_text("x\n")
+    (src / GBK_NAME).write_text("x\n")
+    ioc.refresh()
+    check("src_files 只有名字正常的", ioc.state_data.src_files.db_files, ["a.db"])
+    issues = odd_names(ioc)
+    check("一条 WARNING,target 是能看懂的名字", [(i.level, i.target) for i in issues], [(IssueLevel.WARNING, "src/" + GBK_SHOWN)])
+    check_true("消息里也是", ("src/" + GBK_SHOWN) in issues[0].message)
+    changed = [i for i in ioc.state_data.issues if i.code == IssueCode.FILE_CHANGED]
+    check("名字正常的文件照常查出改动", [i.target for i in changed], ["src/a.db"])
+    check("库里存了同样的", fresh.read_ioc("ioca").issues, ioc.state_data.issues)
+    again = ioc.refresh()
+    check("再刷新一次没有变化", again.issues, ioc.state_data.issues)
+
+
+def test_the_issue_of_an_odd_file_name_stays_after_a_commit_and_goes_when_the_file_does(ioc):
+    """refresh: 文件提交之后名字还是不对,这条还在(它没有被查);文件删了才没有"""
+    odd = Path(ioc.src_path) / GBK_NAME
+    odd.write_text("x\n")
+    ioc.refresh()
+    ioc.repository.commit("odd name")
+    ioc.refresh()
+    check("还在", [i.target for i in odd_names(ioc)], ["src/" + GBK_SHOWN])
+    check("时间还是第一次发现的", len({i.time for i in odd_names(ioc)}), 1)
+    odd.unlink()
+    check("删掉之后没有了", [i for i in ioc.refresh().issues if i.code == IssueCode.FILE_NAME_INVALID], [])
+
+
+def test_refresh_reports_an_odd_file_name_outside_src_too(ioc):
+    """refresh: src/ 以外的地方(版本库查出来的)文件名不是 UTF-8,也跳过并记一条"""
+    (Path(ioc.dir_path) / GBK_NAME).write_text("x\n")
+    (Path(ioc.dir_path) / "notes.txt").write_text("x\n")
+    ioc.refresh()
+    check("target 没有 src/ 前缀", [i.target for i in odd_names(ioc)], [GBK_SHOWN])
+    changed = [i.target for i in ioc.state_data.issues if i.code == IssueCode.FILE_CHANGED]
+    check("别的照常", changed, ["notes.txt"])
+    check("src_files 没有受影响", ioc.state_data.src_files.model_dump(), new_state().src_files.model_dump())
+
+
 def test_a_problem_that_stays_is_not_added_again_and_keeps_the_time_it_was_first_seen(ioc, fresh):
     """refresh: 同一个问题一直在时只有一条,时间还是第一次发现的时间,而且没有变化时不写库"""
     (Path(ioc.src_path) / "a.db").write_text("x\n")
@@ -769,6 +829,25 @@ def test_a_problem_that_stays_is_not_added_again_and_keeps_the_time_it_was_first
     check("没有写过库", writes, [])
 
 
+def test_a_problem_whose_message_changes_is_updated_and_keeps_the_time_it_was_first_seen(ioc, monkeypatch):
+    """refresh: 同一个问题(code 和 target 都一样)的 message 变了,就更新那一条,时间还是第一次发现的时间"""
+    src = Path(ioc.src_path)
+    (src / "a.db").write_text("one\n")
+    ioc.repository.commit("a")
+    (src / "a.db").write_text("two\n")
+    monkeypatch.setattr("core.ioc.get_now_str", lambda: "first")
+    first = problems(ioc.refresh().issues)
+    check("一条", [(i.code, i.target, i.time) for i in first], [(IssueCode.FILE_CHANGED, "src/a.db", "first")])
+    check_true("message 说改动", "src/a.db: modified" in first[0].message)
+    (src / "a.db").unlink()
+    monkeypatch.setattr("core.ioc.get_now_str", lambda: "later")
+    second = problems(ioc.refresh().issues)
+    check("还是一条", len(second), 1)
+    check_true("message 变成了删除", "src/a.db: deleted" in second[0].message)
+    check("时间还是第一次发现的", second[0].time, "first")
+    check("库里存的也是", problems(IOC("ioca").state_data.issues), second)
+
+
 def test_a_change_adds_the_new_problem_and_keeps_the_old_one_as_it_was(ioc):
     """refresh: 又出现新问题时,旧的那条保持原样(包括时间),新的加在后面"""
     (Path(ioc.src_path) / "a.db").write_text("x\n")
@@ -780,13 +859,13 @@ def test_a_change_adds_the_new_problem_and_keeps_the_old_one_as_it_was(ioc):
 
 
 def test_refresh_leaves_issues_of_other_kinds_alone(ioc, fresh):
-    """refresh: 不是它自己查出来的 issue(RECORD_RESET)不会被刷掉"""
-    fresh.write_issues("ioca", [IssueEntry(level=IssueLevel.ERROR, reason=IssueReason.RECORD_RESET, category=IssueCategory.STATE, message="reset", prompt="", time="t")], append=True)
+    """refresh: 只换自检的 issue,修复记录(RECORD_RESET)不会被刷掉"""
+    fresh.write_issues("ioca", [IssueEntry(source=IssueSource.REPAIR, level=IssueLevel.WARNING, code=IssueCode.RECORD_RESET, target="", message="reset", prompt="", time="t")], append=True)
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
-    check_true("RECORD_RESET 还在", any(i.reason == IssueReason.RECORD_RESET and i.message == "reset" for i in ioc.state_data.issues))
+    check_true("RECORD_RESET 还在", any(i.code == IssueCode.RECORD_RESET and i.message == "reset" for i in ioc.state_data.issues))
     ioc.refresh()
-    check("仍然只有一条", sum(i.reason == IssueReason.RECORD_RESET for i in ioc.state_data.issues), 1)
+    check("仍然只有一条", sum(i.code == IssueCode.RECORD_RESET for i in ioc.state_data.issues), 1)
 
 
 def test_refresh_of_a_directory_that_is_gone_only_records_that(ioc, fresh):
@@ -809,20 +888,20 @@ def test_successes_and_failures_share_one_limit_and_the_newest_are_kept(ioc, fre
     monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "op1")
-    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op2")
-    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op3")
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "op4")
-    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op5")
-    ops = lambda issues: [(i.reason, i.message) for i in issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)]
+    ioc.record_operation(IssueLevel.INFO, IssueCode.BUILD, "op1")
+    ioc.record_operation(IssueLevel.ERROR, IssueCode.BUILD, "op2")
+    ioc.record_operation(IssueLevel.ERROR, IssueCode.BUILD, "op3")
+    ioc.record_operation(IssueLevel.INFO, IssueCode.BUILD, "op4")
+    ioc.record_operation(IssueLevel.ERROR, IssueCode.BUILD, "op5")
+    ops = lambda issues: [(i.code, i.message) for i in issues if i.source is IssueSource.OPERATION]
     expected = [
-        (IssueReason.OPERATION_FAILED, "op3"),
-        (IssueReason.OPERATION_SUCCESS, "op4"),
-        (IssueReason.OPERATION_FAILED, "op5"),
+        (IssueCode.BUILD, "op3"),
+        (IssueCode.BUILD, "op4"),
+        (IssueCode.BUILD, "op5"),
     ]
     check("对象里最新的 3 条", ops(ioc.state_data.issues), expected)
     check("库里一样", ops(fresh.read_issues("ioca")), expected)
-    check_true("refresh 查出来的问题还在", any(i.reason == IssueReason.FILE_CHANGED for i in fresh.read_issues("ioca")))
+    check_true("refresh 查出来的问题还在", any(i.code == IssueCode.FILE_CHANGED for i in fresh.read_issues("ioca")))
     ioc.refresh()
     check("refresh 之后也一样", ops(fresh.read_issues("ioca")), expected)
 
@@ -830,11 +909,11 @@ def test_successes_and_failures_share_one_limit_and_the_newest_are_kept(ioc, fre
 def test_nothing_is_dropped_while_there_is_room(ioc, monkeypatch):
     """record_operation: 没超过上限时一条都不丢(包括创建时的那一条)"""
     monkeypatch.setattr(settings, "MAX_OPERATION_RECORDS", 3)
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "op1")
-    ioc.record_operation(IssueLevel.ERROR, IssueReason.OPERATION_FAILED, "op2")
+    ioc.record_operation(IssueLevel.INFO, IssueCode.BUILD, "op1")
+    ioc.record_operation(IssueLevel.ERROR, IssueCode.BUILD, "op2")
     check(
         "三条",
-        [i.message for i in ioc.state_data.issues if i.reason in (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)],
+        [i.message for i in ioc.state_data.issues if i.source is IssueSource.OPERATION],
         ["created", "op1", "op2"],
     )
 
@@ -902,8 +981,8 @@ def test_refresh_all_records_a_directory_that_has_gone(fresh):
 
 
 def test_refresh_keeps_the_most_important_state_issues_and_does_not_rewrite_for_the_rest(ioc, fresh, monkeypatch):
-    """refresh: 问题太多时只留最重要的 MAX_STATE_ISSUES 条(级别优先,同级别新的优先),再刷新一次不写库"""
-    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 3)
+    """refresh: 问题太多时只留最重要的 MAX_CHECK_ISSUES 条(级别优先,同级别新的优先),再刷新一次不写库"""
+    monkeypatch.setattr(settings, "MAX_CHECK_ISSUES", 3)
     for n in range(5):
         (Path(ioc.src_path) / f"f{n}.db").write_text("x\n")  # 5 added files: 5 warnings
     (Path(ioc.config_path)).write_text("not: [valid\n")  # and an error from the config
@@ -922,33 +1001,35 @@ def test_refresh_keeps_the_most_important_state_issues_and_does_not_rewrite_for_
     check("没有写过库", writes, [])
 
 
-def test_refresh_counts_the_reset_record_against_the_state_limit_and_leaves_operations_out(ioc, fresh, monkeypatch):
-    """refresh: RECORD_RESET 算在状态类的上限里,操作记录不算;它们都留着"""
-    monkeypatch.setattr(settings, "MAX_STATE_ISSUES", 2)
+def test_refresh_keeps_repairs_and_operations_out_of_the_check_limit(ioc, fresh, monkeypatch):
+    """refresh: 自检 issue 的上限只数自检的,修复记录和操作记录不占名额,也都留着"""
+    monkeypatch.setattr(settings, "MAX_CHECK_ISSUES", 2)
     fresh.write_issues(
         "ioca",
         [
-            IssueEntry(level=IssueLevel.ERROR, reason=IssueReason.RECORD_RESET, category=IssueCategory.STATE, message="reset", prompt="", time="t"),
+            IssueEntry(source=IssueSource.REPAIR, level=IssueLevel.WARNING, code=IssueCode.RECORD_RESET, target="", message="reset", prompt="", time="t"),
         ],
         append=True,
     )
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built")
+    ioc.record_operation(IssueLevel.INFO, IssueCode.BUILD, "built")
     for n in range(3):
         (Path(ioc.src_path) / f"f{n}.db").write_text("x\n")
     issues = ioc.refresh().issues
     check(
-        "RECORD_RESET 和两条操作记录(创建、built)都在,刷新类只剩 1 条",
-        sorted(i.reason.value for i in issues),
-        ["file_changed", "operation_success", "operation_success", "record_reset"],
+        "修复记录和两条操作记录(创建、built)都在,自检的只留上限的 2 条",
+        sorted(i.code.value for i in issues),
+        ["build", "create", "file_changed", "file_changed", "record_reset"],
     )
+    check("再刷新一次,结果一样", sorted(i.code.value for i in ioc.refresh().issues), sorted(i.code.value for i in issues))
 
 
-def test_record_operation_only_takes_the_reasons_of_an_operation(ioc):
-    """record_operation: 状态类的 reason 不能当操作记录写进去,什么都不写"""
+
+def test_record_operation_only_takes_the_codes_of_an_operation(ioc):
+    """record_operation: 自检的 code 不能当操作记录写进去,什么都不写"""
     before = ioc.state_data
-    with expect_error(ValidationError, "file_error 不是操作的结果"):
-        ioc.record_operation(IssueLevel.ERROR, IssueReason.FILE_ERROR, "x")
+    with expect_error(ValidationError, "file_changed 不是操作"):
+        ioc.record_operation(IssueLevel.ERROR, IssueCode.FILE_CHANGED, "x")
     check("状态没变", IOC("ioca").state_data, before)
-    ioc.record_operation(IssueLevel.INFO, IssueReason.OPERATION_SUCCESS, "built")
-    check("操作记录的 category", ioc.state_data.issues[-1].category, IssueCategory.OPERATION)
-    check("创建时那一条的 category", ioc.state_data.issues[0].category, IssueCategory.OPERATION)
+    ioc.record_operation(IssueLevel.INFO, IssueCode.BUILD, "built")
+    check("操作记录的 source", ioc.state_data.issues[-1].source, IssueSource.OPERATION)
+    check("创建时那一条的 source", ioc.state_data.issues[0].source, IssueSource.OPERATION)

@@ -2,31 +2,46 @@
 
 from pathlib import Path
 
-from core.ioc_schema import IssueCategory, IssueEntry, IssueLevel, IssueReason, new_state
+from core.ioc_schema import IssueCode, IssueEntry, IssueLevel, IssueSource, new_state
 from core.ioc_state import IocStateManager
 from core.utils import get_now_str
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def make_issue(message="m", level=IssueLevel.WARNING, time=None):
-    """A state issue"""
+def make_issue(message="m", level=IssueLevel.WARNING, time=None, code=IssueCode.CONFIG_INVALID, target=""):
+    """An issue of the self-check"""
     return IssueEntry(
+        source=IssueSource.CHECK,
         level=level,
-        reason=IssueReason.VALIDATION_ERROR,
-        category=IssueCategory.STATE,
+        code=code,
+        target=target,
         message=message,
         prompt="",
         time=time or get_now_str(),
     )
 
 
-def make_operation(message="op", success=True):
+def make_repair(message="repair"):
+    """The record of something the system repaired by itself"""
+    return IssueEntry(
+        source=IssueSource.REPAIR,
+        level=IssueLevel.WARNING,
+        code=IssueCode.RECORD_RESET,
+        target="",
+        message=message,
+        prompt="",
+        time=get_now_str(),
+    )
+
+
+def make_operation(message="op", success=True, code=IssueCode.BUILD):
     """The record of an operation"""
     return IssueEntry(
+        source=IssueSource.OPERATION,
         level=IssueLevel.INFO if success else IssueLevel.ERROR,
-        reason=IssueReason.OPERATION_SUCCESS if success else IssueReason.OPERATION_FAILED,
-        category=IssueCategory.OPERATION,
+        code=code,
+        target="",
         message=message,
         prompt="",
         time=get_now_str(),

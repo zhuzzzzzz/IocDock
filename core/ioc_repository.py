@@ -20,7 +20,9 @@ class IocRepository:
         self.path = os.path.abspath(path)
         self.timeout = timeout
 
-    def exists(self):
+    def is_initialized(self):
+        """Whether the directory has been made a repository (init()): there is a .git
+        in it. It is not looked into, whether it works is another matter."""
         return os.path.isdir(os.path.join(self.path, ".git"))
 
     def init(self, ignore=()):
@@ -29,7 +31,7 @@ class IocRepository:
         A directory that already is a repository raises FileExistsError."""
         if not os.path.isdir(self.path):
             raise FileNotFoundError(self.path)
-        if self.exists():
+        if self.is_initialized():
             raise FileExistsError(os.path.join(self.path, ".git"))
         self._git("init", "--quiet", "--initial-branch=main", ".")
         if ignore:
@@ -60,7 +62,8 @@ class IocRepository:
     def status(self):
         """What differs from the latest commit, as {"modified": [...], "added": [...],
         "deleted": [...]}: paths relative to the directory, sorted. Files matched by
-        .gitignore are not looked at. A rename shows up as a delete and an add."""
+        .gitignore are not looked at. A rename shows up as a delete and an add. A name
+        that is not valid UTF-8 comes back as os.listdir() gives it (see _git())."""
         out = self._git(
             "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all"
         ).stdout
@@ -123,16 +126,22 @@ class IocRepository:
                 cwd=self.path,
                 env=env,
                 capture_output=True,
-                text=True,
-                encoding="utf-8",
                 timeout=self.timeout,
             )
         except FileNotFoundError as e:
             raise IocRepositoryError(f"git is not installed or not in PATH ({e})") from e
         except subprocess.TimeoutExpired as e:
             raise IocRepositoryError(f"git {args[0]} took longer than {self.timeout}s in {self.path}") from e
+        # A path git prints is the bytes of a name somebody gave a file, which need not
+        # be UTF-8. They stay in stdout the way os.listdir() gives them (the bytes that
+        # are not UTF-8 are lone surrogates, which the os functions turn back into those
+        # bytes), so that the caller can tell. A message is made to be text that can
+        # be stored.
+        stdout = result.stdout.decode("utf-8", "surrogateescape")
+        stderr = result.stderr.decode("utf-8", "replace")
         if check and result.returncode != 0:
+            printed = stdout.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
             raise IocRepositoryError(
-                f"git {args[0]} failed in {self.path}: {result.stderr.strip() or result.stdout.strip()}"
+                f"git {args[0]} failed in {self.path}: {stderr.strip() or printed.strip()}"
             )
-        return result
+        return subprocess.CompletedProcess(command, result.returncode, stdout, stderr)

@@ -34,9 +34,9 @@ def test_init_makes_a_repository_only_once(tmp_path):
     d = tmp_path / "ioc-a"
     d.mkdir()
     r = IocRepository(d)
-    check("init 前", r.exists(), False)
+    check("init 前", r.is_initialized(), False)
     r.init(ignore=["build/", "*.log"])
-    check("init 后", r.exists(), True)
+    check("init 后", r.is_initialized(), True)
     check(".gitignore", (d / ".gitignore").read_text(), "build/\n*.log\n")
     check("还没有提交", r.head(), None)
     with expect_error(FileExistsError, "再 init 一次"):
@@ -113,6 +113,26 @@ def test_file_names_with_spaces_and_non_ascii_come_back_as_they_are(repo):
     check("added", repo.status()["added"], ["src/带 空格.db"])
 
 
+def test_a_file_name_that_is_not_utf8_comes_back_the_way_os_listdir_gives_it(repo):
+    """status: 文件名不是 UTF-8(比如 GBK)时不报错,路径按 os.listdir 的方式返回,拿得去打开;commit 也照常"""
+    with open(os.fsencode(repo.path) + b"/src/\xd6\xd0\xce\xc4.db", "w") as f:
+        f.write("x\n")
+    added = repo.status()["added"]
+    check("added", added, [os.fsdecode(b"src/\xd6\xd0\xce\xc4.db")])
+    check_true("能拿去打开", os.path.isfile(os.path.join(repo.path, added[0])))
+    repo.commit("odd name")
+    check("提交之后没有改动", repo.is_clean(), True)
+
+
+def test_an_error_message_never_holds_bytes_that_are_not_utf8(repo):
+    """_git: git 报错时带着不是 UTF-8 的文件名,错误信息里也是能存的文本"""
+    with expect_error(IocRepositoryError, "git add 一个不存在的、名字不是 UTF-8 的文件") as info:
+        repo._git("add", "--", os.fsdecode(b"no-\xff-such"))
+    message = str(info.value)
+    check_true("信息是能存的文本", message.encode("utf-8") is not None)
+    check_true("说了是哪个命令", message.startswith("git add failed"))
+
+
 def test_restore_brings_back_the_files_of_a_commit_and_keeps_the_history(repo):
     """restore: 改过的、删掉的、新增的文件都回到快照的样子,历史保留,结果记成新提交"""
     snap = repo.head()
@@ -165,7 +185,7 @@ def test_a_directory_without_a_repository_is_not_taken_for_one_above_it(tmp_path
     inner = tmp_path / "ioc-a"
     write(inner / "f.txt", "x\n")
     r = IocRepository(inner)
-    check("exists", r.exists(), False)
+    check("is_initialized", r.is_initialized(), False)
     with expect_error(IocRepositoryError, "status"):
         r.status()
     with expect_error(IocRepositoryError, "head"):

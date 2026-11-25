@@ -5,10 +5,10 @@ import core.ioc_schema as schema
 from core.ioc_schema import (
     IocConfigSchema,
     IocStateSchema,
-    IssueCategory,
+    IssueCode,
     IssueEntry,
     IssueLevel,
-    IssueReason,
+    IssueSource,
     _DbLoadItem,
     _Settings,
     _Src,
@@ -116,17 +116,18 @@ def test_generated_config_survives_a_yaml_round_trip(tmp_path):
 
 # -------------------------------------------------------------- issue entry
 
-ISSUE = dict(level="error", reason="validation_error", category="state", message="m", prompt="p", time="t")
+ISSUE = dict(
+    source="check", level="error", code="config_invalid", target="build.modules",
+    message="m", prompt="p", time="t",
+)
 
 
 def test_issue_entry_converts_to_enums():
     """IssueEntry: 字符串自动转成枚举"""
     issue = IssueEntry(**ISSUE)
+    check_true("source 是 IssueSource.CHECK", issue.source is IssueSource.CHECK)
     check_true("level 是 IssueLevel.ERROR", issue.level is IssueLevel.ERROR)
-    check_true(
-        "reason 是 IssueReason.VALIDATION_ERROR",
-        issue.reason is IssueReason.VALIDATION_ERROR,
-    )
+    check_true("code 是 IssueCode.CONFIG_INVALID", issue.code is IssueCode.CONFIG_INVALID)
 
 
 @pytest.mark.parametrize("level", ["info", "warning", "error"])
@@ -136,53 +137,82 @@ def test_issue_entry_accepts_every_defined_level(level):
 
 
 def test_issue_entry_dumps_enums_as_plain_strings():
-    """IssueEntry: 导出成 JSON 时枚举是普通字符串"""
+    """IssueEntry: 导出成 JSON 时枚举是普通字符串,字段顺序就是数据库的列"""
     entry = IssueEntry(
-        **{**ISSUE, "level": IssueLevel.INFO, "reason": IssueReason.FILE_ERROR}
+        **{**ISSUE, "level": IssueLevel.INFO, "code": IssueCode.FILE_CHANGED}
     )
     dumped = entry.model_dump(mode="json")
+    check("source", dumped["source"], "check")
     check("level", dumped["level"], "info")
-    check("reason", dumped["reason"], "file_error")
+    check("code", dumped["code"], "file_changed")
+    check(
+        "字段",
+        list(IssueEntry.model_fields),
+        ["source", "level", "code", "target", "message", "prompt", "time"],
+    )
 
 
 @pytest.mark.parametrize(
-    "field, bad", [("level", "eror"), ("reason", "validaton_error")]
+    "field, bad",
+    [("source", "chek"), ("level", "eror"), ("code", "validaton_error")],
 )
 def test_issue_entry_rejects_undefined_values(field, bad):
-    """IssueEntry: 没定义过的 level / reason 会被拒绝"""
+    """IssueEntry: 没定义过的 source / level / code 会被拒绝"""
     step(f"{field}={bad!r}")
     with expect_error(ValidationError, "未定义的取值") as info:
         IssueEntry(**{**ISSUE, field: bad})
     check("出错的字段", [e["loc"] for e in info.value.errors()], [(field,)])
 
 
-@pytest.mark.parametrize(
-    "reason, category",
-    [
-        ("validation_error", "state"),
-        ("file_error", "state"),
-        ("file_changed", "state"),
-        ("record_reset", "state"),
-        ("operation_success", "operation"),
-        ("operation_failed", "operation"),
-    ],
-)
-def test_issue_entry_accepts_a_reason_with_its_own_category(reason, category):
-    """IssueEntry: 操作的结果属于 operation,其余的 reason 属于 state"""
-    entry = IssueEntry(**{**ISSUE, "reason": reason, "category": category})
-    check("category", entry.category, category)
+def test_issue_entry_needs_every_field():
+    """IssueEntry: 少一个字段就拒绝(target 和 prompt 没有该有的默认值,要写 "")"""
+    for field in ISSUE:
+        step(f"没有 {field}")
+        with expect_error(ValidationError, f"没有 {field}") as info:
+            IssueEntry(**{k: v for k, v in ISSUE.items() if k != field})
+        check("出错的字段", [e["loc"] for e in info.value.errors()], [(field,)])
+
+
+# The source of every code, written out here on purpose: a new code has to be put here,
+# which is when somebody decides which source it belongs to.
+SOURCE_OF_CODE = {
+    "dir_missing": "check",
+    "config_missing": "check",
+    "config_unreadable": "check",
+    "config_invalid": "check",
+    "src_unreadable": "check",
+    "repo_missing": "check",
+    "repo_unreadable": "check",
+    "file_changed": "check",
+    "file_name_invalid": "check",
+    "record_reset": "repair",
+    "create": "operation",
+    "build": "operation",
+    "export": "operation",
+}
+
+
+def test_every_code_has_its_source_in_this_file():
+    """IssueCode: 上面的表列全了所有的 code,没有多也没有少"""
+    check("code", sorted(SOURCE_OF_CODE), sorted(c.value for c in IssueCode))
+
+
+@pytest.mark.parametrize("code, source", SOURCE_OF_CODE.items())
+def test_issue_entry_accepts_a_code_with_its_own_source(code, source):
+    """IssueEntry: code 配它自己的 source 才接受"""
+    entry = IssueEntry(**{**ISSUE, "source": source, "code": code})
+    check("source", entry.source, source)
+    check("code", entry.code, code)
 
 
 @pytest.mark.parametrize(
-    "reason, category",
-    [("file_error", "operation"), ("operation_success", "state"), ("operation_failed", "state")],
+    "code, source",
+    [(c, s) for c, own in SOURCE_OF_CODE.items() for s in ("check", "repair", "operation") if s != own],
 )
-def test_issue_entry_rejects_a_reason_with_the_other_category(reason, category):
-    """IssueEntry: reason 和 category 对不上就拒绝,没有 category 也拒绝"""
-    with expect_error(ValidationError, f"{reason} 不能是 {category}"):
-        IssueEntry(**{**ISSUE, "reason": reason, "category": category})
-    with expect_error(ValidationError, "没有 category"):
-        IssueEntry(**{k: v for k, v in ISSUE.items() if k != "category"})
+def test_issue_entry_rejects_a_code_with_another_source(code, source):
+    """IssueEntry: code 配了别的 source 就拒绝"""
+    with expect_error(ValidationError, f"{code} 不能是 {source}"):
+        IssueEntry(**{**ISSUE, "source": source, "code": code})
 
 
 def test_sort_by_priority_puts_the_level_first_then_the_newest():

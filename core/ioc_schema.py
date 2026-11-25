@@ -83,38 +83,81 @@ class IssueLevel(StrEnum):
     ERROR = "error"
 
 
-class IssueReason(StrEnum):
-    VALIDATION_ERROR = "validation_error"
-    FILE_ERROR = "file_error"
-    FILE_CHANGED = "file_changed"
-    RECORD_RESET = "record_reset"
-    OPERATION_SUCCESS = "operation_success"
-    OPERATION_FAILED = "operation_failed"
-
-
-class IssueCategory(StrEnum):
-    # a problem with the state of the IOC, worked out from what is there now
-    STATE = "state"
-    # the result of an operation the user did (a build, an export, ...)
+class IssueSource(StrEnum):
+    # the state of the IOC as the self-check sees it now: what is wrong. Every scan
+    # works all of it out again and replaces what was there, so a problem that is
+    # gone is gone from the list, and it says nothing about what happened in between
+    CHECK = "check"
+    # what the system repaired by itself, without being asked (a record that was
+    # lost and made again, ...). A record of something that happened, it stays
+    REPAIR = "repair"
+    # the result of an operation the user did (a build, an export, ...). Stays too
     OPERATION = "operation"
 
 
-OPERATION_REASONS = (IssueReason.OPERATION_SUCCESS, IssueReason.OPERATION_FAILED)
+class IssueCode(StrEnum):
+    """What kind of problem (source CHECK), what was repaired (source REPAIR) or which
+    operation (source OPERATION) an issue is about. The code is what identifies an
+    issue, not its message, which is for people to read and may be reworded."""
+
+    # source CHECK
+    DIR_MISSING = "dir_missing"  # the record is there, the directory is gone
+    CONFIG_MISSING = "config_missing"
+    CONFIG_UNREADABLE = "config_unreadable"
+    CONFIG_INVALID = "config_invalid"  # target: the field
+    SRC_UNREADABLE = "src_unreadable"
+    REPO_MISSING = "repo_missing"
+    REPO_UNREADABLE = "repo_unreadable"
+    FILE_CHANGED = "file_changed"  # target: the file
+    FILE_NAME_INVALID = "file_name_invalid"  # target: the file, left out of the check
+    # source REPAIR
+    RECORD_RESET = "record_reset"  # the directory was there, the record was lost
+    # source OPERATION
+    CREATE = "create"
+    BUILD = "build"
+    EXPORT = "export"
+
+
+# the codes of the other two sources; every code that is not one of them is a CHECK code
+REPAIR_CODES = (IssueCode.RECORD_RESET,)
+OPERATION_CODES = (IssueCode.CREATE, IssueCode.BUILD, IssueCode.EXPORT)
 
 
 class IssueEntry(BaseModel):
+    """One issue of an IOC.
+      source   which of the three kinds it is
+      level    CHECK: how serious the problem is. REPAIR and OPERATION: how it went,
+               INFO it worked, WARNING it worked but with a loss or with problems,
+               ERROR it failed
+      code     what the problem is, what was repaired or which operation (a code
+               belongs to one source)
+      target   what it is about, "" for the IOC as a whole: a file ("src/a.db"), a
+               field of the config ("build.db_load.0.file"), what the operation made
+      message  for people to read
+      prompt   a hint to the user on what to do about it, "" when there is none
+      time     CHECK: when the problem was first seen (a scan keeps it as long as
+               the problem stays). REPAIR and OPERATION: when it was done
+    A CHECK issue is told from the others of its scan by (code, target)."""
+
+    source: IssueSource
     level: IssueLevel
-    reason: IssueReason
-    category: IssueCategory
+    code: IssueCode
+    target: str
     message: str
     prompt: str
     time: str
 
     @model_validator(mode="after")
-    def _category_matches_reason(self):
-        if (self.reason in OPERATION_REASONS) != (self.category is IssueCategory.OPERATION):
+    def _code_belongs_to_source(self):
+        if self.code in OPERATION_CODES:
+            expected = IssueSource.OPERATION
+        elif self.code in REPAIR_CODES:
+            expected = IssueSource.REPAIR
+        else:
+            expected = IssueSource.CHECK
+        if self.source is not expected:
             raise ValueError(
-                f"reason {self.reason.value!r} does not belong to category {self.category.value!r}"
+                f"code {self.code.value!r} does not belong to source {self.source.value!r}"
             )
         return self
 
