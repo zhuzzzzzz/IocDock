@@ -1,20 +1,23 @@
 import os
 import re
 import subprocess
+from datetime import datetime
 
-from core.exceptions import IocRepositoryError
+from core.exceptions import VersionedDirectoryError
 
 _COMMIT_ID = re.compile(r"[0-9a-f]{4,64}")
 
 
-class IocRepository:
-    """The version history of the directory of one IOC (its config file and its
-    source files), kept by git in the .git directory inside it.
+class VersionedDirectory:
+    """The version history of one directory (an IOC's config file and source files, for
+    one), kept by git in the .git directory inside it. It is deliberately narrow: local
+    only, one branch (main), always the same author. It is not a general wrapper of git.
 
     git is run on exactly this directory and never looks for a repository above it.
-    The user's own git configuration is not read, so a global hook, signing or
-    line-ending setting cannot change what happens here. A failing git command
-    raises IocRepositoryError with what git printed."""
+    The user's own git configuration is not read, so a global hook, signing,
+    line-ending or ignore setting cannot change what happens here, and neither can a GIT_*
+    variable in the environment of the process. A failing git command
+    raises VersionedDirectoryError with what git printed."""
 
     def __init__(self, path, timeout=10):
         self.path = os.path.abspath(path)
@@ -42,8 +45,43 @@ class IocRepository:
         """The id of the latest commit, or None when there is none yet."""
         result = self._git("rev-parse", "--verify", "--quiet", "HEAD", check=False)
         if result.returncode not in (0, 1):  # 1 is "there is no such commit"
-            raise IocRepositoryError(f"git rev-parse failed in {self.path}: {result.stderr.strip()}")
+            raise VersionedDirectoryError(f"git rev-parse failed in {self.path}: {result.stderr.strip()}")
         return result.stdout.strip() or None
+
+    def history(self):
+        """The commits made so far, newest first, as a list of {"id": the full commit id,
+        "time": when it was made as a datetime in local time, to the second, "message":
+        the first line of its message}. The list is empty when there is no commit yet."""
+        if self.head() is None:  # git log fails when there is nothing to show
+            return []
+        out = self._git("log", "--format=%H %ct %s").stdout
+        logs = []
+        # split on "\n" only: str.splitlines() would also cut a message at characters
+        # like U+2028
+        for line in out.split("\n"):
+            if not line:
+                continue
+            commit_id, timestamp, message = line.split(" ", 2)
+            logs.append(
+                {
+                    "id": commit_id,
+                    "time": datetime.fromtimestamp(int(timestamp)),
+                    # a message is made to be text that can be stored (see _git())
+                    "message": message.encode("utf-8", "surrogateescape").decode("utf-8", "replace"),
+                }
+            )
+        return logs
+
+    def show_history(self):
+        """Print history() to the terminal, one commit a line: its time, the first 8
+        characters of its id (enough for restore()) and its message. Says so when there
+        is no commit yet."""
+        commits = self.history()
+        if not commits:
+            print("No commits yet.")
+            return
+        for entry in commits:
+            print(f"{entry['time']:%Y-%m-%d %H:%M:%S}  {entry['id'][:8]}  {entry['message']}")
 
     def commit(self, message):
         """Record the directory as it is now and return the id of that commit. When
@@ -92,7 +130,7 @@ class IocRepository:
             raise ValueError(f"not a commit id: {commit!r}")
         full = self._git("rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}", check=False)
         if full.returncode != 0:
-            raise IocRepositoryError(f"no such commit in {self.path}: {commit}")
+            raise VersionedDirectoryError(f"no such commit in {self.path}: {commit}")
         self._git("read-tree", "--reset", "-u", full.stdout.strip())
         self._git("clean", "--force", "-d")
         return self.commit(f"restore {commit[:8]}")
@@ -107,14 +145,22 @@ class IocRepository:
             # looking (status) must not take locks nobody asked for: it runs all the
             # time, and a person's add or commit may be in the middle of its own
             "--no-optional-locks",
-            "-c", "user.name=IocDock",
+            "-c", "user.name=iocdock",
             "-c", "user.email=iocdock@localhost",
             "-c", "core.quotepath=off",
+            # the user's global ignore and attributes files (~/.config/git/) are files of
+            # their own that GIT_CONFIG_GLOBAL does not reach: what is tracked is to be
+            # decided by the .gitignore of the directory alone
+            "-c", f"core.excludesFile={os.devnull}",
+            "-c", f"core.attributesFile={os.devnull}",
             "-c", f"safe.directory={self.path}",
             *args,
         ]
+        # What git needs to run (PATH, TMPDIR, TZ, ...) is taken over from this process,
+        # its GIT_* variables are not: GIT_AUTHOR_NAME, GIT_INDEX_FILE and the like
+        # would change what git does here
         env = {
-            **os.environ,
+            **{name: value for name, value in os.environ.items() if not name.startswith("GIT_")},
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_TERMINAL_PROMPT": "0",
@@ -129,9 +175,9 @@ class IocRepository:
                 timeout=self.timeout,
             )
         except FileNotFoundError as e:
-            raise IocRepositoryError(f"git is not installed or not in PATH ({e})") from e
+            raise VersionedDirectoryError(f"git is not installed or not in PATH ({e})") from e
         except subprocess.TimeoutExpired as e:
-            raise IocRepositoryError(f"git {args[0]} took longer than {self.timeout}s in {self.path}") from e
+            raise VersionedDirectoryError(f"git {args[0]} took longer than {self.timeout}s in {self.path}") from e
         # A path git prints is the bytes of a name somebody gave a file, which need not
         # be UTF-8. They stay in stdout the way os.listdir() gives them (the bytes that
         # are not UTF-8 are lone surrogates, which the os functions turn back into those
@@ -141,7 +187,7 @@ class IocRepository:
         stderr = result.stderr.decode("utf-8", "replace")
         if check and result.returncode != 0:
             printed = stdout.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
-            raise IocRepositoryError(
+            raise VersionedDirectoryError(
                 f"git {args[0]} failed in {self.path}: {stderr.strip() or printed.strip()}"
             )
         return subprocess.CompletedProcess(command, result.returncode, stdout, stderr)

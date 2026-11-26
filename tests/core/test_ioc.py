@@ -12,8 +12,8 @@ from core import settings
 from core.exceptions import IocExistsError, IocInitError, IocNotFoundError
 from core.ioc import IOC, check_name
 from core.ioc_config import IocConfig
-from core.ioc_repository import IocRepository
 from core.ioc_schema import IssueCode, IssueEntry, IssueLevel, IssueSource, new_state
+from core.versioned_directory import VersionedDirectory
 from tests.helpers import REPO_ROOT, add_ioc, make_issue
 from tests.logutil import check, check_true, expect_error, note, step
 
@@ -168,7 +168,7 @@ def test_forced_create_keeps_an_existing_repository_and_src(fresh):
     d = Path(settings.IOCS_DIR) / "ioca"
     (d / "src").mkdir(parents=True)
     (d / "src" / "mine.db").write_text("keep me\n")
-    repo = IocRepository(d)
+    repo = VersionedDirectory(d)
     repo.init()
     head = repo.commit("mine")
     ioc = IOC.create("ioca", force=True)
@@ -436,7 +436,7 @@ def test_create_of_a_name_whose_directory_exists_leaves_the_directory_alone(fres
 @pytest.mark.parametrize(
     "target, why",
     [
-        ("core.ioc_repository.IocRepository.init", "初始化仓库时"),
+        ("core.versioned_directory.VersionedDirectory.init", "初始化仓库时"),
         ("core.ioc_state.IocStateManager.write_ioc", "写库时"),
     ],
     ids=lambda v: v if v.startswith("core") else None,
@@ -496,7 +496,7 @@ def test_create_that_is_interrupted_cleans_up_and_raises_the_interrupt_itself(fr
     def interrupted(*args, **kwargs):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(IocRepository, "init", interrupted)
+    monkeypatch.setattr(VersionedDirectory, "init", interrupted)
     with expect_error(KeyboardInterrupt, "打断"):
         IOC.create("ioca")
     check_true("目录没有留下", not os.path.exists(os.path.join(settings.IOCS_DIR, "ioca")))
@@ -508,12 +508,12 @@ import sys, time
 sys.path.insert(0, sys.argv[1])
 from core import settings
 settings.DEFAULT_DB_PATH, settings.IOCS_DIR = sys.argv[2], sys.argv[3]
-from core.ioc_repository import IocRepository
-real_init = IocRepository.init
+from core.versioned_directory import VersionedDirectory
+real_init = VersionedDirectory.init
 def slow_init(self, *args, **kwargs):
     real_init(self, *args, **kwargs)
     time.sleep(1.5)  # the directory and the repository are there, the record is not yet
-IocRepository.init = slow_init
+VersionedDirectory.init = slow_init
 from core.ioc import IOC
 IOC.create("ioca")
 """
@@ -743,12 +743,12 @@ def test_refresh_reports_a_missing_repository_and_a_missing_src(ioc):
 
 def test_refresh_survives_a_git_that_fails_and_says_so(ioc, monkeypatch):
     """refresh: 读 git 失败不会让 refresh 抛错,记成一条 ERROR"""
-    from core.exceptions import IocRepositoryError
+    from core.exceptions import VersionedDirectoryError
 
     def broken(self):
-        raise IocRepositoryError("git on fire")
+        raise VersionedDirectoryError("git on fire")
 
-    monkeypatch.setattr(IocRepository, "status", broken)
+    monkeypatch.setattr(VersionedDirectory, "status", broken)
     (Path(ioc.src_path) / "a.db").write_text("x\n")
     ioc.refresh()
     check_true("记了 ERROR", any(i.level == IssueLevel.ERROR and "git on fire" in i.message for i in ioc.state_data.issues), messages_of(ioc))

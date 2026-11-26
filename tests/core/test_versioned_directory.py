@@ -1,11 +1,12 @@
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from core.exceptions import IocRepositoryError
-from core.ioc_repository import IocRepository
+from core.exceptions import VersionedDirectoryError
+from core.versioned_directory import VersionedDirectory
 from tests.logutil import check, check_true, expect_error, step
 
 
@@ -23,7 +24,7 @@ def repo(tmp_path):
     write(d / "ioc-config.yaml", "basic:\n  name: ioc-a\n")
     write(d / "src" / "a.db", "record 1\n")
     write(d / "src" / "a.proto", "message A {}\n")
-    r = IocRepository(d)
+    r = VersionedDirectory(d)
     r.init(ignore=["build/"])
     r.commit("first")
     return r
@@ -33,7 +34,7 @@ def test_init_makes_a_repository_only_once(tmp_path):
     """init: 目录变成仓库,.gitignore 写进去;已经是仓库就报 FileExistsError,目录不存在报 FileNotFoundError"""
     d = tmp_path / "ioc-a"
     d.mkdir()
-    r = IocRepository(d)
+    r = VersionedDirectory(d)
     check("init 前", r.is_initialized(), False)
     r.init(ignore=["build/", "*.log"])
     check("init 后", r.is_initialized(), True)
@@ -42,7 +43,7 @@ def test_init_makes_a_repository_only_once(tmp_path):
     with expect_error(FileExistsError, "再 init 一次"):
         r.init()
     with expect_error(FileNotFoundError, "目录不存在"):
-        IocRepository(tmp_path / "nope").init()
+        VersionedDirectory(tmp_path / "nope").init()
 
 
 def test_commit_returns_the_commit_id_and_makes_none_when_nothing_changed(repo):
@@ -59,9 +60,64 @@ def test_commit_returns_the_commit_id_and_makes_none_when_nothing_changed(repo):
 
 def test_first_commit_is_made_even_for_an_empty_directory(tmp_path):
     """commit: 空目录第一次提交也有 id,这样总有一个快照可以记"""
-    r = IocRepository(tmp_path)
+    r = VersionedDirectory(tmp_path)
     r.init()
     check_true("有 id", bool(r.commit("empty")))
+
+
+def test_history_lists_the_commits_newest_first_with_their_time(tmp_path):
+    """history: 没有提交是空列表;有提交按从新到旧列出完整 id、时间(秒)和说明;没有变化的 commit 不多出一条"""
+    d = tmp_path / "ioc-a"
+    write(d / "f.txt", "1\n")
+    r = VersionedDirectory(d)
+    r.init()
+    check("还没有提交", r.history(), [])
+    before = datetime.now().replace(microsecond=0)
+    first = r.commit("first")
+    write(d / "f.txt", "2\n")
+    second = r.commit("second\n\nbody is not shown")
+    r.commit("nothing changed")
+    restored = r.restore(first)
+    after = datetime.now()
+    logs = r.history()
+    check("从新到旧的 id", [log["id"] for log in logs], [restored, second, first])
+    check("id 是完整的", [len(log["id"]) for log in logs], [40, 40, 40])
+    check("说明只取第一行", [log["message"] for log in logs], [f"restore {first[:8]}", "second", "first"])
+    for log in logs:
+        check_true(f"{log['message']} 的时间是 datetime", isinstance(log["time"], datetime))
+        check_true(f"{log['message']} 的时间在这次测试期间", before <= log["time"] <= after)
+        check("精确到秒", log["time"].microsecond, 0)
+    check_true("时间不倒序", logs[0]["time"] >= logs[1]["time"] >= logs[2]["time"])
+
+
+def test_show_history_prints_one_line_a_commit(tmp_path, capsys):
+    """show_history: 没有提交时说一句没有;有提交时每个提交一行,从新到旧,是 时间、8 位 id、说明"""
+    d = tmp_path / "ioc-a"
+    write(d / "f.txt", "1\n")
+    r = VersionedDirectory(d)
+    r.init()
+    r.show_history()
+    check("没有提交", capsys.readouterr().out, "No commits yet.\n")
+    first = r.commit("first")
+    write(d / "f.txt", "2\n")
+    second = r.commit("second")
+    r.show_history()
+    lines = capsys.readouterr().out.splitlines()
+    check("两行", len(lines), 2)
+    commits = r.history()
+    for line, entry in zip(lines, commits):
+        check(f"{entry['message']} 那一行", line, f"{entry['time']:%Y-%m-%d %H:%M:%S}  {entry['id'][:8]}  {entry['message']}")
+    check("新的在前", [line.split("  ")[1] for line in lines], [second[:8], first[:8]])
+    step("打印出来的 id 可以直接拿去 restore")
+    write(d / "f.txt", "3\n")
+    r.restore(lines[1].split("  ")[1])
+    check("回到 first", Path(d, "f.txt").read_text(), "1\n")
+
+
+def test_history_without_a_repository_raises(tmp_path):
+    """history: 目录不是仓库时报 VersionedDirectoryError,不是返回空列表"""
+    with expect_error(VersionedDirectoryError, "不是仓库"):
+        VersionedDirectory(tmp_path).history()
 
 
 def test_status_reports_modified_added_and_deleted_files(repo):
@@ -126,7 +182,7 @@ def test_a_file_name_that_is_not_utf8_comes_back_the_way_os_listdir_gives_it(rep
 
 def test_an_error_message_never_holds_bytes_that_are_not_utf8(repo):
     """_git: git 报错时带着不是 UTF-8 的文件名,错误信息里也是能存的文本"""
-    with expect_error(IocRepositoryError, "git add 一个不存在的、名字不是 UTF-8 的文件") as info:
+    with expect_error(VersionedDirectoryError, "git add 一个不存在的、名字不是 UTF-8 的文件") as info:
         repo._git("add", "--", os.fsdecode(b"no-\xff-such"))
     message = str(info.value)
     check_true("信息是能存的文本", message.encode("utf-8") is not None)
@@ -166,7 +222,7 @@ def test_restore_to_the_state_it_already_is_makes_no_commit(repo):
 
 
 def test_restore_accepts_a_short_id_and_rejects_bad_ones(repo):
-    """restore: 接受缩短的 id;不是 id 的写法报 ValueError,没有这个提交报 IocRepositoryError"""
+    """restore: 接受缩短的 id;不是 id 的写法报 ValueError,没有这个提交报 VersionedDirectoryError"""
     snap = repo.head()
     write(repo.path + "/src/a.db", "x\n")
     repo.restore(snap[:8])
@@ -174,27 +230,27 @@ def test_restore_accepts_a_short_id_and_rejects_bad_ones(repo):
     for bad in ["--hard", "HEAD", "main", "", "zz", "abc"]:
         with expect_error(ValueError, f"{bad!r} 不是提交 id"):
             repo.restore(bad)
-    with expect_error(IocRepositoryError, "没有这个提交"):
+    with expect_error(VersionedDirectoryError, "没有这个提交"):
         repo.restore("0" * 40)
 
 
 def test_a_directory_without_a_repository_is_not_taken_for_one_above_it(tmp_path):
-    """IocRepository: 目录自己没有 .git 时报错,不会去用上一层目录的仓库"""
-    outer = IocRepository(tmp_path)
+    """VersionedDirectory: 目录自己没有 .git 时报错,不会去用上一层目录的仓库"""
+    outer = VersionedDirectory(tmp_path)
     outer.init()
     inner = tmp_path / "ioc-a"
     write(inner / "f.txt", "x\n")
-    r = IocRepository(inner)
+    r = VersionedDirectory(inner)
     check("is_initialized", r.is_initialized(), False)
-    with expect_error(IocRepositoryError, "status"):
+    with expect_error(VersionedDirectoryError, "status"):
         r.status()
-    with expect_error(IocRepositoryError, "head"):
+    with expect_error(VersionedDirectoryError, "head"):
         r.head()
     check("上一层没有被动过", outer.head(), None)
 
 
 def test_the_users_git_configuration_is_not_used(repo, tmp_path, monkeypatch):
-    """IocRepository: 用户全局的 git 配置(强制签名、钩子目录)不影响提交"""
+    """VersionedDirectory: 用户全局的 git 配置(强制签名、钩子目录)不影响提交"""
     gitconfig = tmp_path / "gitconfig"
     hooks = tmp_path / "hooks"
     hooks.mkdir()
@@ -210,27 +266,68 @@ def test_the_users_git_configuration_is_not_used(repo, tmp_path, monkeypatch):
 
 
 def test_commits_are_made_as_iocdock_whatever_the_machine_is_set_to(repo):
-    """commit: 作者固定是 IocDock,不看机器上有没有配置 user.name"""
+    """commit: 作者固定是 iocdock,不看机器上有没有配置 user.name"""
     author = subprocess.run(
         ["git", "-C", repo.path, "log", "-1", "--format=%an <%ae>"],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
-    check("作者", author, "IocDock <iocdock@localhost>")
+    check("作者", author, "iocdock <iocdock@localhost>")
+
+
+def test_git_variables_of_the_process_do_not_reach_git(repo, tmp_path, monkeypatch):
+    """_git: 进程环境里的 GIT_* 变量(作者、索引文件、仓库位置)一个都不传给 git,提交照常记在自己的仓库里"""
+    other = tmp_path / "other"
+    other.mkdir()
+    for name, value in {
+        "GIT_AUTHOR_NAME": "someone",
+        "GIT_AUTHOR_EMAIL": "someone@example.com",
+        "GIT_COMMITTER_NAME": "someone",
+        "GIT_COMMITTER_EMAIL": "someone@example.com",
+        "GIT_INDEX_FILE": str(other / "index"),
+        "GIT_DIR": str(other / ".git"),
+        "GIT_WORK_TREE": str(other),
+    }.items():
+        monkeypatch.setenv(name, value)
+    write(repo.path + "/src/a.db", "changed\n")
+    commit = repo.commit("edit")
+    check("记在自己的仓库里", repo.head(), commit)
+    check("历史两条", len(repo.history()), 2)
+    check("干净", repo.is_clean(), True)
+    people = repo._git("log", "-1", "--format=%an <%ae> %cn <%ce>").stdout.strip()
+    check("作者和提交者", people, "iocdock <iocdock@localhost> iocdock <iocdock@localhost>")
+    check_true("没有碰别处的索引", not (other / "index").exists())
+    check_true("没有在别处建仓库", not (other / ".git").exists())
+
+
+def test_the_global_ignore_and_attributes_files_of_the_user_are_not_read(repo, tmp_path, monkeypatch):
+    """_git: 用户全局的忽略文件和属性文件($XDG_CONFIG_HOME/git/ignore、attributes)不起作用,哪些文件被记录只看目录自己的 .gitignore"""
+    xdg = tmp_path / "xdg"
+    write(xdg / "git" / "ignore", "*.secret\n")
+    write(xdg / "git" / "attributes", "*.db eol=crlf\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+    write(repo.path + "/token.secret", "x\n")
+    check("全局忽略文件不起作用", repo.status()["added"], ["token.secret"])
+    attr = repo._git("check-attr", "eol", "--", "src/a.db").stdout.strip()
+    check("全局属性文件不起作用", attr, "src/a.db: eol: unspecified")
+    step("目录自己的 .gitignore 仍然起作用")
+    write(repo.path + "/build/out.o", "binary\n")
+    check("build/ 还是被忽略", repo.status()["added"], ["token.secret"])
 
 
 def test_a_git_that_is_not_installed_is_reported_as_such(repo, monkeypatch):
-    """IocRepository: 找不到 git 命令时报 IocRepositoryError,说明是没装"""
+    """VersionedDirectory: 找不到 git 命令时报 VersionedDirectoryError,说明是没装"""
     monkeypatch.setenv("PATH", "/nonexistent")
-    with expect_error(IocRepositoryError, "没有 git"):
+    with expect_error(VersionedDirectoryError, "没有 git"):
         repo.status()
 
 
 def test_a_command_that_takes_too_long_is_reported(repo):
-    """IocRepository: git 超过 timeout 报 IocRepositoryError"""
+    """VersionedDirectory: git 超过 timeout 报 VersionedDirectoryError"""
     repo.timeout = 0.0001
-    with expect_error(IocRepositoryError, "超时"):
+    with expect_error(VersionedDirectoryError, "超时"):
         repo.status()
 
 

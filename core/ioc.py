@@ -11,10 +11,9 @@ from core.exceptions import (
     IocExistsError,
     IocInitError,
     IocNotFoundError,
-    IocRepositoryError,
+    VersionedDirectoryError,
 )
 from core.ioc_config import IocConfig
-from core.ioc_repository import IocRepository
 from core.ioc_schema import (
     IssueCode,
     IssueEntry,
@@ -25,6 +24,7 @@ from core.ioc_schema import (
 )
 from core.ioc_state import get_state_manager
 from core.utils import get_now_str
+from core.versioned_directory import VersionedDirectory
 
 # The name of an IOC is also the name of its directory and of its Docker service and
 # container, so it has to be valid for all of them: letters and digits, starting with a
@@ -60,7 +60,7 @@ _CASE_CONFLICT_MESSAGE = "{name}: differs only in case from the existing {other}
 
 def _is_utf8(path):
     """Whether `path` can be stored: a name from the file system that is not valid UTF-8
-    has its odd bytes as lone surrogates (see IocRepository._git()), which neither the
+    has its odd bytes as lone surrogates (see VersionedDirectory._git()), which neither the
     JSON nor the database take."""
     try:
         path.encode("utf-8")
@@ -112,7 +112,7 @@ class IOC:
         self.src_path = os.path.join(self.dir_path, "src")
         self.state_manager = get_state_manager()
         self.config = IocConfig(path=self.config_path)
-        self.repository = IocRepository(self.dir_path)
+        self.repository = VersionedDirectory(self.dir_path)
         try:
             self.state_data = self.state_manager.read_ioc(name)
         except KeyError:
@@ -292,7 +292,7 @@ class IOC:
             if head is None:  # nothing has been committed, so there is nothing to differ from
                 return []
             status = self.repository.status()
-        except IocRepositoryError as e:
+        except VersionedDirectoryError as e:
             return [
                 IssueEntry(
                     source=IssueSource.CHECK,
@@ -412,7 +412,7 @@ class IOC:
                     if not os.path.isdir(src_path):
                         os.makedirs(src_path)
                         made.append(src_path)
-                    repository = IocRepository(dir_path)
+                    repository = VersionedDirectory(dir_path)
                     if not repository.is_initialized():
                         repository.init()
                         made.append(os.path.join(dir_path, ".git"))

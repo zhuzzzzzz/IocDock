@@ -6,7 +6,7 @@ class IocInitError(Exception):
     pass
 
 
-class IocRepositoryError(Exception):
+class VersionedDirectoryError(Exception):
     pass
 
 
