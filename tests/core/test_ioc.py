@@ -343,6 +343,19 @@ def test_ioc_rejects_a_bad_name_before_touching_anything(fresh):
     check("库里没有", fresh.list_iocs(), [])
 
 
+def test_restoring_a_version_made_while_src_was_empty_keeps_src(fresh):
+    """IOC.create + restore: 回到 src 还是空的那个版本,src 目录还在(只剩 .gitkeep),自检不说读不了 src"""
+    ioc = IOC.create("ioca")
+    first = ioc.repository.commit("empty")
+    (Path(ioc.src_path) / "a.db").write_text("x\n")
+    ioc.repository.commit("a.db")
+    ioc.repository.restore(first)
+    check_true("src 还在", os.path.isdir(ioc.src_path))
+    check("a.db 没了,只剩 .gitkeep", sorted(p.name for p in Path(ioc.src_path).iterdir()), [".gitkeep"])
+    ioc.refresh()
+    check_true("没有 SRC_UNREADABLE", not any(i.code == IssueCode.SRC_UNREADABLE for i in ioc.state_data.issues), messages_of(ioc))
+
+
 def test_create_makes_an_empty_ioc_with_a_repository_and_a_state(fresh):
     """IOC.create: 建出空的 IOC:目录、空的 src、还没有提交的 git 仓库,库里登记状态;不放配置文件"""
     ioc = IOC.create("ioca")
@@ -350,17 +363,18 @@ def test_create_makes_an_empty_ioc_with_a_repository_and_a_state(fresh):
     check("name", ioc.name, "ioca")
     check_true("目录在 IOCS_DIR 里", os.path.isdir(os.path.join(settings.IOCS_DIR, "ioca")))
     check("目录里只有 src 和 .git", sorted(p.name for p in Path(ioc.dir_path).iterdir()), [".git", "src"])
-    check("src 是空的", list((Path(ioc.dir_path) / "src").iterdir()), [])
+    check("src 里只有 .gitkeep(让 git 记得这个目录)", [p.name for p in (Path(ioc.dir_path) / "src").iterdir()], [".gitkeep"])
     check_true("没有配置文件", not os.path.exists(ioc.config_path))
     check_true("有仓库", ioc.repository.is_initialized())
     check("还没有提交", ioc.repository.head(), None)
-    check("没有任何改动", ioc.repository.is_clean(), True)
+    check("还没提交,所以 .gitkeep 是新增的,仅此而已", ioc.repository.status(), {"modified": [], "added": ["src/.gitkeep"], "deleted": []})
     check("库里的状态是 new_state() 的默认值", plain(ioc.state_data), plain(new_state()))
     check("只有一条操作记录:创建", [(i.level, i.code, i.message) for i in ioc.state_data.issues], [(IssueLevel.INFO, IssueCode.CREATE, "created")])
     check("库里读到的和对象里的一样", fresh.read_ioc("ioca"), ioc.state_data)
     check("之后能用 IOC(name) 打开", IOC("ioca").state_data, ioc.state_data)
     with expect_error(FileNotFoundError, "还没有配置文件时 load"):
         ioc.config.load()
+    check("src_files 不算 .gitkeep", ioc.refresh().src_files.model_dump(), new_state().src_files.model_dump())
 
 
 def test_create_template_writes_into_the_given_directory_and_the_ioc_need_not_exist(fresh, tmp_path):
@@ -404,7 +418,7 @@ def test_a_template_copied_into_the_ioc_directory_is_a_valid_config(fresh, tmp_p
     ioc.config.load()
     check("没有问题", ioc.config.issues, [])
     check("有效", ioc.config.is_valid, True)
-    check("仓库里它是新增的文件", ioc.repository.status()["added"], [settings.CONFIG_FILE_NAME])
+    check("仓库里它是新增的文件(还有 create 放的 src/.gitkeep)", ioc.repository.status()["added"], sorted([settings.CONFIG_FILE_NAME, "src/.gitkeep"]))
 
 
 def test_create_of_a_name_in_the_database_changes_nothing(fresh):
@@ -753,6 +767,21 @@ def test_refresh_survives_a_git_that_fails_and_says_so(ioc, monkeypatch):
     ioc.refresh()
     check_true("记了 ERROR", any(i.level == IssueLevel.ERROR and "git on fire" in i.message for i in ioc.state_data.issues), messages_of(ioc))
     check("src_files 照常更新", ioc.state_data.src_files.db_files, ["a.db"])
+
+
+def test_refresh_reports_a_branch_that_was_lost_instead_of_a_new_repository(fresh):
+    """refresh: 提交过之后分支文件丢了,不能当成"还没有提交",要报 REPO_UNREADABLE 并说明能找回哪个提交;repair 之后恢复"""
+    ioc = IOC.create("ioca")
+    head = ioc.repository.commit("first")
+    os.remove(os.path.join(ioc.dir_path, ".git", "refs", "heads", "main"))
+    ioc.refresh()
+    lost = [i for i in ioc.state_data.issues if i.code == IssueCode.REPO_UNREADABLE]
+    check("一条 ERROR", [i.level for i in lost], [IssueLevel.ERROR])
+    check_true("说明日志还记得、给出提交", "remembers" in lost[0].message and head[:8] in lost[0].message, lost[0].message)
+    ioc.repository.repair()
+    ioc.refresh()
+    check("repair 之后没有这个问题", [i for i in ioc.state_data.issues if i.code == IssueCode.REPO_UNREADABLE], [])
+    check("历史还在", ioc.repository.head(), head)
 
 
 GBK_NAME = os.fsdecode(b"\xd6\xd0\xce\xc4.db")  # a name that is not valid UTF-8

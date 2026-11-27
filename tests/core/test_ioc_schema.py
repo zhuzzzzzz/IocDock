@@ -64,11 +64,11 @@ def test_new_config_for_every_build_type_is_valid_and_named(build_type):
 )
 def test_new_config_picks_the_build_by_type(monkeypatch, build_type, expected):
     """new_config: 按 build_type 选对 build(忽略大小写和首尾空白,未知值用默认)"""
-    plain = schema._defualt_build()
+    plain = schema._default_build()
     for kind, func in (
         ("modbus", "_modbus_build"),
         ("stream_device", "_stream_device_build"),
-        ("default", "_defualt_build"),
+        ("default", "_default_build"),
     ):
         # three builds are the same today, so tag each one to tell them apart
         monkeypatch.setattr(

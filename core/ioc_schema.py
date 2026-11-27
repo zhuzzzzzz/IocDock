@@ -190,7 +190,7 @@ def _default_basic(name):
     )
 
 
-def _defualt_build():
+def _default_build():
     return _Build(
         modules=["autosave", "caputlog"],
         db_load=[_DbLoadItem(file="example.db", macros={"ABC": "xxx:"})],
@@ -273,7 +273,7 @@ def new_config(name, build_type=None):
     else:
         return IocConfigSchema(
             basic=_default_basic(name=name),
-            build=_defualt_build(),
+            build=_default_build(),
             deploy=_default_deploy(),
         )
 

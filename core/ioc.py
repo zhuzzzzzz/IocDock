@@ -7,12 +7,7 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import settings
-from core.exceptions import (
-    IocExistsError,
-    IocInitError,
-    IocNotFoundError,
-    VersionedDirectoryError,
-)
+from core.exceptions import IocExistsError, IocInitError, IocNotFoundError
 from core.ioc_config import IocConfig
 from core.ioc_schema import (
     IssueCode,
@@ -24,7 +19,7 @@ from core.ioc_schema import (
 )
 from core.ioc_state import get_state_manager
 from core.utils import get_now_str
-from core.versioned_directory import VersionedDirectory
+from core.versioned_directory import DirectoryState, VersionedDirectory
 
 # The name of an IOC is also the name of its directory and of its Docker service and
 # container, so it has to be valid for all of them: letters and digits, starting with a
@@ -275,7 +270,9 @@ class IOC:
         ), [_name_issue(f"src/{n}") for n in bad_names]
 
     def _check_repository(self):
-        if not self.repository.is_initialized():
+        report = self.repository.check()
+        state = report["state"]
+        if state is DirectoryState.NO_REPOSITORY:
             return [
                 IssueEntry(
                     source=IssueSource.CHECK,
@@ -287,23 +284,21 @@ class IOC:
                     time=get_now_str(),
                 )
             ]
-        try:
-            head = self.repository.head()
-            if head is None:  # nothing has been committed, so there is nothing to differ from
-                return []
-            status = self.repository.status()
-        except VersionedDirectoryError as e:
+        if state is DirectoryState.UNREADABLE:
             return [
                 IssueEntry(
                     source=IssueSource.CHECK,
                     level=IssueLevel.ERROR,
                     code=IssueCode.REPO_UNREADABLE,
                     target="",
-                    message=f"cannot read the history of {self.dir_path}: {e}",
+                    message=f"cannot read the history of {self.dir_path}: {report['error']}",
                     prompt="",
                     time=get_now_str(),
                 )
             ]
+        if state is DirectoryState.NO_COMMIT:  # nothing has been committed, so there is nothing to differ from
+            return []
+        head, status = report["head"], report["changes"]
         issues = []
         for kind in ("modified", "added", "deleted"):
             for path in status[kind]:
@@ -412,6 +407,9 @@ class IOC:
                     if not os.path.isdir(src_path):
                         os.makedirs(src_path)
                         made.append(src_path)
+                        # git records files, not directories: without one in it, a src/ that
+                        # is empty is gone after restoring a version made while it was empty
+                        open(os.path.join(src_path, ".gitkeep"), "a").close()
                     repository = VersionedDirectory(dir_path)
                     if not repository.is_initialized():
                         repository.init()
